@@ -62,4 +62,21 @@ final class PdfFiles {
       throw exception;
     }
   }
+
+  static void saveIncremental(PDDocument document, Path output) throws IOException {
+    Path temporary = Files.createTempFile(output.toAbsolutePath().getParent(), "pdf-", ".tmp");
+    try {
+      try (var stream = Files.newOutputStream(temporary)) {
+        document.saveIncremental(stream);
+      }
+      Files.move(temporary, output, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+    } catch (IOException | RuntimeException exception) {
+      try {
+        Files.deleteIfExists(temporary);
+      } catch (IOException cleanup) {
+        exception.addSuppressed(cleanup);
+      }
+      throw exception;
+    }
+  }
 }

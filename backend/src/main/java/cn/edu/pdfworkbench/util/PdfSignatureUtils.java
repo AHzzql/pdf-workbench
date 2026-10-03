@@ -6,7 +6,6 @@ import cn.edu.pdfworkbench.model.SigningOptions;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -77,16 +76,7 @@ public final class PdfSignatureUtils {
             }
           },
           signatureOptions);
-      Path temporary =
-          Files.createTempFile(output.toAbsolutePath().getParent(), "signature-", ".tmp");
-      try {
-        try (var stream = Files.newOutputStream(temporary)) {
-          document.saveIncremental(stream);
-        }
-        Files.move(temporary, output, StandardCopyOption.REPLACE_EXISTING);
-      } finally {
-        Files.deleteIfExists(temporary);
-      }
+      PdfFiles.saveIncremental(document, output);
     }
   }
 
