@@ -1,3 +1,3 @@
 # 开发状态
 
-M0～M3 已实现：工程初始化、文本与文档信息、简单表格及图片提取。M3 核心为 PdfImageUtils/ImageCollector，支持原始编码流、内联图片、嵌套及未使用 Form 资源、蒙版、批注外观、PNG/JPG 导出与重复 XObject 位置；修复内联数据包含 EI 前分隔空白的问题，并在解码前限制图片与蒙版像素数。Java 文件已统一格式。JDK 25、Maven 3.9.15、编译目标 Java 21；最新 mvn package 成功，38 项测试全部通过，包含新增未绘制 Form 内联图片回归。表格限规则轴向网格，文字边界为字体度量近似，复杂排版及非横排顺序有限；Noto Sans SC 的 format 14 cmap 忽略警告不影响当前中文样本。下一项 M4 加密与权限，随后 M5 签名、M6 水印、M7 HTTP 与 Vue、M8 示例、M9 回归、M10 文档；业务接口和前端尚未建立。旧需求 Word 上次因占用未清理。
+M0～M4 已实现并验证，当前覆盖工程初始化、文本/文档信息、规则表格、图片及 AES 加密。新增 PdfEncryptionUtils 与 EncryptionOptions，支持 AES 128/256 和打印、复制、修改的独立权限、重新加密的所有者身份校验、已签文档拒绝及临时输出清理；测试发现 AccessPermission.isOwnerPermission 在用户所有权限开放时也为 true，已改为检查解密权限只读标记。AES 128 密码限 32 个 Latin-1 字符，AES 256 限 127 个 UTF-8 字节，设计已同步。JDK 25、Maven 3.9.15、编译目标 Java 21；最新 mvn package 成功，58 项测试全部通过，其中加密 20 项、图片 6 项。下一项 M5 证书签名、验签与移除，M6～M10 及业务 HTTP/Vue 前端尚未完成。文本字形框为度量近似，复杂版式及非横排顺序有限，表格仅支持规则轴向网格；中文字体 format 14 cmap 忽略警告仍存在但已测中文通过。旧需求 Word 上次因占用未清理。
