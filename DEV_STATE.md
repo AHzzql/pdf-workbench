@@ -1,3 +1,3 @@
 # 开发状态
 
-M0～M2 已实现：Maven/Spring Boot 工程、PageSelection、PdfTextUtils、PdfInfoUtils、PdfTableUtils 及数据模型和异常。表格支持水平垂直边框的规则网格、中文多行、空单元格、多表区域筛选和带公式防护的 CSV；CSV 先写临时文件，成功后替换输出并清理。JDK 25、Maven 3.9.15、编译目标 Java 21；最近 mvn test 为 32 项全部通过，M2 的 mvn package 已成功，后续 CSV 清理调整经测试通过。M1 已验证中英文、裁剪及四种旋转、双栏、搜索、权限、批注、书签循环和 XMP 外部实体拒绝。文本矩形为字体度量近似，复杂版式和非横排顺序有限；复杂表格和跨页拼接不支持。下一项为 M3 图片原始流与 PNG/JPG 导出。M3～M10、业务 HTTP 与前端尚未完成；旧需求 Word 上次因占用未清理。
+M0～M3 已实现：工程初始化、文本与文档信息、简单表格及图片提取。M3 核心为 PdfImageUtils/ImageCollector，支持原始编码流、内联图片、嵌套及未使用 Form 资源、蒙版、批注外观、PNG/JPG 导出与重复 XObject 位置；修复内联数据包含 EI 前分隔空白的问题，并在解码前限制图片与蒙版像素数。Java 文件已统一格式。JDK 25、Maven 3.9.15、编译目标 Java 21；最新 mvn package 成功，38 项测试全部通过，包含新增未绘制 Form 内联图片回归。表格限规则轴向网格，文字边界为字体度量近似，复杂排版及非横排顺序有限；Noto Sans SC 的 format 14 cmap 忽略警告不影响当前中文样本。下一项 M4 加密与权限，随后 M5 签名、M6 水印、M7 HTTP 与 Vue、M8 示例、M9 回归、M10 文档；业务接口和前端尚未建立。旧需求 Word 上次因占用未清理。
