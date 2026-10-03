@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: pdf-workbench
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 70MB
+      file-size-threshold: 0
+server:
+  address: 127.0.0.1
+  port: 8080
+  error:
+    include-message: never
+    include-stacktrace: never
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+workbench:
+  max-pages: 200
+  max-concurrent-jobs: 2
+  max-output-bytes: 209715200

@@ -1,3 +1,3 @@
 # 开发状态
 
-需求与设计阶段已完成，当前文档为 docs/01-requirements.md 和 docs/02-design.md，包含 15 项需求、独立静态工具、PDF 算法、接口、工作台和测试计划；已清理对话性及过程性表述，保留技术约束、异常和验收条件，需求字段与 Markdown 检查通过。全局 C:\Users\38937\.codex\AGENTS.md 已增加项目产物表述硬性规范。旧设计和测试 Word 草稿已删除，旧需求 Word 上次因文件占用未能清理。backend 仅有 pom.xml、启动类、应用配置和引用缺失 PageSelection 的测试初稿，frontend 未建立，本轮未修改业务代码，未执行应用构建或测试。开发停留在第二阶段，下一步制定 M0～M10 实施计划，随后逐里程碑实现并验证；旧需求 Word 解除占用后清理。
+M0 工程初始化已完成：backend 的 Maven 配置、Spring Boot 启动、页码解析 PageSelection 和 ApplicationTest 已验证；JDK 25、Maven 3.9.15，编译目标 Java 21。mvn test 与 mvn package 均成功，13 项测试通过，包含真实随机端口 HTTP 的 /v3/api-docs 检查；生成 target/pdf-workbench-1.0.0.jar。沙箱内测试编译出现已生成类无法解析的问题，正常权限环境运行通过；PDFBox 的 commons-logging 已排除以使用 Spring 日志桥接。实施顺序见 docs/03-implementation-plan.md，下一项为 M1 文本、阅读顺序、搜索、书签、元数据及批注；其余 PDF 功能和前端尚未实现，旧需求 Word 清理仍待解除占用。
