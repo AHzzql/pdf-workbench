@@ -9,6 +9,8 @@ spring:
 server:
   address: 127.0.0.1
   port: 8080
+  tomcat:
+    max-swallow-size: 70MB
   error:
     include-message: never
     include-stacktrace: never

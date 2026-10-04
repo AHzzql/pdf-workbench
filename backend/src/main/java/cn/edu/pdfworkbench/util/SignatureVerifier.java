@@ -85,7 +85,9 @@ final class SignatureVerifier {
         | GeneralSecurityException
         | org.bouncycastle.cms.CMSException
         | org.bouncycastle.operator.OperatorCreationException
-        | IllegalArgumentException exception) {
+        | IllegalArgumentException
+        | ClassCastException
+        | IndexOutOfBoundsException exception) {
       return new SignatureResult(
           signature.getName(),
           signer,

@@ -28,7 +28,7 @@ import org.junit.jupiter.api.io.TempDir;
 class PdfSignatureUtilsTest {
   @TempDir Path directory;
 
-  private X509Certificate certificate(Path file) throws Exception {
+  X509Certificate certificate(Path file) throws Exception {
     return certificate(file, Instant.now().minusSeconds(3600), Instant.now().plusSeconds(86400));
   }
 
@@ -69,6 +69,110 @@ class PdfSignatureUtilsTest {
       document.save(input.toFile());
     }
     return input;
+  }
+
+  @Test
+  void expiredCertificateDoesNotChangeCryptographicIntegrity() throws Exception {
+    Path key = directory.resolve("expired.p12"),
+        input = sample(),
+        signed = directory.resolve("expired-signed.pdf");
+    var certificate =
+        certificate(key, Instant.now().minusSeconds(7200), Instant.now().minusSeconds(3600));
+    var store = KeyStore.getInstance("PKCS12");
+    try (var stream = Files.newInputStream(key)) {
+      store.load(stream, "test-password".toCharArray());
+    }
+    var privateKey =
+        (java.security.PrivateKey) store.getKey("signer", "test-password".toCharArray());
+    try (var document = Loader.loadPDF(input.toFile());
+        var output = Files.newOutputStream(signed)) {
+      var signature = new org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature();
+      signature.setFilter(
+          org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature.FILTER_ADOBE_PPKLITE);
+      signature.setSubFilter(
+          org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature
+              .SUBFILTER_ADBE_PKCS7_DETACHED);
+      document.addSignature(
+          signature,
+          content -> {
+            try {
+              var generator = new org.bouncycastle.cms.CMSSignedDataGenerator();
+              generator.addSignerInfoGenerator(
+                  new org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder(
+                          new org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder()
+                              .build())
+                      .build(
+                          new JcaContentSignerBuilder("SHA256withRSA").build(privateKey),
+                          certificate));
+              generator.addCertificates(
+                  new org.bouncycastle.cert.jcajce.JcaCertStore(List.of(certificate)));
+              return generator
+                  .generate(
+                      new org.bouncycastle.cms.CMSProcessableByteArray(content.readAllBytes()),
+                      false)
+                  .getEncoded();
+            } catch (Exception e) {
+              throw new java.io.IOException(e);
+            }
+          });
+      document.saveIncremental(output);
+    }
+    var result = PdfSignatureUtils.verify(signed, null, List.of()).getFirst();
+    assertEquals("VALID", result.integrity());
+    assertEquals("EXPIRED", result.certificateValidity());
+  }
+
+  @Test
+  void buildsPkixChainToSuppliedRoot() throws Exception {
+    var generator = KeyPairGenerator.getInstance("RSA");
+    generator.initialize(2048);
+    var rootKey = generator.generateKeyPair();
+    var leafKey = generator.generateKeyPair();
+    var rootName = new X500Name("CN=Test Root");
+    var leafName = new X500Name("CN=Test Signer");
+    var start = Date.from(Instant.now().minusSeconds(60));
+    var end = Date.from(Instant.now().plusSeconds(86400));
+    var rootBuilder =
+        new JcaX509v3CertificateBuilder(
+            rootName, BigInteger.ONE, start, end, rootName, rootKey.getPublic());
+    rootBuilder.addExtension(
+        org.bouncycastle.asn1.x509.Extension.basicConstraints,
+        true,
+        new org.bouncycastle.asn1.x509.BasicConstraints(true));
+    var converter = new JcaX509CertificateConverter();
+    var root =
+        converter.getCertificate(
+            rootBuilder.build(
+                new JcaContentSignerBuilder("SHA256withRSA").build(rootKey.getPrivate())));
+    var leafBuilder =
+        new JcaX509v3CertificateBuilder(
+            rootName, BigInteger.TWO, start, end, leafName, leafKey.getPublic());
+    leafBuilder.addExtension(
+        org.bouncycastle.asn1.x509.Extension.basicConstraints,
+        true,
+        new org.bouncycastle.asn1.x509.BasicConstraints(false));
+    var leaf =
+        converter.getCertificate(
+            leafBuilder.build(
+                new JcaContentSignerBuilder("SHA256withRSA").build(rootKey.getPrivate())));
+    var store = KeyStore.getInstance("PKCS12");
+    store.load(null, null);
+    char[] password = "test-password".toCharArray();
+    store.setKeyEntry(
+        "signer",
+        leafKey.getPrivate(),
+        password,
+        new java.security.cert.Certificate[] {leaf, root});
+    Path key = directory.resolve("chain.p12"), signed = directory.resolve("chain.pdf");
+    try (var stream = Files.newOutputStream(key)) {
+      store.store(stream, password);
+    }
+    try (var options = new SigningOptions(key, password, null, null, null)) {
+      PdfSignatureUtils.sign(sample(), null, signed, options);
+    }
+    var result = PdfSignatureUtils.verify(signed, null, List.of(root)).getFirst();
+    assertEquals("VALID", result.integrity());
+    assertEquals("TRUSTED", result.trustStatus());
   }
 
   @Test
