@@ -4,18 +4,21 @@ import type { AiMessage, Citation } from "../types/ai";
 const props = defineProps<{ message: AiMessage }>();
 const emit = defineEmits<{ locate: [citation: Citation] }>();
 const lines = computed(() =>
-  props.message.text.split("\n").map((line) => ({
-    heading: /^#{1,4}\s/.test(line),
-    parts: line
-      .replace(/^#{1,4}\s+/, "")
-      .split(/(\*\*[^*]+\*\*|\[p\d+-\d+\])/g)
-      .filter(Boolean)
-      .map((text) => ({
-        text,
-        bold: text.startsWith("**"),
-        citation: props.message.citations.find((c) => `[${c.id}]` === text),
-      })),
-  })),
+  props.message.text
+    .split("\n")
+    .filter((line) => line.trim())
+    .map((line) => ({
+      heading: /^#{1,4}\s/.test(line),
+      parts: line
+        .replace(/^#{1,4}\s+/, "")
+        .split(/(\*\*[^*]+\*\*|\[p\d+-\d+\])/g)
+        .filter(Boolean)
+        .map((text) => ({
+          text,
+          bold: text.startsWith("**"),
+          citation: props.message.citations.find((c) => `[${c.id}]` === text),
+        })),
+    })),
 );
 </script>
 <template>

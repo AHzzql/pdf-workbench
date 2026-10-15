@@ -135,7 +135,7 @@ public class AiController {
   }
 
   @PostMapping("/conversations/{id}/messages")
-  @Operation(summary = "创建问答或摘要任务；mode 为 ASK、BRIEF、DETAILED 或 CHAPTER")
+  @Operation(summary = "创建阅读任务；AUTO 自动识别任务与范围，WELCOME 生成会话概览；兼容 ASK、BRIEF、DETAILED、CHAPTER")
   public Message ask(@PathVariable String id, @RequestBody Ask request) {
     return runs.start(id, request, false);
   }

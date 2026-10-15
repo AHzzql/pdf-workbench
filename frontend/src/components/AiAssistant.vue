@@ -2,6 +2,8 @@
 import type { Selection } from "../types/pdf";
 import { useAiAssistant } from "../composables/useAiAssistant";
 import AiAnswer from "./AiAnswer.vue";
+import AiSuggestions from "./AiSuggestions.vue";
+import AppIcon from "./AppIcon.vue";
 import "../assets/ai.css";
 const props = defineProps<{ file: File | null; password: string }>();
 const emit = defineEmits<{
@@ -13,11 +15,8 @@ const {
   opened,
   expanded,
   historyVisible,
-  tab,
-  mode,
+  outlineVisible,
   question,
-  pages,
-  chapterId,
   document,
   conversation,
   messages,
@@ -38,6 +37,7 @@ const {
   launcher,
   running,
   working,
+  suggestionMessageId,
   visibleHistory,
   currentName,
   open,
@@ -45,6 +45,7 @@ const {
   showHistory,
   restore,
   submit,
+  startWelcome,
   prepareOutline,
   stop,
   retry,
@@ -54,6 +55,11 @@ const {
   rename,
   remove,
 } = useAiAssistant(props, emit);
+function onEnter(event: KeyboardEvent) {
+  if (event.isComposing || event.keyCode === 229) return;
+  event.preventDefault();
+  void submit();
+}
 </script>
 
 <template>
@@ -75,10 +81,10 @@ const {
           <button
             aria-label="新对话"
             title="新对话"
-            :disabled="busy"
+            :disabled="working"
             @click="newConversation"
           >
-            ＋
+            <AppIcon name="plus" />
           </button>
           <button
             aria-label="历史对话"
@@ -86,25 +92,35 @@ const {
             :class="{ selected: historyVisible }"
             @click="showHistory"
           >
-            ◷
+            <AppIcon name="history" />
           </button>
           <button
             :aria-label="expanded ? '缩小窗口' : '展开窗口'"
             :title="expanded ? '缩小窗口' : '展开窗口'"
             @click="expanded = !expanded"
           >
-            □
+            <AppIcon :name="expanded ? 'collapse' : 'expand'" />
           </button>
           <button aria-label="最小化助手" title="最小化" @click="close">
-            −
+            <AppIcon name="minimize" />
           </button>
-          <button aria-label="关闭助手" title="关闭" @click="close">×</button>
+          <button aria-label="关闭助手" title="关闭" @click="close">
+            <AppIcon name="close" />
+          </button>
         </div>
       </header>
       <div class="ai-context">
         <span class="ai-file-mark">PDF</span
         ><span :title="currentName">{{ currentName }}</span
         ><small v-if="document">{{ document.pages }} 页</small>
+        <button
+          class="ai-outline-toggle"
+          :aria-pressed="outlineVisible"
+          :disabled="!file"
+          @click="prepareOutline"
+        >
+          <AppIcon name="outline" />目录
+        </button>
       </div>
       <div v-if="configured === false" class="ai-notice">
         AI 模型尚未配置，普通文档工具不受影响。
@@ -187,58 +203,6 @@ const {
         </div>
       </template>
       <template v-else>
-        <nav class="ai-tabs" aria-label="AI 阅读工具">
-          <button
-            v-for="item in [
-              { id: 'ASK', title: '问答' },
-              { id: 'SUMMARY', title: '摘要' },
-              { id: 'CHAPTER', title: '章节' },
-              { id: 'OUTLINE', title: '目录' },
-            ]"
-            :key="item.id"
-            :class="{ active: tab === item.id }"
-            @click="tab = item.id as typeof tab"
-          >
-            {{ item.title }}
-          </button>
-        </nav>
-        <div v-if="tab === 'SUMMARY'" class="ai-options">
-          <button :class="{ active: mode === 'BRIEF' }" @click="mode = 'BRIEF'">
-            简要摘要</button
-          ><button
-            :class="{ active: mode === 'DETAILED' }"
-            @click="mode = 'DETAILED'"
-          >
-            详细摘要</button
-          ><button
-            :class="{ active: mode === 'CHAPTER' }"
-            @click="
-              mode = 'CHAPTER';
-              tab = 'CHAPTER';
-            "
-          >
-            章节摘要
-          </button>
-        </div>
-        <div v-if="tab === 'CHAPTER'" class="ai-scope">
-          <select v-model="chapterId" aria-label="选择章节">
-            <option value="">选择章节</option>
-            <option v-for="c in chapters" :key="c.id" :value="c.id">
-              {{ c.title }} · 第 {{ c.page }} 页
-            </option></select
-          ><input
-            v-model="pages"
-            aria-label="AI 页码范围"
-            placeholder="或输入页码，如 3-8"
-            maxlength="100"
-          /><button
-            v-if="!document"
-            :disabled="!file || working"
-            @click="prepareOutline"
-          >
-            读取目录
-          </button>
-        </div>
         <div v-if="document?.encrypted" class="ai-password">
           <label
             >PDF 打开密码<input
@@ -251,10 +215,10 @@ const {
           /></label>
         </div>
         <div ref="body" class="ai-body">
-          <template v-if="tab === 'OUTLINE'">
+          <template v-if="outlineVisible">
             <div class="ai-section-title">
               <h3>文档目录</h3>
-              <small v-if="chapters.length">{{ chapters[0]?.source }}</small>
+              <button @click="outlineVisible = false">返回对话 →</button>
             </div>
             <div v-if="!document" class="ai-empty">
               <span class="ai-empty-icon">≡</span>
@@ -263,13 +227,16 @@ const {
               <button
                 class="ai-primary"
                 :disabled="!file || working || configured === false"
-                @click="prepareOutline"
+                @click="
+                  outlineVisible = false;
+                  startWelcome();
+                "
               >
                 读取文档目录
               </button>
             </div>
             <p v-else-if="!chapters.length" class="ai-muted">
-              未发现可靠目录，可在「章节」中指定页码范围。
+              未发现可靠目录。可以直接提问“分析第 3–8 页”，按页码阅读。
             </p>
             <button
               v-for="c in chapters"
@@ -282,50 +249,40 @@ const {
             </button>
           </template>
           <template v-else>
-            <div v-if="!messages.length" class="ai-empty">
-              <span class="ai-empty-icon">✦</span>
-              <h3>
-                {{
-                  tab === "SUMMARY"
-                    ? "读懂全文，把握重点"
-                    : tab === "CHAPTER"
-                      ? "聚焦一章，深入理解"
-                      : "让每个答案，都有出处"
-                }}
-              </h3>
+            <section v-if="!messages.length" class="ai-welcome">
+              <div class="ai-welcome-heading">
+                <span class="ai-symbol">✦</span>
+                <h3>你好，一起读懂这份文档</h3>
+              </div>
               <p>
                 {{
                   file
-                    ? "已关联工作台当前 PDF。提问后开始解析，回答可回到原文核对。"
-                    : "请先在工作台选择一份 PDF，或打开历史对话继续阅读。"
+                    ? working
+                      ? "正在阅读文档，整理内容概览…"
+                      : "可以直接提问，或选择一个问题开始。"
+                    : "在工作台选择一份 PDF，即可开始阅读；也可以打开历史对话继续。"
                 }}
               </p>
-              <div class="ai-starters">
-                <button
-                  :disabled="!file || working"
-                  @click="
-                    question = '这份文档的核心观点是什么？';
-                    submit('ASK');
-                  "
-                >
-                  概括核心观点 ↗</button
-                ><button :disabled="!file || working" @click="submit('BRIEF')">
-                  生成简要摘要 ↗
-                </button>
-              </div>
-              <small
-                >首次 AI
-                阅读会将文档和对话保存在本机；相关文本会发送给已配置的模型服务。</small
-              >
-            </div>
+              <AiSuggestions
+                :disabled="!file || working || configured === false"
+                @select="submit"
+              />
+            </section>
             <article
               v-for="m in messages"
               :key="m.id"
               class="ai-message"
               :class="m.role"
             >
-              <div v-if="m.role === 'assistant'" class="ai-message-label">
-                <span class="ai-symbol">✦</span>文档助手
+              <div
+                v-if="m.role === 'assistant'"
+                class="ai-message-label"
+                :class="{ 'ai-welcome-label': m.mode === 'WELCOME' }"
+              >
+                <span class="ai-symbol">✦</span
+                >{{
+                  m.mode === "WELCOME" ? "你好，一起读懂这份文档" : "文档助手"
+                }}
               </div>
               <p v-if="m.role === 'user'" class="ai-question">{{ m.text }}</p>
               <AiAnswer v-else :message="m" @locate="locate" />
@@ -354,6 +311,16 @@ const {
                   >{{ m.citations.length }} 处原文引用</span
                 >
               </div>
+              <div
+                v-if="m.id === suggestionMessageId"
+                class="ai-welcome-suggestions"
+              >
+                <p>你可以直接提问，也可以从这里开始：</p>
+                <AiSuggestions
+                  :disabled="!file || working || configured === false"
+                  @select="submit"
+                />
+              </div>
             </article>
             <aside v-if="activeCitation" class="ai-evidence">
               <header>
@@ -376,16 +343,10 @@ const {
               ref="input"
               v-model="question"
               aria-label="向当前文档提问"
-              :placeholder="
-                tab === 'SUMMARY'
-                  ? '可直接生成摘要，或补充关注点…'
-                  : tab === 'CHAPTER'
-                    ? '输入章节问题，或留空生成章节摘要…'
-                    : '向当前文档提问…'
-              "
+              placeholder="直接提问，例如：总结全文，或分析第 3–8 页"
               maxlength="2000"
               rows="2"
-              @keydown.enter.exact.prevent="submit()"
+              @keydown.enter.exact="onEnter"
             ></textarea
             ><button
               v-if="running"
@@ -400,9 +361,11 @@ const {
               type="submit"
               class="ai-send"
               aria-label="发送 AI 请求"
-              :disabled="busy || !file || configured === false"
+              :disabled="
+                busy || !file || configured === false || !question.trim()
+              "
             >
-              ↑
+              <AppIcon name="send" />
             </button>
           </form>
           <div class="ai-compose-meta">

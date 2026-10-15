@@ -144,6 +144,77 @@ class AiApiTest {
   }
 
   @Test
+  void welcomeIsAssistantOnlyAndCannotBeDuplicated() throws Exception {
+    var c = conversation(upload(pdf("Alpha is 42.")));
+    var request = new Ask(UUID.randomUUID().toString(), "WELCOME", "", null, null);
+    var initial =
+        http.postForEntity(base + "/conversations/" + c.id() + "/messages", request, Message.class);
+    assertEquals(HttpStatus.OK, initial.getStatusCode());
+    assertEquals("COMPLETED", await(initial.getBody().id()).status());
+    assertEquals(1, repository.messages(c.id()).size());
+    assertEquals("assistant", repository.messages(c.id()).getFirst().role());
+    assertEquals("新对话", repository.conversation(c.id()).title());
+    assertEquals(
+        HttpStatus.OK,
+        http.postForEntity(base + "/conversations/" + c.id() + "/messages", request, Message.class)
+            .getStatusCode());
+    assertEquals(
+        HttpStatus.CONFLICT,
+        http.postForEntity(
+                base + "/conversations/" + c.id() + "/messages",
+                new Ask(UUID.randomUUID().toString(), "WELCOME", "", null, null),
+                String.class)
+            .getStatusCode());
+  }
+
+  @Test
+  void automaticSummaryUsesFullEvidenceWithoutSearch() throws Exception {
+    when(models.complete(anyString(), anyString()))
+        .thenReturn(
+            "{\"mode\":\"DETAILED\",\"pages\":\"\",\"chapterId\":\"\",\"clarification\":\"\"}");
+    var c = conversation(upload(pdf("Alpha is 42.")));
+    var request = new Ask(UUID.randomUUID().toString(), "AUTO", "详细总结全文", null, null);
+    var m =
+        http.postForObject(base + "/conversations/" + c.id() + "/messages", request, Message.class);
+    assertEquals("COMPLETED", await(m.id()).status());
+    verify(models, never()).rerank(anyString(), anyList());
+    verify(models).stream(anyString(), contains("生成详细摘要"), any());
+    assertEquals("详细总结全文", repository.messages(c.id()).getFirst().text());
+  }
+
+  @Test
+  void invalidAutomaticScopeClarifiesWithoutAnswerGeneration() throws Exception {
+    when(models.complete(anyString(), anyString()))
+        .thenReturn(
+            "{\"mode\":\"CHAPTER\",\"pages\":\"3-8\",\"chapterId\":\"\",\"clarification\":\"\"}");
+    var c = conversation(upload(pdf("Alpha is 42.")));
+    var request = new Ask(UUID.randomUUID().toString(), "AUTO", "分析第 3-8 页", null, null);
+    var m =
+        http.postForObject(base + "/conversations/" + c.id() + "/messages", request, Message.class);
+    var answer = await(m.id());
+    assertEquals("COMPLETED", answer.status());
+    assertTrue(answer.text().contains("共 1 页"));
+    assertTrue(answer.citations().isEmpty());
+    verify(models, never()).stream(anyString(), anyString(), any());
+    verify(models, never()).rerank(anyString(), anyList());
+  }
+
+  @Test
+  void autoRejectsEmptyQuestionAndHiddenExplicitScope() throws Exception {
+    var c = conversation(upload(pdf("Alpha is 42.")));
+    for (var request :
+        List.of(
+            new Ask(UUID.randomUUID().toString(), "AUTO", "", null, null),
+            new Ask(UUID.randomUUID().toString(), "AUTO", "全文摘要", "1", null))) {
+      assertEquals(
+          HttpStatus.BAD_REQUEST,
+          http.postForEntity(base + "/conversations/" + c.id() + "/messages", request, String.class)
+              .getStatusCode());
+    }
+    assertTrue(repository.messages(c.id()).isEmpty());
+  }
+
+  @Test
   void completeFlowUsesRealIndexAndValidatedCitation() throws Exception {
     var d = upload(pdf("Alpha is 42."));
     var c = conversation(d);

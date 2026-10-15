@@ -20,12 +20,9 @@ export function useAiAssistant(
 ) {
   const opened = ref(false),
     expanded = ref(false),
-    historyVisible = ref(false);
-  const tab = ref<"ASK" | "SUMMARY" | "CHAPTER" | "OUTLINE">("ASK");
-  const mode = ref<ReadingMode>("BRIEF"),
-    question = ref(""),
-    pages = ref(""),
-    chapterId = ref("");
+    historyVisible = ref(false),
+    outlineVisible = ref(false);
+  const question = ref("");
   const document = ref<AiDocument | null>(null),
     conversation = ref<Conversation | null>(null);
   const messages = ref<AiMessage[]>([]),
@@ -52,6 +49,12 @@ export function useAiAssistant(
     messages.value.find((m) => m.status === "RUNNING"),
   );
   const working = computed(() => busy.value || !!running.value);
+  const suggestionMessageId = computed(() =>
+    messages.value.some((message) => message.role === "user")
+      ? null
+      : messages.value.filter((message) => message.mode === "WELCOME").at(-1)
+          ?.id,
+  );
   const visibleHistory = computed(() =>
     history.value.filter((c) =>
       c.title.toLowerCase().includes(historyQuery.value.toLowerCase()),
@@ -91,8 +94,15 @@ export function useAiAssistant(
         initialized = false;
       }
     }
+    if (
+      props.file &&
+      configured.value === true &&
+      !messages.value.length &&
+      !working.value
+    )
+      await startWelcome();
     await nextTick();
-    input.value?.focus();
+    if (opened.value) input.value?.focus();
   }
   function close() {
     opened.value = false;
@@ -112,8 +122,8 @@ export function useAiAssistant(
     document.value = null;
     messages.value = [];
     chapters.value = [];
-    chapterId.value = "";
-    pages.value = "";
+    outlineVisible.value = false;
+    question.value = "";
     activeCitation.value = null;
     error.value = "";
     busy.value = false;
@@ -123,16 +133,12 @@ export function useAiAssistant(
   watch(
     () => props.file,
     () => {
-      if (!restoring) reset();
+      if (!restoring) {
+        reset();
+        if (opened.value && configured.value === true) void startWelcome();
+      }
     },
   );
-  watch(tab, (value) => {
-    if (value === "ASK" || value === "SUMMARY") {
-      pages.value = "";
-      chapterId.value = "";
-    }
-    if (value === "SUMMARY" && mode.value === "CHAPTER") mode.value = "BRIEF";
-  });
   async function loadHistory() {
     history.value = await aiRequest<Conversation[]>(
       "/conversations/search",
@@ -142,6 +148,7 @@ export function useAiAssistant(
   }
   async function showHistory() {
     historyVisible.value = !historyVisible.value;
+    outlineVisible.value = false;
     error.value = "";
     if (historyVisible.value)
       try {
@@ -176,13 +183,12 @@ export function useAiAssistant(
       messages.value = list;
       chapters.value = outline;
       activeCitation.value = null;
-      pages.value = "";
-      chapterId.value = "";
+      outlineVisible.value = false;
       historyVisible.value = false;
       saveLast(c.id);
       if (running.value) subscribe(running.value.id, current);
       await nextTick();
-      scroll(true);
+      if (list.some((message) => message.role === "user")) scroll(true);
     } catch (e) {
       if (current === revision) fail(e);
     } finally {
@@ -220,7 +226,7 @@ export function useAiAssistant(
         if (index >= 0) messages.value[index] = snapshot.message;
         else messages.value.push(snapshot.message);
         stage.value = snapshot.stage;
-        void nextTick(() => scroll());
+        if (snapshot.message.mode !== "WELCOME") void nextTick(() => scroll());
         if (snapshot.message.status !== "RUNNING") {
           events.close();
           if (source === events) source = null;
@@ -264,23 +270,17 @@ export function useAiAssistant(
     }
     return true;
   }
-  async function submit(override?: ReadingMode) {
-    if (working.value) return;
-    const operation =
-      override ||
-      (tab.value === "SUMMARY"
-        ? mode.value
-        : tab.value === "CHAPTER" && !question.value.trim()
-          ? "CHAPTER"
-          : "ASK");
-    if (operation === "ASK" && !question.value.trim()) {
-      input.value?.focus();
-      return;
-    }
-    if (operation === "CHAPTER" && !chapterId.value && !pages.value.trim()) {
-      error.value = "请选择章节或输入页码范围";
-      return;
-    }
+  async function startWelcome() {
+    if (!props.file || working.value || messages.value.length) return;
+    await send("WELCOME", "");
+  }
+  async function submit(prompt?: string) {
+    const text = (prompt ?? question.value).trim();
+    if (!text || working.value) return;
+    outlineVisible.value = false;
+    await send("AUTO", text);
+  }
+  async function send(operation: ReadingMode, text: string) {
     const current = revision;
     busy.value = true;
     error.value = "";
@@ -292,9 +292,9 @@ export function useAiAssistant(
         {
           requestId: crypto.randomUUID(),
           mode: operation,
-          question: question.value.trim(),
-          pages: pages.value || null,
-          chapterId: chapterId.value || null,
+          question: text,
+          pages: null,
+          chapterId: null,
         },
       );
       if (current !== revision) return;
@@ -303,10 +303,14 @@ export function useAiAssistant(
       );
       if (current !== revision) return;
       messages.value = list;
-      question.value = "";
+      if (
+        operation !== "WELCOME" &&
+        (question.value.trim() === text || !question.value.trim())
+      )
+        question.value = "";
       subscribe(message.id, current);
       await nextTick();
-      scroll(true);
+      if (operation !== "WELCOME") scroll(true);
     } catch (e) {
       if (current === revision) fail(e);
     } finally {
@@ -314,7 +318,10 @@ export function useAiAssistant(
     }
   }
   async function prepareOutline() {
-    if (busy.value) return;
+    outlineVisible.value = !outlineVisible.value;
+    historyVisible.value = false;
+    if (!outlineVisible.value || document.value || busy.value || !props.file)
+      return;
     const current = revision;
     busy.value = true;
     error.value = "";
@@ -369,12 +376,13 @@ export function useAiAssistant(
     emit("locate", { page: citation.page, bounds: citation.bounds });
   }
   function chooseChapter(chapter: Chapter) {
-    chapterId.value = chapter.id;
-    tab.value = "CHAPTER";
+    outlineVisible.value = false;
+    question.value = `分析「${chapter.title}」这一章的重点与约束（起始于 PDF 第 ${chapter.page} 页）。`;
+    void nextTick(() => input.value?.focus());
     emit("locate", { page: chapter.page, bounds: [] });
   }
   function newConversation() {
-    if (busy.value) return;
+    if (working.value) return;
     revision++;
     disconnect();
     conversation.value = null;
@@ -384,6 +392,8 @@ export function useAiAssistant(
     historyVisible.value = false;
     error.value = "";
     saveLast(null);
+    outlineVisible.value = false;
+    if (configured.value === true) void startWelcome();
   }
   async function rename(c: Conversation) {
     try {
@@ -417,11 +427,8 @@ export function useAiAssistant(
     opened,
     expanded,
     historyVisible,
-    tab,
-    mode,
+    outlineVisible,
     question,
-    pages,
-    chapterId,
     document,
     conversation,
     messages,
@@ -442,6 +449,7 @@ export function useAiAssistant(
     launcher,
     running,
     working,
+    suggestionMessageId,
     visibleHistory,
     currentName,
     open,
@@ -449,6 +457,7 @@ export function useAiAssistant(
     showHistory,
     restore,
     submit,
+    startWelcome,
     prepareOutline,
     stop,
     retry,

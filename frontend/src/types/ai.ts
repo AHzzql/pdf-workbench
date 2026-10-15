@@ -26,7 +26,8 @@ export interface Chapter {
   endPage: number;
   source: string;
 }
-export type ReadingMode = "ASK" | "BRIEF" | "DETAILED" | "CHAPTER";
+export type ReadingMode =
+  "AUTO" | "WELCOME" | "ASK" | "BRIEF" | "DETAILED" | "CHAPTER";
 export interface AiMessage {
   id: string;
   conversationId: string;

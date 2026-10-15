@@ -18,13 +18,19 @@ public class AiReading {
   private final AiModelClient models;
   private final AiDocuments documents;
   private final AiRetrieval retrieval;
+  private final AiIntent intents;
 
   public AiReading(
-      AiRepository repository, AiModelClient models, AiDocuments documents, AiRetrieval retrieval) {
+      AiRepository repository,
+      AiModelClient models,
+      AiDocuments documents,
+      AiRetrieval retrieval,
+      AiIntent intents) {
     this.repository = repository;
     this.models = models;
     this.documents = documents;
     this.retrieval = retrieval;
+    this.intents = intents;
   }
 
   public List<Citation> generate(
@@ -32,14 +38,59 @@ public class AiReading {
       throws Exception {
     var content = documents.prepare(conversation.documentId(), stage);
     var d = repository.document(conversation.documentId());
-    var selected = select(content, message.pages(), message.chapterId(), d.pages());
+    String operation = message.mode(), pages = message.pages(), chapterId = message.chapterId();
+    if (operation.equals("AUTO")) {
+      stage.accept("理解阅读任务与范围");
+      var plan =
+          intents.resolve(
+              message.question(),
+              content,
+              d.pages(),
+              repository.messages(conversation.id()).stream()
+                  .filter(m -> m.createdAt() < message.createdAt() - 1)
+                  .toList());
+      if (plan.mode().equals("CLARIFY")) {
+        delta.accept(plan.clarification());
+        return List.of();
+      }
+      operation = plan.mode();
+      pages = plan.pages();
+      chapterId = plan.chapterId();
+    }
+    var selected = select(content, pages, chapterId, d.pages());
     if (selected.isEmpty()) {
       delta.accept("选定范围没有可提取的文本证据。");
       return List.of();
     }
     List<Chunk> evidence;
     String prompt;
-    if (message.mode().equals("ASK")) {
+    if (operation.equals("OUTLINE")) {
+      if (content.chapters().isEmpty()) {
+        delta.accept("当前 PDF 未发现可靠的书签或章节标题。可以直接指定页码范围，例如“分析第 3–8 页”。");
+        return List.of();
+      }
+      var citations = new ArrayList<Citation>();
+      delta.accept("文档目录\n\n");
+      for (var chapter : content.chapters()) {
+        if (selected.stream()
+            .noneMatch(c -> c.page() >= chapter.page() && c.page() <= chapter.endPage())) continue;
+        var first =
+            selected.stream()
+                .filter(c -> c.page() == chapter.page() && c.end() > chapter.offset())
+                .findFirst();
+        delta.accept(
+            chapter.title()
+                + " · 第 "
+                + chapter.page()
+                + " 页"
+                + first.map(c -> " [" + c.id() + "]").orElse("")
+                + "\n");
+        first.ifPresent(
+            c -> citations.add(new Citation(c.id(), d.id(), c.page(), c.text(), c.bounds())));
+      }
+      return citations.stream().distinct().toList();
+    }
+    if (operation.equals("ASK")) {
       stage.accept("理解问题与检索证据");
       String history = history(conversation.id(), message.createdAt());
       String query = message.question();
@@ -84,7 +135,9 @@ public class AiReading {
         text = summaries.toString();
       }
       String instruction =
-          switch (message.mode()) {
+          switch (operation) {
+            case "WELCOME" ->
+                "用一段简洁介绍和不超过三条要点概括文档实际内容，合计不超过 150 字。不输出问候语、问题或推荐功能，不推断文档用途或领域，不把未提及的内容写成结论。";
             case "BRIEF" -> "生成简要摘要，概括主题、核心结论与限制，约 300 字。";
             case "CHAPTER" -> "生成选定章节的结构化摘要，包含关键概念、论证与结论。";
             default -> "生成详细摘要，按内容结构归纳背景、方法、主要观点、结论与局限。";

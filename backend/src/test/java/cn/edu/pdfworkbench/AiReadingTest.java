@@ -62,7 +62,8 @@ class AiReadingTest {
     var stages = new ArrayList<String>();
     var answer = new StringBuilder();
     var result =
-        new AiReading(repository, model, documents, retrieval)
+        new AiReading(
+                repository, model, documents, retrieval, new AiIntent(model, new ObjectMapper()))
             .generate(
                 new Conversation("c", "d", "title", 0, 0),
                 new Message(
