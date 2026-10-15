@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: optional:file:./config/application-local.yml,optional:file:./backend/config/application-local.yml
   application:
     name: pdf-workbench
   servlet:
@@ -22,3 +24,14 @@ workbench:
   max-pages: 200
   max-concurrent-jobs: 2
   max-output-bytes: 209715200
+ai:
+  api-key: ${AI_API_KEY:}
+  base-url: ${AI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode}
+  rerank-url: ${AI_RERANK_URL:https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank}
+  data-directory: ${AI_DATA_DIRECTORY:${user.home}/.pdf-workbench}
+  chat-model: qwen-plus
+  embedding-model: text-embedding-v3
+  rerank-model: gte-rerank-v2
+logging:
+  level:
+    org.springframework.ai: OFF

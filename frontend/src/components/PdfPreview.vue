@@ -26,6 +26,7 @@ const dimensions = ref({ width: 0, height: 0 }),
     { left: number; top: number; width: number; height: number }[]
   >([]);
 const document = shallowRef<PDFDocumentProxy | null>(null);
+const scrollArea = ref<HTMLElement | null>(null);
 let task: PDFDocumentLoadingTask | null = null,
   renderTask: RenderTask | null = null,
   version = 0,
@@ -59,7 +60,10 @@ async function load() {
     }
     document.value = pdf;
     total.value = pdf.numPages;
-    page.value = 1;
+    page.value =
+      props.selection?.page && props.selection.page <= pdf.numPages
+        ? props.selection.page
+        : 1;
     await nextTick();
     await render();
   } catch (reason) {
@@ -105,6 +109,12 @@ async function render() {
             };
           })
         : [];
+    await nextTick();
+    if (current === renderVersion && rectangles.value.length) {
+      scrollArea.value
+        ?.querySelector<HTMLElement>(".highlight")
+        ?.scrollIntoView({ block: "center", inline: "nearest" });
+    }
   } catch (reason) {
     if (
       current === renderVersion &&
@@ -143,7 +153,7 @@ onBeforeUnmount(destroy);
       </select>
     </div>
   </div>
-  <div class="preview-scroll">
+  <div ref="scrollArea" class="preview-scroll">
     <p v-if="loading" class="preview-message">正在加载文档…</p>
     <p v-if="error" class="preview-message error" role="status">{{ error }}</p>
     <div

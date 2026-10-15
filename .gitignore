@@ -16,3 +16,4 @@ frontend/playwright-report/
 *.p12
 *.pfx
 *.key
+backend/config/application-local.yml

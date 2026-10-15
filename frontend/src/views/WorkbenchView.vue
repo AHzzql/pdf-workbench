@@ -5,6 +5,7 @@ import AppIcon from "../components/AppIcon.vue";
 import PdfPreview from "../components/PdfPreview.vue";
 import ResultPanel from "../components/ResultPanel.vue";
 import FilePicker from "../components/FilePicker.vue";
+import AiAssistant from "../components/AiAssistant.vue";
 import { useDocument } from "../composables/useDocument";
 import type { Selection } from "../types/pdf";
 import type { Field } from "../api/pdf";
@@ -217,7 +218,7 @@ function csv(index: number) {
       </nav>
       <div class="sidebar-footer">
         <span class="local-dot"></span>本地文档处理<span class="version"
-          >v1.0</span
+          >v1.1</span
         >
       </div>
     </aside>
@@ -595,4 +596,11 @@ function csv(index: number) {
       </footer>
     </main>
   </div>
+  <AiAssistant
+    :file="file"
+    :password="password"
+    @locate="selection = $event"
+    @restore="selected"
+    @password="password = $event"
+  />
 </template>

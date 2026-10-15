@@ -220,7 +220,14 @@ class PdfApiTest {
   void exposesAllBusinessOperationsInSwagger() throws Exception {
     var document = http.getForObject("/v3/api-docs", String.class);
     var json = mapper.readTree(document);
-    assertEquals(11, json.path("paths").size());
+    var originalPaths = new java.util.ArrayList<String>();
+    json.path("paths")
+        .fieldNames()
+        .forEachRemaining(
+            p -> {
+              if (!p.startsWith("/api/v1/pdf/ai/")) originalPaths.add(p);
+            });
+    assertEquals(11, originalPaths.size());
     assertTrue(
         json.path("paths")
             .path("/api/v1/pdf/signatures/sign")

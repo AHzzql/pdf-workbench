@@ -16,7 +16,7 @@ import org.springframework.context.annotation.Configuration;
 public class OpenApiConfig {
   @Bean
   OpenAPI api() {
-    return new OpenAPI().info(new Info().title("PDF 文档处理接口").version("1.0.0"));
+    return new OpenAPI().info(new Info().title("PDF 文档处理接口").version("1.1.0"));
   }
 
   @Bean
@@ -28,6 +28,41 @@ public class OpenApiConfig {
                     path.readOperations()
                         .forEach(
                             operation -> {
+                              if (url.startsWith("/api/v1/pdf/ai/")) {
+                                var errorSchema =
+                                    new ObjectSchema()
+                                        .addProperty("status", new IntegerSchema())
+                                        .addProperty("code", new StringSchema())
+                                        .addProperty("message", new StringSchema());
+                                for (String code :
+                                    new String[] {
+                                      "400", "403", "404", "409", "413", "415", "422", "429", "500",
+                                      "502", "503"
+                                    })
+                                  operation
+                                      .getResponses()
+                                      .addApiResponse(
+                                          code,
+                                          new ApiResponse()
+                                              .description("请求失败，详细原因见 code 与 message")
+                                              .content(
+                                                  new Content()
+                                                      .addMediaType(
+                                                          "application/json",
+                                                          new MediaType().schema(errorSchema))));
+                                if (url.endsWith("/file"))
+                                  operation
+                                      .getResponses()
+                                      .get("200")
+                                      .setContent(
+                                          new Content()
+                                              .addMediaType(
+                                                  "application/pdf",
+                                                  new MediaType()
+                                                      .schema(
+                                                          new StringSchema().format("binary"))));
+                                return;
+                              }
                               var body =
                                   operation
                                       .getRequestBody()

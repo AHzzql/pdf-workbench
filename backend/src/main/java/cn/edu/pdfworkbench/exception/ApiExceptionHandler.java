@@ -13,7 +13,7 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 public class ApiExceptionHandler {
   @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
   ResponseEntity<ErrorBody> media(Exception e) {
-    return error(415, "UNSUPPORTED_FORMAT", "接口需要 multipart/form-data 请求");
+    return error(415, "UNSUPPORTED_FORMAT", "请求正文的媒体类型与接口要求不一致");
   }
 
   @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
@@ -22,6 +22,16 @@ public class ApiExceptionHandler {
   }
 
   public record ErrorBody(int status, String code, String message) {}
+
+  @ExceptionHandler(org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException.class)
+  ResponseEntity<ErrorBody> password(Exception e) {
+    return error(403, "INVALID_PASSWORD", "PDF 打开密码不正确");
+  }
+
+  @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+  ResponseEntity<ErrorBody> body(Exception e) {
+    return error(400, "INVALID_BODY", "请求正文格式不正确");
+  }
 
   private ResponseEntity<ErrorBody> error(int status, String code, String message) {
     return ResponseEntity.status(status).body(new ErrorBody(status, code, message));
