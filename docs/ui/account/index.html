@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PDF 工作台 · 登录与账户界面</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="prototype.css" />
+    <script src="prototype.js" defer></script>
+  </head>
+  <body data-theme="a" data-screen="login" data-state="normal">
+    <header class="preview-bar">
+      <div class="preview-label">
+        <span class="preview-dot"></span>账户模块 <span>交互原型</span>
+      </div>
+      <div class="theme-switch" role="group" aria-label="视觉方案">
+        <button type="button" data-theme="a" aria-pressed="true">
+          A <span>工作台延续</span>
+        </button>
+        <button type="button" data-theme="b" aria-pressed="false">
+          B <span>纸感编辑室</span>
+        </button>
+        <button type="button" data-theme="c" aria-pressed="false">
+          C <span>深色专注</span>
+        </button>
+      </div>
+      <label class="state-label"
+        >状态
+        <select id="state">
+          <option value="normal">正常</option>
+          <option value="loading">提交中</option>
+          <option value="error">错误</option>
+          <option value="empty">空状态</option>
+        </select></label
+      >
+    </header>
+    <nav class="screen-switch" aria-label="账户页面">
+      <button type="button" data-screen="login" aria-current="page">
+        登录
+      </button>
+      <button type="button" data-screen="register">注册</button>
+      <button type="button" data-screen="profile">账户资料</button>
+      <button type="button" data-screen="security">账户安全</button>
+      <span>示例数据 · 无网络提交</span>
+    </nav>
+    <main id="canvas" class="canvas">
+      <section class="auth-shell" aria-label="身份验证">
+        <aside class="auth-story">
+          <a class="brand" href="#a/login" aria-label="PDF 工作台首页"
+            ><span class="brand-mark" data-icon="text"></span
+            ><span>PDF 工作台<small>DOCUMENT WORKBENCH</small></span></a
+          >
+          <div class="story-copy">
+            <p class="eyebrow">READ. EXTRACT. UNDERSTAND.</p>
+            <h1>让每一份文档，<br />都成为清晰的答案。</h1>
+            <p class="story-description">
+              从精准提取到智能阅读，<br />在一个专注的空间里，完成文档工作。
+            </p>
+          </div>
+          <div class="paper-scene" aria-hidden="true">
+            <div class="paper-back"></div>
+            <div class="paper">
+              <div class="paper-heading">
+                <span class="paper-tag">PDF</span><span>研究报告 · 2026</span
+                ><span>01 / 24</span>
+              </div>
+              <div class="paper-title">把信息，变成洞见。</div>
+              <div class="paper-rule"></div>
+              <div class="paper-line"></div>
+              <div class="paper-line short"></div>
+              <div class="paper-highlight">提取重要内容，连接新的思考。</div>
+              <div class="paper-line"></div>
+              <div class="paper-line mid"></div>
+              <div class="paper-chart">
+                <i></i><i></i><i></i><i></i><i></i
+                ><span>DOCUMENT INSIGHTS</span>
+              </div>
+            </div>
+            <div class="insight">
+              <span class="insight-mark" data-icon="idea"></span>
+              <div>
+                <strong>智能阅读</strong>
+                <p>抓住重点，让理解更进一步。</p>
+              </div>
+              <span class="insight-check" data-icon="check"></span>
+            </div>
+          </div>
+          <div class="story-footer">
+            <span>七组 PDF 工具 · 单文档智能阅读</span><span>v1.1</span>
+          </div>
+        </aside>
+        <div class="auth-panel">
+          <div class="auth-top">
+            <span class="panel-kicker">YOUR DOCUMENT SPACE</span
+            ><span class="outline-icon" data-icon="encrypt"></span>
+          </div>
+          <div class="auth-content">
+            <div class="auth-heading">
+              <p class="eyebrow" id="auth-eyebrow">WELCOME BACK</p>
+              <h2 id="auth-title">欢迎回来</h2>
+              <p id="auth-description">登录账户，继续你的文档工作。</p>
+            </div>
+            <div class="inline-error" role="alert" hidden></div>
+            <form id="auth-form" novalidate>
+              <label class="register-only" hidden
+                >昵称
+                <span class="field"
+                  ><span data-icon="user"></span
+                  ><input
+                    id="nickname"
+                    name="nickname"
+                    autocomplete="off"
+                    placeholder="怎么称呼你"
+                    maxlength="24" /></span
+              ></label>
+              <label
+                >邮箱
+                <span class="field"
+                  ><span data-icon="mail"></span
+                  ><input
+                    id="email"
+                    name="email"
+                    type="email"
+                    autocomplete="off"
+                    placeholder="name@example.com"
+                    required /></span
+              ></label>
+              <label
+                >密码
+                <span class="field"
+                  ><span data-icon="encrypt"></span
+                  ><input
+                    id="password"
+                    name="password"
+                    type="password"
+                    autocomplete="off"
+                    placeholder="请输入密码"
+                    required /><button
+                    class="reveal"
+                    type="button"
+                    aria-label="显示密码"
+                    aria-pressed="false"
+                    data-icon="eye"
+                  ></button></span
+              ></label>
+              <label class="register-only" hidden
+                >确认密码
+                <span class="field"
+                  ><span data-icon="encrypt"></span
+                  ><input
+                    id="confirm-password"
+                    name="confirm-password"
+                    type="password"
+                    autocomplete="off"
+                    placeholder="再次输入密码" /></span
+              ></label>
+              <p class="register-only field-hint" hidden>
+                请设置独立的登录密码。
+              </p>
+              <div class="login-options">
+                <span class="session-note"
+                  ><span data-icon="info"></span>公共设备使用后请退出账户</span
+                >
+              </div>
+              <button class="primary auth-submit" type="submit">
+                <span class="submit-label">登录工作台</span
+                ><span data-icon="arrow"></span>
+              </button>
+            </form>
+            <p class="auth-alternative">
+              <span id="alternative-text">还没有账户？</span>
+              <button type="button" id="alternative-action">
+                创建账户 <span aria-hidden="true">↗</span>
+              </button>
+            </p>
+            <div class="auth-divider"></div>
+            <div class="auth-note">
+              <span data-icon="text"></span>
+              <p>
+                文本、表格、图片、加密、签名、水印与文档信息。<br /><strong
+                  >你的文档工作，从这里开始。</strong
+                >
+              </p>
+            </div>
+          </div>
+          <footer class="auth-bottom">
+            <span>PDF 文档处理系统</span><span>专注每一页</span>
+          </footer>
+        </div>
+      </section>
+      <section class="account-shell" aria-label="账户设置" hidden>
+        <aside class="account-sidebar">
+          <a class="brand" href="#a/login"
+            ><span class="brand-mark" data-icon="text"></span
+            ><span>PDF 工作台<small>DOCUMENT WORKBENCH</small></span></a
+          >
+          <p class="nav-caption">文档工具</p>
+          <div class="tool-list"><span data-icon="text"></span>文本提取</div>
+          <div class="tool-list"><span data-icon="tables"></span>表格提取</div>
+          <div class="tool-list"><span data-icon="images"></span>图片提取</div>
+          <div class="tool-list"><span data-icon="encrypt"></span>文档加密</div>
+          <div class="tool-list">
+            <span data-icon="signatures"></span>数字签名
+          </div>
+          <div class="tool-list">
+            <span data-icon="watermark"></span>文档水印
+          </div>
+          <div class="tool-list"><span data-icon="info"></span>文档信息</div>
+          <div class="sidebar-bottom">
+            <button type="button" data-screen="profile" class="sidebar-user">
+              <span class="mini-avatar">林</span
+              ><span><strong>林知远</strong><small>个人账户</small></span
+              ><span data-icon="chevron"></span></button
+            ><span class="sidebar-version"
+              >PDF WORKBENCH <span>v1.1</span></span
+            >
+          </div>
+        </aside>
+        <div class="account-main">
+          <header class="account-header">
+            <div>
+              <p class="eyebrow">PERSONAL WORKSPACE / ACCOUNT</p>
+              <h1>账户设置</h1>
+            </div>
+            <button type="button" class="quiet-button" data-screen="login">
+              <span data-icon="logout"></span>退出登录
+            </button>
+          </header>
+          <div class="account-body">
+            <div class="account-intro">
+              <div>
+                <p class="eyebrow">A SPACE THAT'S YOURS</p>
+                <h2>你好，林知远<span>。</span></h2>
+                <p>管理个人资料与登录密码。</p>
+              </div>
+              <div class="hero-avatar">林<span data-icon="check"></span></div>
+            </div>
+            <nav class="account-tabs" aria-label="账户设置分类">
+              <button type="button" data-screen="profile" aria-current="page">
+                <span data-icon="user"></span>个人资料</button
+              ><button type="button" data-screen="security">
+                <span data-icon="encrypt"></span>账户安全
+              </button>
+            </nav>
+            <div class="account-status" role="status" hidden></div>
+            <div class="account-grid">
+              <section class="settings-card profile-section">
+                <header>
+                  <h3>基本信息</h3>
+                  <p>用于识别你的账户与工作台显示名称。</p>
+                </header>
+                <form id="profile-form" novalidate>
+                  <label
+                    >显示昵称<input
+                      id="profile-name"
+                      name="displayName"
+                      value="林知远"
+                      maxlength="24"
+                      required /></label
+                  ><label
+                    >登录邮箱<span class="readonly-field"
+                      >lin.zhiyuan@example.com
+                      <span class="muted">登录标识</span></span
+                    ></label
+                  >
+                  <p class="field-hint">邮箱作为登录标识，不在此处修改。</p>
+                  <footer>
+                    <button type="submit" class="primary">
+                      保存修改 <span data-icon="arrow"></span></button
+                    ><span class="save-note" role="status"></span>
+                  </footer>
+                </form>
+              </section>
+              <section class="settings-card security-section" hidden>
+                <header>
+                  <h3>修改密码</h3>
+                  <p>验证当前密码后，设置新的登录密码。</p>
+                </header>
+                <form id="security-form" novalidate>
+                  <label
+                    >当前密码<input
+                      name="currentPassword"
+                      type="password"
+                      autocomplete="off"
+                      placeholder="请输入当前密码"
+                      required /></label
+                  ><label
+                    >新密码<input
+                      name="newPassword"
+                      type="password"
+                      autocomplete="off"
+                      placeholder="请输入新密码"
+                      required /></label
+                  ><label
+                    >确认新密码<input
+                      name="confirmPassword"
+                      type="password"
+                      autocomplete="off"
+                      placeholder="再次输入新密码"
+                      required
+                  /></label>
+                  <p class="security-error" role="alert" hidden></p>
+                  <footer>
+                    <button type="submit" class="primary">
+                      更新密码 <span data-icon="arrow"></span></button
+                    ><span class="save-note" role="status"></span>
+                  </footer>
+                </form>
+              </section>
+              <aside class="account-aside">
+                <div class="account-summary">
+                  <span class="summary-icon" data-icon="user"></span>
+                  <h3>个人账户</h3>
+                  <p>账户资料与登录设置，<br />在同一处清晰管理。</p>
+                  <dl>
+                    <div>
+                      <dt>账户昵称</dt>
+                      <dd class="summary-name">林知远</dd>
+                    </div>
+                    <div>
+                      <dt>登录方式</dt>
+                      <dd>邮箱与密码</dd>
+                    </div>
+                  </dl>
+                </div>
+                <div class="account-tip">
+                  <span data-icon="encrypt"></span>
+                  <h3>保护你的账户</h3>
+                  <p>使用独立密码，并在公共设备上及时退出登录。</p>
+                </div>
+              </aside>
+            </div>
+            <footer class="account-footer">
+              <span>PDF 文档处理系统</span><span>专注内容，高效处理。</span>
+            </footer>
+          </div>
+        </div>
+      </section>
+    </main>
+    <div class="toast" role="status" hidden></div>
+  </body>
+</html>
