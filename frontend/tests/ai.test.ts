@@ -1,3 +1,5 @@
+import { useAccount } from "../src/composables/useAccount";
+import { clearAccountToken } from "../src/api/account";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import AiAnswer from "../src/components/AiAnswer.vue";
@@ -5,6 +7,8 @@ import AiAssistant from "../src/components/AiAssistant.vue";
 import type { AiMessage, Citation } from "../src/types/ai";
 
 afterEach(() => {
+  useAccount().user.value = null;
+  clearAccountToken();
   vi.unstubAllGlobals();
   document.body.innerHTML = "";
   localStorage.clear();
@@ -32,6 +36,91 @@ const message: AiMessage = {
   sequence: 1,
 };
 describe("AI 阅读界面", () => {
+  it("退出或切换账户不自动把当前 PDF 导入其他空间", async () => {
+    const fetch = mockReadingApi();
+    const file = new File(["PDF"], "retained.pdf");
+    const wrapper = mount(AiAssistant, {
+      props: { file, password: "" },
+      attachTo: document.body,
+    });
+    click(".ai-launcher");
+    await flushPromises();
+    expect(
+      fetch.mock.calls.filter(([url]) => url.endsWith("/documents")),
+    ).toHaveLength(1);
+    useAccount().user.value = {
+      id: "account-a",
+      email: "a@example.com",
+      displayName: "A",
+    };
+    await flushPromises();
+    expect(
+      fetch.mock.calls.filter(([url]) => url.endsWith("/documents")),
+    ).toHaveLength(1);
+    expect(document.querySelectorAll(".ai-message")).toHaveLength(0);
+    expect(wrapper.props("file")).toBe(file);
+    wrapper.unmount();
+  });
+
+  it("切换账户仅保留 PDF，清空旧聊天并隔离历史指针", async () => {
+    localStorage.setItem("pdf-ai-conversation", "guest-last");
+    localStorage.setItem("pdf-ai-conversation:account-a", "a-last");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const space =
+          (init?.headers as Record<string, string>)?.["X-Chat-Space"] ||
+          "guest";
+        const value = url.endsWith("/status")
+          ? { configured: false }
+          : url.endsWith("/csrf")
+            ? { headerName: "X-CSRF-TOKEN", token: "fixture" }
+            : url.endsWith("/search")
+              ? [
+                  {
+                    id: space,
+                    documentId: space,
+                    title: space + "-private",
+                    createdAt: 1,
+                    updatedAt: 1,
+                  },
+                ]
+              : [];
+        return new Response(JSON.stringify(value));
+      }),
+    );
+    const file = new File(["PDF"], "retained.pdf");
+    const wrapper = mount(AiAssistant, {
+      props: { file, password: "" },
+      attachTo: document.body,
+    });
+    click(".ai-launcher");
+    await flushPromises();
+    click('[aria-label="历史对话"]');
+    await flushPromises();
+    expect(document.querySelector(".ai-history-list")?.textContent).toContain(
+      "guest-private",
+    );
+    useAccount().user.value = {
+      id: "account-a",
+      email: "a@example.com",
+      displayName: "A",
+    };
+    await flushPromises();
+    expect(document.querySelector(".ai-history-list")?.textContent).toContain(
+      "account-a-private",
+    );
+    expect(
+      document.querySelector(".ai-history-list")?.textContent,
+    ).not.toContain("guest-private");
+    expect(localStorage.getItem("pdf-ai-conversation")).toBe("guest-last");
+    expect(localStorage.getItem("pdf-ai-conversation:account-a")).toBe(
+      "a-last",
+    );
+    expect(wrapper.props("file")).toBe(file);
+    wrapper.unmount();
+  });
+
   it("只有真实引用可点击，模型 HTML 作为文本显示", async () => {
     const wrapper = mount(AiAnswer, { props: { message } });
     expect(wrapper.findAll("button")).toHaveLength(1);
@@ -265,7 +354,9 @@ function mockReadingApi() {
   const messages: AiMessage[] = [];
   const fetch = vi.fn(async (url: string, init?: RequestInit) => {
     let value: unknown = [];
-    if (url.endsWith("/status")) value = { configured: true };
+    if (url.endsWith("/csrf"))
+      value = { headerName: "X-CSRF-TOKEN", token: "fixture" };
+    else if (url.endsWith("/status")) value = { configured: true };
     else if (url.endsWith("/documents"))
       value = { id: "d", name: "sample.pdf", pages: 8, encrypted: false };
     else if (url.endsWith("/conversations"))

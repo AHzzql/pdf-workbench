@@ -1,6 +1,7 @@
 <script setup lang="ts">
 defineProps<{ name: string }>();
 const paths: Record<string, string> = {
+  user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M5 21v-2a7 7 0 0 1 14 0v2",
   text: "M6 3h9l4 4v14H6z M14 3v5h5 M9 12h7 M9 16h5",
   tables: "M3 4h18v16H3z M3 9h18 M9 4v16 M3 14h18",
   images: "M3 4h18v16H3z M3 16l5-5 4 4 3-3 6 6 M16 8h.01",

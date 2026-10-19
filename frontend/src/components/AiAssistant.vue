@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { useAccount } from "../composables/useAccount";
 import type { Selection } from "../types/pdf";
 import { useAiAssistant } from "../composables/useAiAssistant";
 import AiAnswer from "./AiAnswer.vue";
 import AiSuggestions from "./AiSuggestions.vue";
 import AppIcon from "./AppIcon.vue";
 import "../assets/ai.css";
+const account = useAccount();
 const props = defineProps<{ file: File | null; password: string }>();
 const emit = defineEmits<{
   locate: [selection: Selection];
@@ -131,7 +133,7 @@ function onEnter(event: KeyboardEvent) {
       </div>
       <template v-if="historyVisible">
         <div class="ai-history-heading">
-          <h3>历史对话</h3>
+          <h3>{{ account.user.value ? "账户历史" : "游客历史" }}</h3>
           <span>{{ history.length }} 条</span>
         </div>
         <div class="ai-search">
@@ -370,7 +372,11 @@ function onEnter(event: KeyboardEvent) {
           </form>
           <div class="ai-compose-meta">
             <span>{{
-              conversation ? "会话已保存在本机" : "基于当前 PDF 回答"
+              conversation
+                ? account.user.value
+                  ? "会话已独立保存至当前账户"
+                  : "游客会话已保存在本机"
+                : "基于当前 PDF 回答"
             }}</span
             ><span>Enter 发送 · Shift+Enter 换行</span>
           </div>

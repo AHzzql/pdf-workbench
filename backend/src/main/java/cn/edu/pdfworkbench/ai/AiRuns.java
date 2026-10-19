@@ -27,11 +27,19 @@ public class AiRuns {
     Future<?> task;
     boolean done;
     long saved;
-    final List<SseEmitter> listeners = new CopyOnWriteArrayList<>();
+    String owner;
+    java.util.function.BooleanSupplier access;
+    final List<Listener> listeners = new CopyOnWriteArrayList<>();
 
     Run(Message message) {
       this.message = message;
     }
+  }
+
+  private record Listener(SseEmitter emitter, java.util.function.BooleanSupplier access) {}
+
+  private String key(String id) {
+    return repository.owner() + "/" + id;
   }
 
   public AiRuns(AiRepository repository, AiReading reading, AiModelClient models) {
@@ -149,12 +157,20 @@ public class AiRuns {
         new Conversation(
             conversation.id(), conversation.documentId(), title, conversation.createdAt(), now));
     var run = new Run(message);
-    active.put(message.id(), run);
+    run.owner = repository.owner();
+    run.access = repository.access();
+    active.put(key(message.id()), run);
     run.task = workers.submit(() -> execute(run, conversation));
     return message;
   }
 
   private void execute(Run run, Conversation conversation) {
+    try (var scope = repository.scope(run.owner, run.access)) {
+      executeScoped(run, conversation);
+    }
+  }
+
+  private void executeScoped(Run run, Conversation conversation) {
     try {
       var citations =
           reading.generate(
@@ -193,7 +209,7 @@ public class AiRuns {
               List.of());
       }
     } finally {
-      active.remove(run.message.id(), run);
+      active.remove(run.owner + "/" + run.message.id(), run);
     }
   }
 
@@ -229,31 +245,41 @@ public class AiRuns {
     r.done = true;
     r.stage = status.equals("COMPLETED") ? "已完成" : status.equals("STOPPED") ? "已停止" : "生成失败";
     update(r, text, status, error, citations);
-    r.listeners.forEach(SseEmitter::complete);
+    r.listeners.forEach(listener -> listener.emitter().complete());
     r.listeners.clear();
   }
 
   private void emit(Run r) {
-    for (var emitter : r.listeners)
+    for (var listener : r.listeners) {
+      var emitter = listener.emitter();
       try {
+        if (!listener.access().getAsBoolean()) {
+          r.listeners.remove(listener);
+          emitter.complete();
+          continue;
+        }
         emitter.send(
             SseEmitter.event()
                 .name("snapshot")
                 .id(Long.toString(r.message.sequence()))
                 .data(Map.of("message", r.message, "stage", r.stage)));
       } catch (IOException | IllegalStateException e) {
-        r.listeners.remove(emitter);
+        r.listeners.remove(listener);
         emitter.complete();
       }
+    }
   }
 
   public boolean busy(String conversationId) {
     return active.values().stream()
-        .anyMatch(r -> r.message.conversationId().equals(conversationId));
+        .anyMatch(
+            r ->
+                r.owner.equals(repository.owner())
+                    && r.message.conversationId().equals(conversationId));
   }
 
   public Message snapshot(String id) {
-    var run = active.get(id);
+    var run = active.get(key(id));
     if (run == null) return repository.message(id);
     synchronized (run) {
       return run.message;
@@ -261,8 +287,10 @@ public class AiRuns {
   }
 
   public SseEmitter events(String id) throws IOException {
+    repository.message(id);
     var emitter = new SseEmitter(0L);
-    var run = active.get(id);
+    var listener = new Listener(emitter, repository.access());
+    var run = active.get(key(id));
     if (run == null) {
       var message = repository.message(id);
       emitter.send(
@@ -272,10 +300,10 @@ public class AiRuns {
       emitter.complete();
     } else
       synchronized (run) {
-        emitter.onCompletion(() -> run.listeners.remove(emitter));
-        emitter.onTimeout(() -> run.listeners.remove(emitter));
-        emitter.onError(e -> run.listeners.remove(emitter));
-        run.listeners.add(emitter);
+        emitter.onCompletion(() -> run.listeners.remove(listener));
+        emitter.onTimeout(() -> run.listeners.remove(listener));
+        emitter.onError(e -> run.listeners.remove(listener));
+        run.listeners.add(listener);
         emit(run);
         if (run.done) emitter.complete();
       }
@@ -283,12 +311,12 @@ public class AiRuns {
   }
 
   public synchronized Message cancel(String id) {
-    var run = active.get(id);
+    var run = active.get(key(id));
     if (run == null) return repository.message(id);
     synchronized (run) {
       if (!run.done) finish(run, "STOPPED", "", run.message.text(), List.of());
       if (run.task != null) run.task.cancel(true);
-      active.remove(id, run);
+      active.remove(key(id), run);
       return run.message;
     }
   }
@@ -305,7 +333,11 @@ public class AiRuns {
 
   @PreDestroy
   public void shutdown() {
-    for (String id : List.copyOf(active.keySet())) cancel(id);
+    for (var run : List.copyOf(active.values())) {
+      try (var scope = repository.scope(run.owner, run.access)) {
+        cancel(run.message.id());
+      }
+    }
     heartbeat.shutdownNow();
     workers.shutdownNow();
   }

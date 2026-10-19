@@ -20,7 +20,8 @@ public class RequestPolicyFilter extends OncePerRequestFilter {
       if (request.getRequestURI().startsWith("/api/v1/pdf/ai/")) {
         String origin = request.getHeader("Origin");
         boolean validOrigin =
-            origin == null || origin.matches("http://(localhost|127\\.0\\.0\\.1):(5173|8080)");
+            origin == null
+                || origin.matches("http://(localhost|127\\.0\\.0\\.1):(5173|5182|8080|8082)");
         if (!validOrigin || !SetHolder.HOSTS.contains(request.getServerName())) {
           response.setStatus(403);
           response.setContentType("application/json;charset=UTF-8");

@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from "vue";
+import { computed, reactive, ref, watch, onMounted } from "vue";
 import { useRoute } from "vue-router";
+import AccountDialog from "../components/AccountDialog.vue";
+import { useAccount } from "../composables/useAccount";
 import AppIcon from "../components/AppIcon.vue";
 import PdfPreview from "../components/PdfPreview.vue";
 import ResultPanel from "../components/ResultPanel.vue";
@@ -9,6 +11,11 @@ import AiAssistant from "../components/AiAssistant.vue";
 import { useDocument } from "../composables/useDocument";
 import type { Selection } from "../types/pdf";
 import type { Field } from "../api/pdf";
+const account = useAccount();
+const accountOpen = ref(false);
+onMounted(() => {
+  void account.refresh();
+});
 const route = useRoute(),
   tool = computed(() => String(route.params.tool || "text"));
 const tools = [
@@ -236,7 +243,16 @@ function csv(index: number) {
             rel="noopener"
             class="api-link"
             >API 文档 ↗</a
+          ><button
+            type="button"
+            class="account-entry"
+            :aria-label="account.user.value ? '账户设置' : '登录'"
+            @click="accountOpen = true"
           >
+            <AppIcon name="user" /><span>{{
+              account.user.value?.displayName || "登录"
+            }}</span>
+          </button>
         </div>
       </header>
       <div class="document-bar">
@@ -596,6 +612,7 @@ function csv(index: number) {
       </footer>
     </main>
   </div>
+  <AccountDialog :open="accountOpen" @close="accountOpen = false" />
   <AiAssistant
     :file="file"
     :password="password"

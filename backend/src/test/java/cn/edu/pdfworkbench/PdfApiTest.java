@@ -225,7 +225,8 @@ class PdfApiTest {
         .fieldNames()
         .forEachRemaining(
             p -> {
-              if (!p.startsWith("/api/v1/pdf/ai/")) originalPaths.add(p);
+              if (p.startsWith("/api/v1/pdf/") && !p.startsWith("/api/v1/pdf/ai/"))
+                originalPaths.add(p);
             });
     assertEquals(11, originalPaths.size());
     assertTrue(

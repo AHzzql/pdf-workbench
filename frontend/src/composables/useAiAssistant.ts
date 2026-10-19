@@ -1,3 +1,4 @@
+import { chatSpace } from "./useAccount";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { AI_BASE, aiRequest } from "../api/ai";
 import type {
@@ -44,7 +45,8 @@ export function useAiAssistant(
   let source: EventSource | null = null,
     revision = 0,
     restoring = false,
-    initialized = false;
+    initialized = false,
+    autoWelcome = true;
   const running = computed(() =>
     messages.value.find((m) => m.status === "RUNNING"),
   );
@@ -64,37 +66,49 @@ export function useAiAssistant(
     () => props.file?.name || document.value?.name || "尚未选择 PDF",
   );
 
+  function lastKey() {
+    return chatSpace.value === "guest"
+      ? "pdf-ai-conversation"
+      : `pdf-ai-conversation:${chatSpace.value}`;
+  }
   function saveLast(id: string | null) {
     try {
-      if (id) localStorage.setItem("pdf-ai-conversation", id);
-      else localStorage.removeItem("pdf-ai-conversation");
+      if (id) localStorage.setItem(lastKey(), id);
+      else localStorage.removeItem(lastKey());
     } catch {
       /* 浏览器禁用存储时仍使用服务端历史。 */
     }
   }
   function lastId() {
     try {
-      return localStorage.getItem("pdf-ai-conversation");
+      return localStorage.getItem(lastKey());
     } catch {
       return null;
     }
   }
   async function open() {
+    const current = revision;
     opened.value = true;
     if (!initialized) {
       initialized = true;
       try {
         const status = await aiRequest<{ configured: boolean }>("/status");
+        if (current !== revision) return;
         configured.value = status.configured;
         await loadHistory();
+        if (current !== revision) return;
         const last = history.value.find((c) => c.id === lastId());
         if (!props.file && last) await restore(last);
       } catch (e) {
-        fail(e);
-        initialized = false;
+        if (current === revision) {
+          fail(e);
+          initialized = false;
+        }
       }
     }
+    if (current !== revision) return;
     if (
+      autoWelcome &&
       props.file &&
       configured.value === true &&
       !messages.value.length &&
@@ -115,7 +129,7 @@ export function useAiAssistant(
     source?.close();
     source = null;
   }
-  function reset() {
+  function reset(preservePointer = false) {
     revision++;
     disconnect();
     conversation.value = null;
@@ -128,23 +142,41 @@ export function useAiAssistant(
     error.value = "";
     busy.value = false;
     stage.value = "";
-    saveLast(null);
+    if (!preservePointer) saveLast(null);
   }
+  watch(
+    chatSpace,
+    () => {
+      autoWelcome = false;
+      reset(true);
+      history.value = [];
+      historyQuery.value = "";
+      renameId.value = "";
+      deleteId.value = "";
+      initialized = false;
+      configured.value = null;
+      if (opened.value) void open();
+    },
+    { flush: "sync" },
+  );
   watch(
     () => props.file,
     () => {
       if (!restoring) {
+        autoWelcome = true;
         reset();
         if (opened.value && configured.value === true) void startWelcome();
       }
     },
   );
   async function loadHistory() {
-    history.value = await aiRequest<Conversation[]>(
+    const current = revision;
+    const result = await aiRequest<Conversation[]>(
       "/conversations/search",
       "POST",
       { query: "" },
     );
+    if (current === revision) history.value = result;
   }
   async function showHistory() {
     historyVisible.value = !historyVisible.value;
@@ -170,6 +202,7 @@ export function useAiAssistant(
       ]);
       const response = await fetch(`${AI_BASE}/documents/${doc.id}/file`, {
         cache: "no-store",
+        headers: { "X-Chat-Space": chatSpace.value },
       });
       if (!response.ok) throw new Error("关联 PDF 无法读取");
       const blob = await response.blob();
@@ -238,8 +271,15 @@ export function useAiAssistant(
       }
     });
     events.onerror = () => {
-      if (current === revision && running.value)
+      if (current === revision && running.value) {
         stage.value = "连接中断，正在恢复…";
+        void aiRequest(`/runs/${id}`).catch(() => {
+          if (current === revision) {
+            disconnect();
+            error.value = "账户或连接已变化，请重新打开历史对话";
+          }
+        });
+      }
     };
   }
   async function ensureConversation(current: number) {
@@ -396,12 +436,14 @@ export function useAiAssistant(
     if (configured.value === true) void startWelcome();
   }
   async function rename(c: Conversation) {
+    const current = revision;
     try {
       const renamed = await aiRequest<Conversation>(
         `/conversations/${c.id}`,
         "PATCH",
         { title: renameTitle.value },
       );
+      if (current !== revision) return;
       if (conversation.value?.id === c.id) conversation.value = renamed;
       renameId.value = "";
       await loadHistory();
@@ -410,10 +452,12 @@ export function useAiAssistant(
     }
   }
   async function remove(c: Conversation) {
+    const current = revision;
     try {
       await aiRequest(`/conversations/${c.id}`, "DELETE", {
         deleteDocument: deleteDocument.value,
       });
+      if (current !== revision) return;
       if (conversation.value?.id === c.id) reset();
       deleteId.value = "";
       await loadHistory();

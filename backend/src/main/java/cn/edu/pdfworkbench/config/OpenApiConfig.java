@@ -28,7 +28,8 @@ public class OpenApiConfig {
                     path.readOperations()
                         .forEach(
                             operation -> {
-                              if (url.startsWith("/api/v1/pdf/ai/")) {
+                              if (url.startsWith("/api/v1/pdf/ai/")
+                                  || url.startsWith("/api/v1/account/")) {
                                 var errorSchema =
                                     new ObjectSchema()
                                         .addProperty("status", new IntegerSchema())
@@ -36,8 +37,8 @@ public class OpenApiConfig {
                                         .addProperty("message", new StringSchema());
                                 for (String code :
                                     new String[] {
-                                      "400", "403", "404", "409", "413", "415", "422", "429", "500",
-                                      "502", "503"
+                                      "400", "401", "403", "404", "409", "413", "415", "422", "429",
+                                      "500", "502", "503"
                                     })
                                   operation
                                       .getResponses()
@@ -63,6 +64,7 @@ public class OpenApiConfig {
                                                           new StringSchema().format("binary"))));
                                 return;
                               }
+                              if (!url.startsWith("/api/v1/pdf/")) return;
                               var body =
                                   operation
                                       .getRequestBody()

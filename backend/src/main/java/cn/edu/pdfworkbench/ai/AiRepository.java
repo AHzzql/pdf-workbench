@@ -16,7 +16,47 @@ import org.springframework.stereotype.Repository;
 public class AiRepository {
   private final AiSettings settings;
   private final ObjectMapper json;
-  private JdbcTemplate db;
+  private final java.util.Map<String, JdbcTemplate> databases = new java.util.HashMap<>();
+  private final ThreadLocal<String> owner = ThreadLocal.withInitial(() -> "guest");
+  private final ThreadLocal<java.util.function.BooleanSupplier> access =
+      ThreadLocal.withInitial(() -> () -> true);
+
+  public String owner() {
+    return owner.get();
+  }
+
+  public java.util.function.BooleanSupplier access() {
+    return access.get();
+  }
+
+  public Path root() {
+    return owner().equals("guest")
+        ? settings.root()
+        : settings.root().resolve("users").resolve(owner());
+  }
+
+  public Scope scope(String value, java.util.function.BooleanSupplier guard) {
+    if (!value.equals("guest")) validateId(value);
+    var scope = new Scope(owner(), access());
+    owner.set(value);
+    access.set(guard);
+    return scope;
+  }
+
+  public final class Scope implements AutoCloseable {
+    private final String previous;
+    private final java.util.function.BooleanSupplier guard;
+
+    private Scope(String previous, java.util.function.BooleanSupplier guard) {
+      this.previous = previous;
+      this.guard = guard;
+    }
+
+    public void close() {
+      owner.set(previous);
+      access.set(guard);
+    }
+  }
 
   public AiRepository(AiSettings settings, ObjectMapper json) {
     this.settings = settings;
@@ -24,20 +64,22 @@ public class AiRepository {
   }
 
   private synchronized JdbcTemplate db() {
+    JdbcTemplate db = databases.get(owner());
     if (db != null) return db;
     try {
-      Files.createDirectories(settings.root());
+      Files.createDirectories(root());
     } catch (IOException e) {
       throw new ApiException(500, "AI_STORAGE_ERROR", "无法创建本机数据目录");
     }
     var data =
         new DriverManagerDataSource(
             "jdbc:h2:file:"
-                + settings.root().resolve("history").toString().replace('\\', '/')
+                + root().resolve("history").toString().replace('\\', '/')
                 + ";DB_CLOSE_ON_EXIT=FALSE",
             "sa",
             "");
     db = new JdbcTemplate(data);
+
     db.execute(
         "CREATE TABLE IF NOT EXISTS ai_documents(id VARCHAR(64) PRIMARY KEY, payload CLOB NOT"
             + " NULL)");
@@ -50,6 +92,7 @@ public class AiRepository {
     db.execute(
         "CREATE INDEX IF NOT EXISTS ai_messages_conversation ON ai_messages(conversation_id,"
             + " created)");
+    databases.put(owner(), db);
     for (var m :
         db.query(
             "SELECT payload FROM ai_messages", (r, n) -> read(r.getString(1), Message.class))) {
@@ -75,17 +118,17 @@ public class AiRepository {
 
   public Path documentPath(String id) {
     validateId(id);
-    return settings.root().resolve(id + ".pdf");
+    return root().resolve(id + ".pdf");
   }
 
   public Path contentPath(String id) {
     validateId(id);
-    return settings.root().resolve(id + ".json");
+    return root().resolve(id + ".json");
   }
 
   public Path indexPath(String id) {
     validateId(id);
-    return settings.root().resolve("indexes").resolve(id);
+    return root().resolve("indexes").resolve(id);
   }
 
   public static void validateId(String id) {
@@ -185,7 +228,7 @@ public class AiRepository {
 
   public void content(String id, Content value) throws IOException {
     var target = contentPath(id);
-    var temp = Files.createTempFile(settings.root(), "content-", ".tmp");
+    var temp = Files.createTempFile(root(), "content-", ".tmp");
     try {
       json.writeValue(temp.toFile(), value);
       Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);

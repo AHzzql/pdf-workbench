@@ -39,6 +39,10 @@ public class ApiExceptionHandler {
 
   @ExceptionHandler(ApiException.class)
   ResponseEntity<ErrorBody> api(ApiException e) {
+    if (e.status() == 429)
+      return ResponseEntity.status(429)
+          .header("Retry-After", "900")
+          .body(new ErrorBody(429, e.code(), e.getMessage()));
     return error(e.status(), e.code(), e.getMessage());
   }
 
