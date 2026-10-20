@@ -17,3 +17,5 @@ frontend/playwright-report/
 *.pfx
 *.key
 backend/config/application-local.yml
+
+__pycache__/

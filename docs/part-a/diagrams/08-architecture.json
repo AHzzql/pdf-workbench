@@ -1,0 +1,160 @@
+{
+  "id": "08-architecture",
+  "title": "逻辑与本机部署架构",
+  "nodes": [
+    {
+      "id": "BROWSER",
+      "label": "浏览器\nVue 3 / TypeScript / PDF.js",
+      "x": 700,
+      "y": 95,
+      "width": 760,
+      "height": 130,
+      "kind": "external"
+    },
+    {
+      "id": "APP",
+      "label": "Windows Java 主服务\n接口、授权、任务协调与页面资源",
+      "x": 700,
+      "y": 350,
+      "width": 760,
+      "height": 150,
+      "kind": "process"
+    },
+    {
+      "id": "EXEC",
+      "label": "受限 Java PDF 子进程\nPDFBox / Bouncy Castle / RE2/J",
+      "x": 700,
+      "y": 620,
+      "width": 760,
+      "height": 145,
+      "kind": "process"
+    },
+    {
+      "id": "PG",
+      "label": "Docker PostgreSQL\n业务、会话和执行记录",
+      "x": 320,
+      "y": 940,
+      "width": 580,
+      "height": 160,
+      "kind": "store"
+    },
+    {
+      "id": "S3",
+      "label": "Docker SeaweedFS\n私有 PDF 与处理结果",
+      "x": 1080,
+      "y": 940,
+      "width": 580,
+      "height": 160,
+      "kind": "store"
+    }
+  ],
+  "edges": [
+    {
+      "from": "BROWSER",
+      "to": "APP",
+      "label": "同源 HTTP；公网配置 HTTPS",
+      "points": [
+        [
+          700,
+          160
+        ],
+        [
+          700,
+          275
+        ]
+      ]
+    },
+    {
+      "from": "APP",
+      "to": "EXEC",
+      "label": "有界执行与受控输入",
+      "points": [
+        [
+          700,
+          425
+        ],
+        [
+          700,
+          547
+        ]
+      ]
+    },
+    {
+      "from": "EXEC",
+      "to": "APP",
+      "label": "结果、状态与诊断",
+      "points": [
+        [
+          1080,
+          620
+        ],
+        [
+          1260,
+          620
+        ],
+        [
+          1260,
+          350
+        ],
+        [
+          1080,
+          350
+        ]
+      ]
+    },
+    {
+      "from": "APP",
+      "to": "PG",
+      "label": "JDBC",
+      "points": [
+        [
+          320,
+          350
+        ],
+        [
+          160,
+          350
+        ],
+        [
+          160,
+          790
+        ],
+        [
+          320,
+          790
+        ],
+        [
+          320,
+          860
+        ]
+      ]
+    },
+    {
+      "from": "APP",
+      "to": "S3",
+      "label": "S3 接口",
+      "points": [
+        [
+          1080,
+          425
+        ],
+        [
+          1180,
+          425
+        ],
+        [
+          1180,
+          795
+        ],
+        [
+          1080,
+          795
+        ],
+        [
+          1080,
+          860
+        ]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "id": "01-context",
+    "title": "系统上下文图",
+    "width": 1400,
+    "height": 660
+  },
+  {
+    "id": "02-level1",
+    "title": "一级数据流图",
+    "width": 1400,
+    "height": 1510
+  },
+  {
+    "id": "03-text-info",
+    "title": "文本与文档信息二级数据流图",
+    "width": 1400,
+    "height": 870
+  },
+  {
+    "id": "04-tables-images",
+    "title": "表格与图片二级数据流图",
+    "width": 1400,
+    "height": 870
+  },
+  {
+    "id": "05-security",
+    "title": "加密与签名二级数据流图",
+    "width": 1400,
+    "height": 1080
+  },
+  {
+    "id": "06-watermark",
+    "title": "水印二级数据流图",
+    "width": 1400,
+    "height": 660
+  },
+  {
+    "id": "07-wnd",
+    "title": "窗口与面板导航图",
+    "width": 1400,
+    "height": 1490
+  },
+  {
+    "id": "08-architecture",
+    "title": "逻辑与本机部署架构",
+    "width": 1400,
+    "height": 1110
+  },
+  {
+    "id": "09-ui-text",
+    "title": "文本工具界面原型",
+    "width": 1600,
+    "height": 1110
+  },
+  {
+    "id": "09-ui-signature",
+    "title": "验签界面原型",
+    "width": 1600,
+    "height": 1110
+  }
+]

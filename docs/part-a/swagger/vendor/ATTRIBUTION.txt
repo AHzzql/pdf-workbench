@@ -1,0 +1,5 @@
+Swagger UI 5.32.2
+https://github.com/swagger-api/swagger-ui
+Copyright SmartBear Software and Swagger UI contributors.
+Licensed under Apache License 2.0. See LICENSE.
+Assets sourced from org.webjars:swagger-ui:5.32.2.
