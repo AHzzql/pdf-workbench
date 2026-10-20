@@ -384,4 +384,82 @@ class PdfSignatureUtilsTest {
     assertTrue(error.getMessage().contains("未加密"));
     assertFalse(Files.exists(removed));
   }
+  @Test
+  void distinguishesUnsupportedAndMissingCertificateFromInvalidSignatures() throws Exception {
+    Path key = directory.resolve("unknown.p12"), signed = directory.resolve("supported.pdf");
+    var cert = certificate(key);
+    try (var options = new SigningOptions(key, "test-password".toCharArray(), null, null, null)) {
+      PdfSignatureUtils.sign(sample(), null, signed, options);
+    }
+    var normal = PdfSignatureUtils.verify(signed, null, List.of()).getFirst();
+    assertEquals(cert.getSubjectX500Principal().getName(), normal.certificate().subject());
+    assertEquals(cert.getSerialNumber().toString(), normal.certificate().serialNumber());
+    assertEquals(cert.getNotBefore().toInstant(), normal.certificate().notBefore());
+    byte[] bytes = Files.readAllBytes(signed);
+    String token = "/adbe.pkcs7.detached";
+    int position = new String(bytes, java.nio.charset.StandardCharsets.ISO_8859_1).indexOf(token);
+    assertTrue(position > 0);
+    byte[] changed = bytes.clone();
+    byte[] replacement = ("/unknown" + " ".repeat(token.length() - 8)).getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+    System.arraycopy(replacement, 0, changed, position, replacement.length);
+    Path unsupported = Files.write(directory.resolve("unsupported.pdf"), changed);
+    Files.copy(unsupported, Path.of("target", "verification", "unsupported-signature.pdf"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+    var unknown = PdfSignatureUtils.verify(unsupported, null, List.of()).getFirst();
+    assertEquals("UNKNOWN", unknown.integrity());
+    assertEquals(Boolean.FALSE, unknown.hasLaterRevision());
+    assertNotNull(unknown.reason());
+    try (var document = Loader.loadPDF(bytes)) {
+      var signature = document.getSignatureDictionaries().getFirst();
+      var cms = new org.bouncycastle.cms.CMSSignedData(signature.getContents(bytes));
+      var parsed = org.bouncycastle.asn1.cms.SignedData.getInstance(cms.toASN1Structure().getContent());
+      var original = org.bouncycastle.asn1.cms.SignerInfo.getInstance(parsed.getSignerInfos().getObjectAt(0));
+      var altered = new org.bouncycastle.asn1.cms.SignerInfo(original.getSID(), original.getDigestAlgorithm(),
+          original.getAuthenticatedAttributes(), new org.bouncycastle.asn1.x509.AlgorithmIdentifier(
+              new org.bouncycastle.asn1.ASN1ObjectIdentifier("1.2.3.4.5.6.7")), original.getEncryptedDigest(), original.getUnauthenticatedAttributes());
+      var alteredData = new org.bouncycastle.asn1.cms.SignedData(parsed.getDigestAlgorithms(),
+          parsed.getEncapContentInfo(), parsed.getCertificates(), parsed.getCRLs(), new org.bouncycastle.asn1.DERSet(altered));
+      var encoded = new org.bouncycastle.asn1.cms.ContentInfo(org.bouncycastle.asn1.cms.CMSObjectIdentifiers.signedData, alteredData).getEncoded();
+      Path algorithm = Files.write(directory.resolve("unsupported-algorithm.pdf"), replaceCms(bytes, signature.getByteRange(), encoded));
+      var algorithmResult = PdfSignatureUtils.verify(algorithm, null, List.of()).getFirst();
+      assertEquals("UNKNOWN", algorithmResult.integrity());
+      assertNotNull(algorithmResult.certificate());
+      var without = org.bouncycastle.cms.CMSSignedData.replaceCertificatesAndCRLs(cms, null, null, null);
+      bytes = replaceCms(bytes, signature.getByteRange(), without.getEncoded());
+    }
+    Path missing = Files.write(directory.resolve("missing-certificate.pdf"), bytes);
+    var result = PdfSignatureUtils.verify(missing, null, List.of()).getFirst();
+    assertEquals("UNKNOWN", result.integrity());
+    assertNull(result.certificate());
+    assertNotNull(result.algorithm());
+    assertEquals("NOT_EVALUATED", result.trustStatus());
+    assertEquals(Boolean.FALSE, result.hasLaterRevision());
+  }
+
+  @Test
+  void malformedByteRangeDoesNotReportAnUnmodifiedRevision() throws Exception {
+    Path file = directory.resolve("malformed-range.pdf");
+    try (var document = new PDDocument()) {
+      document.addPage(new PDPage());
+      var form = new org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm(document);
+      document.getDocumentCatalog().setAcroForm(form);
+      var field = new org.apache.pdfbox.pdmodel.interactive.form.PDSignatureField(form);
+      field.setValue(new org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature());
+      form.getFields().add(field);
+      document.save(file.toFile());
+    }
+    Files.copy(file, Path.of("target", "verification", "malformed-signature.pdf"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+    var result = PdfSignatureUtils.verify(file, null, List.of()).getFirst();
+    assertEquals("INVALID", result.integrity());
+    assertNull(result.hasLaterRevision());
+  }
+
+  private static byte[] replaceCms(byte[] source, int[] range, byte[] cms) {
+    byte[] bytes = source.clone();
+    java.util.Arrays.fill(bytes, range[1] + 1, range[2] - 1, (byte) '0');
+    var hex = org.bouncycastle.util.encoders.Hex.toHexString(cms).getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+    assertTrue(hex.length <= range[2] - range[1] - 2);
+    System.arraycopy(hex, 0, bytes, range[1] + 1, hex.length);
+    return bytes;
+  }
+
 }

@@ -25,7 +25,7 @@ public class ApiExceptionHandler {
 
   @ExceptionHandler(org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException.class)
   ResponseEntity<ErrorBody> password(Exception e) {
-    return error(403, "INVALID_PASSWORD", "PDF 打开密码不正确");
+    return error(403, "PDF_PASSWORD_INVALID", "PDF 打开密码不正确");
   }
 
   @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
@@ -48,8 +48,17 @@ public class ApiExceptionHandler {
 
   @ExceptionHandler(PdfProcessingException.class)
   ResponseEntity<ErrorBody> pdf(PdfProcessingException e) {
-    int status = e.getCode().contains("PASSWORD") || e.getCode().contains("PERMISSION") ? 403 : 422;
+    int status = switch (e.getCode()) {
+      case "OUTPUT_CREATE_FAILED" -> 500;
+      case "OUTPUT_LIMIT_EXCEEDED", "INPUT_LIMIT_EXCEEDED" -> 413;
+      default -> e.getCode().contains("PASSWORD") || e.getCode().contains("PERMISSION") ? 403 : 422;
+    };
     return error(status, e.getCode(), e.getMessage());
+  }
+
+  @ExceptionHandler(PdfParameterException.class)
+  ResponseEntity<ErrorBody> parameter(PdfParameterException e) {
+    return error(400, e.getCode(), e.getMessage());
   }
 
   @ExceptionHandler({
@@ -69,7 +78,7 @@ public class ApiExceptionHandler {
 
   @ExceptionHandler(IOException.class)
   ResponseEntity<ErrorBody> io(IOException e) {
-    return error(422, "DOCUMENT_INVALID", "文件无法解析或输出失败");
+    return error(422, "DOCUMENT_INVALID", "文件无法解析");
   }
 
   @ExceptionHandler(Exception.class)

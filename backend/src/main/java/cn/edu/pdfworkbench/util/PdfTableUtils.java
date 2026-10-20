@@ -96,10 +96,13 @@ public final class PdfTableUtils {
    */
   public static void writeCsv(TableData table, Path output) throws IOException {
     if (table == null || output == null) throw new IllegalArgumentException("表格与输出路径不能为空");
-    Path temporary = Files.createTempFile(output.toAbsolutePath().getParent(), "csv-", ".tmp");
+    Path temporary = PdfFiles.temporaryOutput(output, "csv-");
     try {
       writeCsvContent(table, temporary);
       Files.move(temporary, output, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+    } catch (IOException exception) {
+      throw new cn.edu.pdfworkbench.exception.PdfProcessingException(
+          "OUTPUT_CREATE_FAILED", "CSV 输出文件无法写入", exception);
     } finally {
       Files.deleteIfExists(temporary);
     }

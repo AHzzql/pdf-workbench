@@ -239,6 +239,16 @@ class PdfApiTest {
     assertEquals(
         200, http.getForEntity("/swagger-ui/index.html", String.class).getStatusCode().value());
     Files.writeString(Path.of("target", "verification", "openapi.json"), document);
+    var schemas = json.path("components").path("schemas");
+    assertTrue(schemas.path("PageText").path("properties").has("blocks"));
+    assertTrue(schemas.path("DocumentInfo").path("properties").has("pageCount"));
+    assertTrue(schemas.path("SignatureResult").path("properties").path("hasLaterRevision").path("nullable").asBoolean());
+    assertTrue(schemas.path("SignatureResult").path("properties").path("integrity").path("enum").toString().contains("UNKNOWN"));
+    assertFalse(schemas.path("SignatureResult").path("properties").path("hasLaterRevision").has("default"));
+    assertTrue(json.path("paths").path("/api/v1/pdf/encrypt").path("post").path("requestBody")
+        .path("content").path("multipart/form-data").path("schema").path("properties")
+        .path("ownerPassword").path("writeOnly").asBoolean());
+    Files.writeString(Path.of("target", "verification", "openapi.json"), document);
   }
 
   @Test
@@ -255,4 +265,84 @@ class PdfApiTest {
         400, post("/text?password=not-accepted", sample, Map.of()).getStatusCode().value());
     assertEquals(413, post("/text", new byte[51 * 1024 * 1024], Map.of()).getStatusCode().value());
   }
+  private void errorCode(ResponseEntity<byte[]> response, int status, String code) throws Exception {
+    assertEquals(status, response.getStatusCode().value());
+    var error = mapper.readTree(response.getBody());
+    assertEquals(status, error.path("status").asInt());
+    assertEquals(code, error.path("code").asText());
+  }
+
+  @Test
+  void distinguishesBusinessErrorsAndReturnsCoreProperties() throws Exception {
+    errorCode(post("/text", sample, Map.of("pages", "9000")), 400, "INVALID_PAGES");
+    errorCode(post("/text/search", sample, Map.of("pattern", "[")), 400, "INVALID_REGEX");
+    var info = mapper.readTree(post("/info", sample, Map.of()).getBody());
+    assertEquals(1, info.path("pageCount").asInt());
+    var text = mapper.readTree(post("/text", sample, Map.of()).getBody()).path("pages").get(0);
+    assertTrue(text.path("blocks").isArray());
+    assertTrue(text.path("blocks").size() < text.path("spans").size());
+    var encrypted = post("/encrypt", sample, Map.of("userPassword", "reader", "ownerPassword", "owner"));
+    errorCode(post("/info", encrypted.getBody(), Map.of()), 403, "PDF_PASSWORD_REQUIRED");
+    errorCode(post("/info", encrypted.getBody(), Map.of("password", "wrong")), 403, "PDF_PASSWORD_INVALID");
+    try (var document = new PDDocument(); var bytes = new ByteArrayOutputStream()) {
+      document.addPage(new PDPage()); document.save(bytes);
+      errorCode(post("/images", bytes.toByteArray(), Map.of()), 422, "NO_IMAGES_FOUND");
+      Files.write(Path.of("target", "verification", "no-images.pdf"), bytes.toByteArray());
+    }
+    var images = post("/images", sample, Map.of());
+    assertEquals("1", images.getHeaders().getFirst("X-Images-Total"));
+    assertEquals("1", images.getHeaders().getFirst("X-Images-Exported"));
+    try (var zip = new ZipInputStream(new ByteArrayInputStream(images.getBody()))) {
+      java.util.zip.ZipEntry entry;
+      while ((entry = zip.getNextEntry()) != null) {
+        if (entry.getName().equals("manifest.json")) {
+          var item = mapper.readTree(zip.readAllBytes()).get(0);
+          assertEquals("EXPORTED", item.path("status").asText());
+          assertTrue(item.path("rawFile").asText().endsWith(".bin"));
+        }
+      }
+    }
+  }
+
+  @Test
+  void reportsPartialImageExportsWithRawFilesAndDiagnostics() throws Exception {
+    byte[] bytes;
+    try (var document = Loader.loadPDF(sample); var stream = new ByteArrayOutputStream()) {
+      var page = document.getPage(0);
+      for (var name : page.getResources().getXObjectNames()) {
+        var object = page.getResources().getXObject(name);
+        if (object instanceof org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject image)
+          image.getCOSObject().setItem(org.apache.pdfbox.cos.COSName.FILTER,
+              org.apache.pdfbox.cos.COSName.getPDFName("UnsupportedTestFilter"));
+      }
+      try (var content = new PDPageContentStream(document, page, PDPageContentStream.AppendMode.APPEND, true)) {
+        content.drawImage(LosslessFactory.createFromImage(document, new BufferedImage(7,7,BufferedImage.TYPE_INT_RGB)), 80, 620, 20, 20);
+      }
+      document.save(stream); bytes = stream.toByteArray();
+    }
+    Files.write(Path.of("target", "verification", "partial-images.pdf"), bytes);
+    var response = post("/images", bytes, Map.of());
+    assertEquals(200, response.getStatusCode().value());
+    assertEquals("2", response.getHeaders().getFirst("X-Images-Total"));
+    assertEquals("1", response.getHeaders().getFirst("X-Images-Exported"));
+    com.fasterxml.jackson.databind.JsonNode manifest = null;
+    Set<String> names = new HashSet<>();
+    try (var zip = new ZipInputStream(new ByteArrayInputStream(response.getBody()))) {
+      java.util.zip.ZipEntry entry;
+      while ((entry = zip.getNextEntry()) != null) {
+        names.add(entry.getName());
+        if (entry.getName().equals("manifest.json")) manifest = mapper.readTree(zip.readAllBytes());
+      }
+    }
+    assertNotNull(manifest);
+    int rawOnly = 0;
+    for (var image : manifest) {
+      assertTrue(names.contains(image.path("rawFile").asText()));
+      if (image.path("status").asText().equals("RAW_ONLY")) {
+        rawOnly++; assertTrue(image.hasNonNull("diagnostic")); assertFalse(image.has("file"));
+      }
+    }
+    assertEquals(1, rawOnly);
+  }
+
 }

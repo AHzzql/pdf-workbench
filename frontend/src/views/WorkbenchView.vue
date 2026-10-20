@@ -600,8 +600,8 @@ function csv(index: number) {
               :download="download.name"
               ><span class="download-icon"><AppIcon name="download" /></span
               ><span
-                ><strong>下载处理结果</strong
-                ><small>{{ download.name }}</small></span
+                ><strong>下载处理结果</strong><small>{{ download.name }}</small
+                ><small v-if="download.note">{{ download.note }}</small></span
               ><AppIcon name="arrow"
             /></a>
           </section>

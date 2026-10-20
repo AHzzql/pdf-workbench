@@ -72,8 +72,12 @@ test("上传、文本、搜索、表格、图片、元数据与下载闭环", as
   await page.getByRole("button", { name: "提取文本", exact: true }).click();
   await expect(page.locator(".extracted-text")).toContainText("Alpha");
   await page.screenshot({ path: "test-results/02-text.png", fullPage: true });
-  await page.getByRole("button", { name: "字形属性" }).click();
+  await page.getByRole("button", { name: "文本块属性" }).click();
   await expect(page.locator(".table-scroll")).toContainText("Helvetica");
+  await page.screenshot({
+    path: "test-results/core-block-properties.png",
+    fullPage: true,
+  });
   await page.getByRole("button", { name: "正则搜索" }).click();
   await page.getByLabel("正则表达式").fill("Alpha");
   await page.getByRole("button", { name: "搜索文本" }).click();
@@ -95,6 +99,7 @@ test("上传、文本、搜索、表格、图片、元数据与下载闭环", as
   await page.getByRole("link", { name: "文档信息" }).click();
   await page.getByRole("button", { name: "读取信息" }).click();
   await expect(page.locator(".metadata")).toContainText(["API sample"]);
+  await expect(page.locator(".result-count")).toContainText("总页数 1");
 });
 test("加密、水印、验签与移除页面", async ({ page }) => {
   await page.goto("/#/encrypt");
@@ -116,8 +121,11 @@ test("加密、水印、验签与移除页面", async ({ page }) => {
   await page.getByRole("button", { name: "验证签名" }).click();
   await expect(page.locator(".signature-facts")).toContainText("有效");
   await expect(page.locator(".signature-facts")).toContainText("未评估");
+  await page.getByText("证书详情", { exact: true }).click();
+  await expect(page.locator(".metadata")).toContainText("签发者");
   await expect(page.locator("canvas")).toBeVisible();
   await expect(page.getByText("正在加载文档…", { exact: true })).toBeHidden();
+  await page.locator(".signature-card details").scrollIntoViewIfNeeded();
   await page.screenshot({
     path: "test-results/04-signature.png",
     fullPage: true,
@@ -143,3 +151,52 @@ for (const width of [960, 1440, 1920])
       fullPage: true,
     });
   });
+
+test("图片空结果和部分转换反馈", async ({ page }) => {
+  await page.goto("/#/images");
+  await page
+    .getByLabel("选择 PDF 文件")
+    .setInputFiles(
+      path.resolve("../backend/target/verification/no-images.pdf"),
+    );
+  await page.getByRole("button", { name: "提取图片", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("没有可提取图片");
+  await expect(page.locator(".download-card")).not.toBeVisible();
+  await page
+    .getByLabel("选择 PDF 文件")
+    .setInputFiles(
+      path.resolve("../backend/target/verification/partial-images.pdf"),
+    );
+  await page.getByRole("button", { name: "提取图片", exact: true }).click();
+  await expect(page.locator(".download-card")).toContainText("成功转换 1 个");
+  await expect(page.locator(".download-card")).toContainText("仅保留原始流");
+  await expect(page.getByText("正在加载文档…", { exact: true })).toBeHidden();
+  await page.screenshot({
+    path: "test-results/core-partial-images.png",
+    fullPage: true,
+  });
+});
+
+test("未知验签类型与非法范围的展示", async ({ page }) => {
+  await page.goto("/#/signatures");
+  await page
+    .getByLabel("选择 PDF 文件")
+    .setInputFiles(
+      path.resolve("../backend/target/verification/unsupported-signature.pdf"),
+    );
+  await page.getByRole("button", { name: "验证签名", exact: true }).click();
+  await expect(page.locator(".signature-facts")).toContainText("无法验证");
+  await page
+    .getByLabel("选择 PDF 文件")
+    .setInputFiles(
+      path.resolve("../backend/target/verification/malformed-signature.pdf"),
+    );
+  await page.getByRole("button", { name: "验证签名", exact: true }).click();
+  await expect(page.locator(".signature-facts")).toContainText(
+    "无法判定后续修订",
+  );
+  await page.screenshot({
+    path: "test-results/core-unknown-revision.png",
+    fullPage: true,
+  });
+});

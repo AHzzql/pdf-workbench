@@ -2,12 +2,15 @@ package cn.edu.pdfworkbench.util;
 
 import cn.edu.pdfworkbench.model.DocumentInfo;
 import cn.edu.pdfworkbench.model.Rect;
+import java.awt.geom.Path2D;
+import java.awt.geom.Point2D;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -71,6 +74,7 @@ public final class PdfInfoUtils {
       int number = 0;
       for (var page : document.getPages()) {
         number++;
+        cn.edu.pdfworkbench.model.TextResult.PageText pageText = null;
         for (var annotation : page.getAnnotations()) {
           var box = annotation.getRectangle();
           Rect bounds =
@@ -85,19 +89,65 @@ public final class PdfInfoUtils {
           }
           String author =
               annotation instanceof PDAnnotationMarkup markup ? markup.getTitlePopup() : null;
+          String contents = annotation.getContents();
+          if ("Highlight".equals(annotation.getSubtype()) && (contents == null || contents.isBlank())) {
+            if (pageText == null) {
+              var collector = new TextCollector(page);
+              collector.setStartPage(number);
+              collector.setEndPage(number);
+              collector.getText(document);
+              pageText = collector.result(number, true);
+            }
+            contents = highlightedText(pageText, quadPoints);
+            if (contents == null) diagnostics.add("第 " + number + " 页高亮无法关联可提取文字");
+          }
           annotations.add(
               new DocumentInfo.AnnotationData(
                   number,
                   annotation.getSubtype(),
                   author,
-                  annotation.getContents(),
+                  contents,
                   bounds,
                   quadPoints));
         }
       }
       return new DocumentInfo(
-          standard, custom, xmp(document, diagnostics), bookmarks, annotations, diagnostics);
+          document.getNumberOfPages(), standard, custom, xmp(document, diagnostics), bookmarks, annotations, diagnostics);
     }
+  }
+
+  private static String highlightedText(
+      cn.edu.pdfworkbench.model.TextResult.PageText page, List<Float> points) {
+    if (points.isEmpty() || points.size() % 8 != 0 || points.stream().anyMatch(v -> !Float.isFinite(v)))
+      return null;
+    List<Path2D.Float> regions = new ArrayList<>();
+    for (int i = 0; i < points.size(); i += 8) {
+      List<Point2D.Float> vertices = new ArrayList<>();
+      for (int j = i; j < i + 8; j += 2)
+        vertices.add(new Point2D.Float(points.get(j), points.get(j + 1)));
+      double centerX = vertices.stream().mapToDouble(v -> v.x).average().orElseThrow();
+      double centerY = vertices.stream().mapToDouble(v -> v.y).average().orElseThrow();
+      // QuadPoints 常以 Z 形存储，按中心角排序后进行四边形命中，避免斜向区域误选文字。
+      vertices.sort(Comparator.comparingDouble(v -> Math.atan2(v.y - centerY, v.x - centerX)));
+      var region = new Path2D.Float();
+      region.moveTo(vertices.getFirst().x, vertices.getFirst().y);
+      for (int j = 1; j < vertices.size(); j++) region.lineTo(vertices.get(j).x, vertices.get(j).y);
+      region.closePath();
+      regions.add(region);
+    }
+    StringBuilder result = new StringBuilder();
+    int previousEnd = -1;
+    for (var span : page.spans()) {
+      float x = span.bounds().x() + span.bounds().width() / 2;
+      float y = span.bounds().y() + span.bounds().height() / 2;
+      if (regions.stream().noneMatch(r -> r.contains(x, y))) continue;
+      if (previousEnd >= 0 && span.start() > previousEnd) {
+        String gap = page.text().substring(previousEnd, span.start());
+        result.append(gap.isBlank() ? gap : " ");
+      }
+      result.append(span.text()); previousEnd = span.end();
+    }
+    return result.isEmpty() || result.toString().isBlank() ? null : result.toString().strip();
   }
 
   private static List<DocumentInfo.Bookmark> bookmarks(

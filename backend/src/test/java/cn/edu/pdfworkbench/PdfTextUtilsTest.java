@@ -8,6 +8,7 @@ import cn.edu.pdfworkbench.util.PdfTextUtils;
 import java.awt.Color;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -213,4 +214,36 @@ class PdfTextUtilsTest {
     assertTrue(page.paragraphs().isEmpty());
     assertEquals("#0000FF", page.spans().getFirst().fillColor().rgb());
   }
+  @Test
+  void groupsContiguousStyledGlyphsIntoBlocks() throws Exception {
+    Path file = directory.resolve("blocks.pdf");
+    try (var doc = new PDDocument()) {
+      var page = new PDPage();
+      doc.addPage(page);
+      try (var stream = new PDPageContentStream(doc, page)) {
+        text(stream, "Alpha report", 60, 700, 12, Color.RED);
+        text(stream, "Blue", 60 + new PDType1Font(Standard14Fonts.FontName.HELVETICA).getStringWidth("Alpha report") / 1000 * 12, 700, 12, Color.BLUE);
+        text(stream, "Far", 400, 700, 12, Color.BLUE);
+        text(stream, "Next", 60, 680, 12, Color.RED);
+      }
+      doc.addPage(new PDPage());
+      doc.save(file.toFile());
+    }
+    var result = PdfTextUtils.extract(file, null, new TextOptions(null, true));
+    var page = result.pages().getFirst();
+    assertEquals(List.of("Alpha report", "Blue", "Far", "Next"),
+        page.blocks().stream().map(b -> b.text()).toList());
+    for (var block : page.blocks()) {
+      assertEquals(1, block.page());
+      assertEquals(block.text(), page.text().substring(block.start(), block.end()));
+      var glyphs = page.spans().stream()
+          .filter(g -> g.start() >= block.start() && g.end() <= block.end()).toList();
+      assertEquals(glyphs.getFirst().bounds().x(), block.bounds().x(), 0.01);
+      double right = glyphs.stream().mapToDouble(g -> g.bounds().x() + g.bounds().width()).max().orElseThrow();
+      assertEquals(right - block.bounds().x(), block.bounds().width(), 0.01);
+      assertEquals(glyphs.getFirst().fillColor(), block.fillColor());
+    }
+    assertTrue(result.pages().get(1).blocks().isEmpty());
+  }
+
 }

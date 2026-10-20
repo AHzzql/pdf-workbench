@@ -7,7 +7,9 @@ export function useDocument() {
     error = ref(""),
     result = shallowRef<unknown>(null);
   const completed = ref(false),
-    download = shallowRef<{ url: string; name: string } | null>(null);
+    download = shallowRef<{ url: string; name: string; note?: string } | null>(
+      null,
+    );
   let controller: AbortController | null = null,
     revision = 0;
   function clear() {
@@ -55,6 +57,7 @@ export function useDocument() {
         download.value = {
           url: URL.createObjectURL(response.download.blob),
           name: response.download.name,
+          note: response.download.note,
         };
       completed.value = true;
     } catch (reason) {

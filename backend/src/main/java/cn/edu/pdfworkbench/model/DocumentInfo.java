@@ -5,6 +5,7 @@ import java.util.Map;
 
 /** 文档目录、元数据及批注，不持有底层 PDF 对象。 */
 public record DocumentInfo(
+    int pageCount,
     Map<String, String> standardMetadata,
     Map<String, String> customMetadata,
     String xmp,

@@ -22,6 +22,10 @@ export default defineConfig({
       timeout: 120000,
       env: {
         SERVER_PORT: "8082",
+        SPRING_CONFIG_IMPORT: "optional:classpath:e2e-no-import.yml",
+        AI_API_KEY: "",
+        AI_BASE_URL: "http://127.0.0.1:9",
+        AI_RERANK_URL: "http://127.0.0.1:9",
         ACCOUNT_DATA_DIRECTORY: path.resolve(
           "../backend/target/account-e2e/accounts",
         ),

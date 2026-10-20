@@ -89,7 +89,10 @@ public final class PdfImageUtils {
     try (var document = PdfFiles.openForExtraction(input, password)) {
       var entries = ImageCollector.collect(document);
       if (entries.isEmpty()) return List.of();
-      output = Files.createTempDirectory(directory, "images-");
+      try { output = Files.createTempDirectory(directory, "images-"); }
+      catch (IOException exception) {
+        throw new PdfProcessingException("OUTPUT_CREATE_FAILED", "图片输出目录无法创建", exception);
+      }
       List<ImageExport> results = new ArrayList<>();
       long total = 0;
       for (var entry : entries) {
@@ -123,8 +126,12 @@ public final class PdfImageUtils {
         String extension = format.name().toLowerCase(Locale.ROOT);
         Path file = output.resolve(entry.id + "." + extension);
         created.add(file);
-        if (!ImageIO.write(raster, extension, file.toFile())) throw new IOException("图片编码器不可用");
-        total += Files.size(file);
+        try {
+          if (!ImageIO.write(raster, extension, file.toFile())) throw new IOException("图片编码器不可用");
+          total += Files.size(file);
+        } catch (IOException exception) {
+          throw new PdfProcessingException("OUTPUT_CREATE_FAILED", "图片输出文件无法写入", exception);
+        }
         if (total > ImageCollector.MAX_RAW_BYTES)
           throw new PdfProcessingException("OUTPUT_LIMIT_EXCEEDED", "图片导出超过 200 MiB");
         results.add(new ImageExport(entry.id, file, null));

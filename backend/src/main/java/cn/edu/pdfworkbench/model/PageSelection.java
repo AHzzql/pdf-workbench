@@ -1,5 +1,6 @@
 package cn.edu.pdfworkbench.model;
 
+import cn.edu.pdfworkbench.exception.PdfParameterException;
 import java.util.List;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
@@ -12,7 +13,7 @@ public record PageSelection(List<Integer> pages) {
   public PageSelection {
     pages = List.copyOf(pages);
     if (pages.stream().anyMatch(page -> page < 1)) {
-      throw new IllegalArgumentException("页码必须大于 0");
+      throw new PdfParameterException("INVALID_PAGES", "页码必须大于 0");
     }
   }
 
@@ -26,7 +27,7 @@ public record PageSelection(List<Integer> pages) {
    */
   public static PageSelection parse(String expression, int pageCount) {
     if (pageCount < 0) {
-      throw new IllegalArgumentException("文档页数不能为负数");
+      throw new PdfParameterException("INVALID_PAGES", "文档页数不能为负数");
     }
     if (expression == null || expression.isBlank()) {
       return new PageSelection(IntStream.rangeClosed(1, pageCount).boxed().toList());
@@ -35,7 +36,7 @@ public record PageSelection(List<Integer> pages) {
     for (String part : expression.split(",", -1)) {
       var matcher = RANGE.matcher(part.trim());
       if (!matcher.matches()) {
-        throw new IllegalArgumentException("页码格式错误");
+        throw new PdfParameterException("INVALID_PAGES", "页码格式错误");
       }
       int start;
       int end;
@@ -43,10 +44,10 @@ public record PageSelection(List<Integer> pages) {
         start = Integer.parseInt(matcher.group(1));
         end = matcher.group(2) == null ? start : Integer.parseInt(matcher.group(2));
       } catch (NumberFormatException exception) {
-        throw new IllegalArgumentException("页码超出整数范围", exception);
+        throw new PdfParameterException("INVALID_PAGES", "页码超出整数范围", exception);
       }
       if (start < 1 || end < start || end > pageCount) {
-        throw new IllegalArgumentException("页码超出文档范围");
+        throw new PdfParameterException("INVALID_PAGES", "页码超出文档范围");
       }
       IntStream.rangeClosed(start, end).forEach(selected::add);
     }

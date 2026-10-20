@@ -33,7 +33,7 @@ final class PdfFiles {
     try {
       document = Loader.loadPDF(input.toFile(), password == null ? "" : password);
     } catch (InvalidPasswordException exception) {
-      throw new PdfProcessingException("PDF_PASSWORD_INVALID", "PDF 打开密码错误", exception);
+      throw PdfProcessingException.password(password, exception);
     }
     return document;
   }
@@ -48,8 +48,16 @@ final class PdfFiles {
     if (Files.isDirectory(output)) throw new IllegalArgumentException("输出路径不能是目录");
   }
 
+  static Path temporaryOutput(Path output, String prefix) throws IOException {
+    try {
+      return Files.createTempFile(output.toAbsolutePath().getParent(), prefix, ".tmp");
+    } catch (IOException exception) {
+      throw new PdfProcessingException("OUTPUT_CREATE_FAILED", "输出目录无法创建临时文件", exception);
+    }
+  }
+
   static void save(PDDocument document, Path output) throws IOException {
-    Path temporary = Files.createTempFile(output.toAbsolutePath().getParent(), "pdf-", ".tmp");
+    Path temporary = temporaryOutput(output, "pdf-");
     try {
       document.save(temporary.toFile());
       Files.move(temporary, output, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
@@ -59,12 +67,14 @@ final class PdfFiles {
       } catch (IOException cleanup) {
         exception.addSuppressed(cleanup);
       }
+      if (exception instanceof IOException io)
+        throw new PdfProcessingException("OUTPUT_CREATE_FAILED", "PDF 输出文件无法写入", io);
       throw exception;
     }
   }
 
   static void saveIncremental(PDDocument document, Path output) throws IOException {
-    Path temporary = Files.createTempFile(output.toAbsolutePath().getParent(), "pdf-", ".tmp");
+    Path temporary = temporaryOutput(output, "pdf-");
     try {
       try (var stream = Files.newOutputStream(temporary)) {
         document.saveIncremental(stream);
@@ -76,6 +86,8 @@ final class PdfFiles {
       } catch (IOException cleanup) {
         exception.addSuppressed(cleanup);
       }
+      if (exception instanceof IOException io)
+        throw new PdfProcessingException("OUTPUT_CREATE_FAILED", "PDF 输出文件无法写入", io);
       throw exception;
     }
   }

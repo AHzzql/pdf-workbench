@@ -61,13 +61,13 @@ const states: Record<string, string> = {
           :class="{ active: tab === 'properties' }"
           @click="tab = 'properties'"
         >
-          字形属性
+          文本块属性
         </button>
       </div>
       <p v-if="!text.pages.length" class="empty-note">所选范围没有页面</p>
       <section v-for="page in text.pages" :key="page.page" class="page-result">
         <h3>
-          第 {{ page.page }} 页 <small>{{ page.spans.length }} 个字形</small>
+          第 {{ page.page }} 页 <small>{{ page.blocks.length }} 个文本块</small>
         </h3>
         <template v-if="tab === 'text'"
           ><p v-if="!page.text" class="empty-note">本页无可提取文本</p>
@@ -80,28 +80,44 @@ const states: Record<string, string> = {
                 <th>文本</th>
                 <th>字体 / 字号</th>
                 <th>颜色</th>
-                <th>坐标</th>
+                <th>位置 X / Y</th>
+                <th>尺寸 宽 / 高</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(span, i) in page.spans" :key="i">
+              <tr v-for="(block, i) in page.blocks" :key="i">
                 <td>
                   <button
                     class="text-button"
                     @click="
-                      emit('locate', { page: page.page, bounds: [span.bounds] })
+                      emit('locate', {
+                        page: page.page,
+                        bounds: [block.bounds],
+                      })
                     "
                   >
-                    {{ span.text }}
+                    {{ block.text }}
                   </button>
                 </td>
                 <td>
-                  {{ span.font
-                  }}<small>{{ span.fontSize.toFixed(1) }} pt</small>
+                  {{ block.font
+                  }}<small>{{ block.fontSize.toFixed(1) }} pt</small>
                 </td>
-                <td>{{ span.fillColor?.rgb || "未知" }}</td>
                 <td>
-                  {{ span.bounds.x.toFixed(1) }}, {{ span.bounds.y.toFixed(1) }}
+                  {{
+                    block.fillColor?.rgb ||
+                    (block.fillColor
+                      ? `${block.fillColor.colorSpace} (${block.fillColor.components.join(", ")})`
+                      : "未知")
+                  }}
+                </td>
+                <td>
+                  {{ block.bounds.x.toFixed(1) }},
+                  {{ block.bounds.y.toFixed(1) }}
+                </td>
+                <td>
+                  {{ block.bounds.width.toFixed(1) }} ×
+                  {{ block.bounds.height.toFixed(1) }} pt
                 </td>
               </tr>
             </tbody>
@@ -172,26 +188,57 @@ const states: Record<string, string> = {
         <dl class="signature-facts">
           <dt>签名完整性</dt>
           <dd
-            :class="signature.integrity === 'VALID' ? 'positive' : 'negative'"
+            :class="{
+              positive: signature.integrity === 'VALID',
+              negative: signature.integrity === 'INVALID',
+            }"
           >
-            {{ states[signature.integrity] }}
+            {{
+              signature.integrity === "UNKNOWN"
+                ? "无法验证"
+                : states[signature.integrity]
+            }}
           </dd>
           <dt>签后修改</dt>
-          <dd :class="{ negative: signature.hasLaterRevision }">
-            {{ signature.hasLaterRevision ? "存在后续修订" : "未发现后续修订" }}
+          <dd :class="{ negative: signature.hasLaterRevision === true }">
+            {{
+              signature.hasLaterRevision === null
+                ? "无法判定后续修订"
+                : signature.hasLaterRevision
+                  ? "存在后续修订"
+                  : "未发现后续修订"
+            }}
           </dd>
           <dt>证书有效期</dt>
           <dd>{{ states[signature.certificateValidity] }}</dd>
           <dt>证书信任</dt>
           <dd>{{ states[signature.trustStatus] }}</dd>
+          <dt>算法</dt>
+          <dd>{{ signature.algorithm || "未知" }}</dd>
           <dt>吊销检查</dt>
           <dd>{{ signature.revocationChecked ? "已检查" : "未检查" }}</dd>
         </dl>
+        <details v-if="signature.certificate">
+          <summary>证书详情</summary>
+          <dl class="metadata">
+            <dt>主体</dt>
+            <dd>{{ signature.certificate.subject }}</dd>
+            <dt>签发者</dt>
+            <dd>{{ signature.certificate.issuer }}</dd>
+            <dt>序列号</dt>
+            <dd>{{ signature.certificate.serialNumber }}</dd>
+            <dt>生效时间</dt>
+            <dd>{{ signature.certificate.notBefore }}</dd>
+            <dt>到期时间</dt>
+            <dd>{{ signature.certificate.notAfter }}</dd>
+          </dl>
+        </details>
         <p v-if="signature.reason" class="error">{{ signature.reason }}</p>
       </section></template
     >
     <template v-else-if="tool === 'info' && info"
-      ><h3>标准元数据</h3>
+      ><p class="result-count">总页数 {{ info.pageCount }}</p>
+      <h3>标准元数据</h3>
       <dl class="metadata">
         <template v-for="(value, key) in info.standardMetadata" :key="key"
           ><dt>{{ key }}</dt>
@@ -220,7 +267,9 @@ const states: Record<string, string> = {
         v-for="(annotation, i) in info.annotations"
         :key="i"
         class="match-card"
+        :disabled="!annotation.bounds"
         @click="
+          annotation.bounds &&
           emit('locate', { page: annotation.page, bounds: [annotation.bounds] })
         "
       >

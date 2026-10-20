@@ -26,6 +26,8 @@ server:
     include-message: never
     include-stacktrace: never
 springdoc:
+  api-docs:
+    version: OPENAPI_3_0
   swagger-ui:
     path: /swagger-ui.html
     operations-sorter: alpha

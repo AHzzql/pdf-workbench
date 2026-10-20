@@ -15,10 +15,12 @@ public record TextResult(List<PageText> pages) {
       float userUnit,
       String text,
       List<TextSpan> spans,
+      List<TextBlock> blocks,
       List<Paragraph> paragraphs,
       List<String> diagnostics) {
     public PageText {
       spans = List.copyOf(spans);
+      blocks = List.copyOf(blocks);
       paragraphs = List.copyOf(paragraphs);
       diagnostics = List.copyOf(diagnostics);
     }
@@ -41,6 +43,10 @@ public record TextResult(List<PageText> pages) {
       TextColor fillColor,
       TextColor strokeColor,
       int renderingMode) {}
+
+  public record TextBlock(
+      int page, String text, int start, int end, Rect bounds,
+      String font, float fontSize, TextColor fillColor) {}
 
   public record Paragraph(String text, int start, int end) {}
 }

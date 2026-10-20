@@ -49,6 +49,7 @@ class PdfInfoUtilsTest {
       doc.save(file.toFile());
     }
     var info = PdfInfoUtils.read(file, null);
+    assertEquals(1, info.pageCount());
     assertEquals("作者", info.standardMetadata().get("Author"));
     assertEquals("课程", info.customMetadata().get("Project"));
     assertEquals(1, info.bookmarks().getFirst().page());
@@ -100,4 +101,46 @@ class PdfInfoUtilsTest {
     assertTrue(info.diagnostics().stream().anyMatch(d -> d.contains("循环")));
     assertTrue(info.diagnostics().stream().anyMatch(d -> d.contains("XMP")));
   }
+  @Test
+  void reportsZeroPagesAndRecoversHighlightTextWithoutContents() throws Exception {
+    Path empty = directory.resolve("zero.pdf"), file = directory.resolve("highlight.pdf");
+    try (var doc = new PDDocument()) { doc.save(empty.toFile()); }
+    assertEquals(0, PdfInfoUtils.read(empty, null).pageCount());
+    try (var doc = new PDDocument()) {
+      var page = new PDPage(); doc.addPage(page);
+      try (var stream = new org.apache.pdfbox.pdmodel.PDPageContentStream(doc, page)) {
+        PdfTextUtilsTest.text(stream, "Marked words", 60, 700, 12, java.awt.Color.BLACK);
+      }
+      var highlight = new PDAnnotationHighlight();
+      highlight.setRectangle(new PDRectangle(60, 698, 100, 16));
+      highlight.setQuadPoints(new float[] {60, 714, 160, 714, 60, 698, 160, 698});
+      page.getAnnotations().add(highlight);
+      var missing = new PDAnnotationHighlight();
+      missing.getCOSObject().removeItem(org.apache.pdfbox.cos.COSName.RECT);
+      page.getAnnotations().add(missing);
+      doc.save(file.toFile());
+    }
+    var info = PdfInfoUtils.read(file, null);
+    assertEquals(1, info.pageCount());
+    assertEquals("Marked words", info.annotations().getFirst().contents());
+    assertNull(info.annotations().get(1).bounds());
+    assertTrue(info.diagnostics().stream().anyMatch(d -> d.contains("高亮")));
+  }
+
+  @Test
+  void obliqueHighlightDoesNotSelectTextOnlyInsideItsBoundingBox() throws Exception {
+    Path file = directory.resolve("oblique-highlight.pdf");
+    try (var document = new PDDocument()) {
+      var page = new PDPage(); document.addPage(page);
+      try (var stream = new org.apache.pdfbox.pdmodel.PDPageContentStream(document, page)) {
+        PdfTextUtilsTest.text(stream, "AB", 60, 700, 12, java.awt.Color.BLACK);
+      }
+      var highlight = new PDAnnotationHighlight();
+      highlight.setRectangle(new PDRectangle(49, 702, 30, 16));
+      highlight.setQuadPoints(new float[] {64, 718, 79, 710, 49, 710, 64, 702});
+      page.getAnnotations().add(highlight); document.save(file.toFile());
+    }
+    assertEquals("A", PdfInfoUtils.read(file, null).annotations().getFirst().contents());
+  }
+
 }

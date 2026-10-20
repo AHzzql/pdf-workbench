@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import org.apache.pdfbox.contentstream.operator.color.*;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.font.PDFont;
@@ -176,8 +177,52 @@ final class TextCollector extends PDFTextStripper {
         page.getUserUnit(),
         text.toString(),
         spans,
+        blocks(pageNumber, text.toString(), spans),
         paragraphs,
         diagnostics);
+  }
+
+  private static List<TextResult.TextBlock> blocks(
+      int page, String text, List<TextResult.TextSpan> spans) {
+    List<TextResult.TextBlock> blocks = new ArrayList<>();
+    TextResult.TextSpan first = null, previous = null;
+    Rect bounds = null;
+    for (var span : spans) {
+      if (previous != null && !continuesBlock(previous, span, text)) {
+        blocks.add(new TextResult.TextBlock(page, text.substring(first.start(), previous.end()),
+            first.start(), previous.end(), bounds, first.font(), first.fontSize(), first.fillColor()));
+        first = null;
+      }
+      if (first == null) {
+        first = span;
+        bounds = span.bounds();
+      } else {
+        var next = span.bounds();
+        float x = Math.min(bounds.x(), next.x()), y = Math.min(bounds.y(), next.y());
+        float right = Math.max(bounds.x() + bounds.width(), next.x() + next.width());
+        float top = Math.max(bounds.y() + bounds.height(), next.y() + next.height());
+        bounds = new Rect(x, y, right - x, top - y);
+      }
+      previous = span;
+    }
+    if (first != null) blocks.add(new TextResult.TextBlock(page,
+        text.substring(first.start(), previous.end()), first.start(), previous.end(), bounds,
+        first.font(), first.fontSize(), first.fillColor()));
+    return blocks;
+  }
+
+  private static boolean continuesBlock(
+      TextResult.TextSpan previous, TextResult.TextSpan next, String text) {
+    return Objects.equals(previous.font(), next.font())
+        && Math.abs(previous.fontSize() - next.fontSize()) < 0.01f
+        && Objects.equals(previous.fillColor(), next.fillColor())
+        && Objects.equals(previous.strokeColor(), next.strokeColor())
+        && previous.renderingMode() == next.renderingMode()
+        && Math.abs(previous.baselineY() - next.baselineY()) <= Math.max(1, next.fontSize() * 0.25f)
+        && next.bounds().x() >= previous.bounds().x() - 1
+        && next.bounds().x() - previous.bounds().x() - previous.bounds().width()
+            <= Math.max(1, next.fontSize() * 0.6f)
+        && !text.substring(previous.end(), next.start()).contains("\n");
   }
 
   private static List<List<Glyph>> splitColumns(List<Glyph> input) {

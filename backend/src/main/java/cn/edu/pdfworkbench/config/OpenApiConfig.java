@@ -16,7 +16,7 @@ import org.springframework.context.annotation.Configuration;
 public class OpenApiConfig {
   @Bean
   OpenAPI api() {
-    return new OpenAPI().info(new Info().title("PDF 文档处理接口").version("1.1.0"));
+    return new OpenAPI().openapi("3.0.3").info(new Info().title("PDF 文档处理接口").version("1.1.0"));
   }
 
   @Bean
@@ -65,7 +65,7 @@ public class OpenApiConfig {
                                 return;
                               }
                               if (!url.startsWith("/api/v1/pdf/")) return;
-                              var body =
+                              io.swagger.v3.oas.models.media.Schema<?> body =
                                   operation
                                       .getRequestBody()
                                       .getContent()
@@ -79,6 +79,17 @@ public class OpenApiConfig {
                                 }
                                 operation.setParameters(null);
                               }
+                              if (body.getProperties() != null)
+                                body.getProperties().forEach((name, field) -> {
+                                  if (name.toLowerCase(java.util.Locale.ROOT).contains("password")) {
+                                    field.setWriteOnly(true);
+                                    field.setFormat("password");
+                                    field.setExample(null);
+                                    field.setDefault(null);
+                                    field.setDefaultSetFlag(false);
+                                    field.setExampleSetFlag(false);
+                                  }
+                                });
                               Class<?> model =
                                   switch (url) {
                                     case "/api/v1/pdf/text" ->
@@ -105,7 +116,10 @@ public class OpenApiConfig {
                                         .resolveAsResolvedSchema(
                                             new io.swagger.v3.core.converter.AnnotatedType(model));
                                 resolved.referencedSchemas.forEach(
-                                    (name, value) -> api.getComponents().addSchemas(name, value));
+                                    (name, value) -> {
+                                      clearResponseDefaults(value);
+                                      api.getComponents().addSchemas(name, value);
+                                    });
                                 responseSchema = resolved.schema;
                                 if (model != cn.edu.pdfworkbench.model.TextResult.class
                                     && model != cn.edu.pdfworkbench.model.DocumentInfo.class)
@@ -121,13 +135,21 @@ public class OpenApiConfig {
                                       new Content()
                                           .addMediaType(
                                               mime, new MediaType().schema(responseSchema)));
+                              if (model == null) {
+                                operation.getResponses().get("200").addHeaderObject("Content-Disposition",
+                                    new io.swagger.v3.oas.models.headers.Header().schema(new StringSchema()));
+                                if (url.endsWith("/images"))
+                                  for (String name : new String[] {"X-Images-Total", "X-Images-Exported"})
+                                    operation.getResponses().get("200").addHeaderObject(name,
+                                        new io.swagger.v3.oas.models.headers.Header().schema(new IntegerSchema()));
+                              }
                               var schema =
                                   new ObjectSchema()
                                       .addProperty("status", new IntegerSchema())
                                       .addProperty("code", new StringSchema())
                                       .addProperty("message", new StringSchema());
                               for (String code :
-                                  new String[] {"400", "403", "413", "415", "422", "429", "500"})
+                                  new String[] {"400", "403", "404", "413", "415", "422", "429", "500", "503", "504"})
                                 operation
                                     .getResponses()
                                     .addApiResponse(
@@ -141,4 +163,11 @@ public class OpenApiConfig {
                                                         new MediaType().schema(schema))));
                             }));
   }
+  private static void clearResponseDefaults(io.swagger.v3.oas.models.media.Schema<?> schema) {
+    schema.setDefault(null);
+    schema.setDefaultSetFlag(false);
+    if (schema.getProperties() != null) schema.getProperties().values().forEach(OpenApiConfig::clearResponseDefaults);
+    if (schema.getItems() != null) clearResponseDefaults(schema.getItems());
+  }
+
 }

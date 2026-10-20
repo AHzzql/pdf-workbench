@@ -25,5 +25,17 @@ export async function processPdf(
     response.headers
       .get("content-disposition")
       ?.match(/filename="([^"]+)"/)?.[1] || "result.pdf";
-  return { data: null, download: { blob: await response.blob(), name } };
+  const total = Number(response.headers.get("X-Images-Total"));
+  const exported = Number(response.headers.get("X-Images-Exported"));
+  const note =
+    response.headers.has("X-Images-Total") &&
+    response.headers.has("X-Images-Exported") &&
+    Number.isInteger(total) &&
+    Number.isInteger(exported) &&
+    total >= 0 &&
+    exported >= 0 &&
+    exported <= total
+      ? `发现 ${total} 个图片资源，成功转换 ${exported} 个${exported < total ? "；部分图片仅保留原始流，详见 ZIP 清单" : ""}`
+      : undefined;
+  return { data: null, download: { blob: await response.blob(), name, note } };
 }

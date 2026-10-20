@@ -22,6 +22,7 @@ class AiChunkerTest {
             1,
             text,
             List.of(span),
+            List.of(),
             List.of(new TextResult.Paragraph(text, 0, text.length())),
             List.of());
     var result = AiChunker.split(new TextResult(List.of(page)), List.of());

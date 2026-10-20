@@ -145,4 +145,17 @@ class PdfServiceLimitsTest {
                     response));
     empty();
   }
+  @Test
+  void missingWorkDirectoryHasAnOutputFailureCodeAndReleasesSlot() throws Exception {
+    Path unavailable = directory.resolve("missing");
+    var service = new PdfService(new ObjectMapper(), 1, 200, 100000, unavailable.toString());
+    var file = new MockMultipartFile("file", pdf(1));
+    var error = assertThrows(cn.edu.pdfworkbench.exception.PdfProcessingException.class,
+        () -> service.info(file, null, new MockHttpServletResponse()));
+    assertEquals("OUTPUT_CREATE_FAILED", error.getCode());
+    Files.createDirectory(unavailable);
+    service.info(file, null, new MockHttpServletResponse());
+    try (var files = Files.list(unavailable)) { assertEquals(0, files.count()); }
+  }
+
 }

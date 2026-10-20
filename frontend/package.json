@@ -12,7 +12,8 @@
     "test:e2e": "playwright test",
     "test:ai": "playwright test --config playwright.ai.config.ts",
     "preview": "vite preview --host 127.0.0.1",
-    "test:account": "playwright test --config playwright.account.config.ts"
+    "test:account": "playwright test --config playwright.account.config.ts",
+    "test:production": "playwright test --config playwright.production.config.ts"
   },
   "dependencies": {
     "pdfjs-dist": "6.3.289",

@@ -51,7 +51,11 @@ public class PdfService {
     if (!slots.tryAcquire()) throw new ApiException(429, "CAPACITY_EXCEEDED", "同时处理任务已达上限");
     Path directory = null;
     try {
-      directory = Files.createTempDirectory(temporaryRoot, "pdf-workbench-");
+      try {
+        directory = Files.createTempDirectory(temporaryRoot, "pdf-workbench-");
+      } catch (IOException e) {
+        throw new PdfProcessingException("OUTPUT_CREATE_FAILED", "处理工作目录无法创建", e);
+      }
       Path input = upload(file, directory, "input.pdf", 50L * 1024 * 1024);
       try (var stream = Files.newInputStream(input)) {
         String magic = new String(stream.readNBytes(5), java.nio.charset.StandardCharsets.US_ASCII);
@@ -62,7 +66,7 @@ public class PdfService {
         if (document.getNumberOfPages() > maxPages)
           throw new ApiException(413, "PAGE_LIMIT", "文档页数超过限制");
       } catch (InvalidPasswordException e) {
-        throw new PdfProcessingException("PDF_PASSWORD_INVALID", "PDF 打开密码错误", e);
+        throw PdfProcessingException.password(password, e);
       }
       job.run(input, directory);
     } finally {
@@ -85,7 +89,9 @@ public class PdfService {
     if (file == null || file.isEmpty()) throw new ApiException(400, "FILE_REQUIRED", "请选择文件");
     if (file.getSize() > limit) throw new ApiException(413, "FILE_TOO_LARGE", "上传文件超过大小限制");
     Path target = directory.resolve(name);
-    file.transferTo(target);
+    try { file.transferTo(target); }
+    catch (IOException e) { throw new PdfProcessingException("OUTPUT_CREATE_FAILED", "上传暂存文件无法写入", e); }
+    if (Files.size(target) > limit) throw new ApiException(413, "FILE_TOO_LARGE", "上传文件超过大小限制");
     return target;
   }
 
@@ -164,6 +170,7 @@ public class PdfService {
         password,
         (input, dir) -> {
           var raw = PdfImageUtils.extract(input, password);
+          if (raw.isEmpty()) throw new ApiException(422, "NO_IMAGES_FOUND", "文档没有可提取图片");
           var exported = PdfImageUtils.export(input, password, dir, format);
           long total = 0;
           List<Map<String, Object>> manifest = new ArrayList<>();
@@ -176,6 +183,7 @@ public class PdfService {
               entry(zip, image.id() + ".bin", bytes);
               Map<String, Object> item = new LinkedHashMap<>();
               item.put("id", image.id());
+              item.put("rawFile", image.id() + ".bin");
               item.put("source", image.source());
               item.put("width", image.width());
               item.put("height", image.height());
@@ -192,13 +200,24 @@ public class PdfService {
                 Files.copy(path, zip);
                 zip.closeEntry();
                 item.put("file", name);
-              } else item.put("diagnostic", match.map(ImageExport::diagnostic).orElse("图片不可解码"));
+                item.put("status", "EXPORTED");
+              } else {
+                item.put("status", "RAW_ONLY");
+                item.put("diagnostic", match.map(ImageExport::diagnostic).orElse("图片不可解码"));
+              }
               manifest.add(item);
             }
             byte[] bytes = mapper.writeValueAsBytes(manifest);
             checkSize(total + bytes.length);
             entry(zip, "manifest.json", bytes);
+          } catch (PdfProcessingException e) {
+            throw e;
+          } catch (IOException e) {
+            throw new PdfProcessingException("OUTPUT_CREATE_FAILED", "图片压缩包无法写入", e);
           }
+          response.setHeader("X-Images-Total", Integer.toString(raw.size()));
+          response.setHeader("X-Images-Exported", Long.toString(manifest.stream()
+              .filter(item -> "EXPORTED".equals(item.get("status"))).count()));
           download(response, output, "application/zip", "images.zip");
         });
   }

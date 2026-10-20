@@ -16,6 +16,12 @@ public final class PdfProcessingException extends IOException {
     this.code = code;
   }
 
+  public static PdfProcessingException password(String password, IOException cause) {
+    boolean missing = password == null || password.isEmpty();
+    return new PdfProcessingException(missing ? "PDF_PASSWORD_REQUIRED" : "PDF_PASSWORD_INVALID",
+        missing ? "PDF 需要打开密码" : "PDF 打开密码错误", cause);
+  }
+
   public String getCode() {
     return code;
   }

@@ -22,6 +22,8 @@ public final class SignatureExample {
       Arrays.fill(password, '\0');
     }
     new ObjectMapper()
+        .findAndRegisterModules()
+        .disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
         .writeValue(
             input.output.resolve("verification.json").toFile(),
             PdfSignatureUtils.verify(signed, input.password, List.of()));

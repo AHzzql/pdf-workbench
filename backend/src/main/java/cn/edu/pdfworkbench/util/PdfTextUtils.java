@@ -1,6 +1,7 @@
 package cn.edu.pdfworkbench.util;
 
 import cn.edu.pdfworkbench.model.*;
+import cn.edu.pdfworkbench.exception.PdfParameterException;
 import com.google.re2j.Pattern;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -53,15 +54,15 @@ public final class PdfTextUtils {
       throws IOException {
     Objects.requireNonNull(options, "搜索选项不能为空");
     if (options.pattern() == null || options.pattern().isBlank()) {
-      throw new IllegalArgumentException("搜索表达式不能为空");
+      throw new PdfParameterException("INVALID_REGEX", "搜索表达式不能为空");
     }
     int supported = Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL;
-    if ((options.flags() & ~supported) != 0) throw new IllegalArgumentException("不支持的搜索标记");
+    if ((options.flags() & ~supported) != 0) throw new PdfParameterException("INVALID_REGEX", "不支持的搜索标记");
     Pattern pattern;
     try {
       pattern = Pattern.compile(options.pattern(), options.flags());
     } catch (com.google.re2j.PatternSyntaxException exception) {
-      throw new IllegalArgumentException("正则表达式语法错误或不受支持", exception);
+      throw new PdfParameterException("INVALID_REGEX", "正则表达式语法错误或不受支持", exception);
     }
     var result = extract(input, password, new TextOptions(options.pages(), true));
     List<SearchMatch> matches = new ArrayList<>();

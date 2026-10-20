@@ -17,93 +17,89 @@ final class SignatureVerifier {
   private SignatureVerifier() {}
 
   static SignatureResult verify(PDSignature signature, byte[] file, List<X509Certificate> anchors) {
-    String signer = null, algorithm = null, integrity = "INVALID", validity = "UNKNOWN";
-    String trust = anchors.isEmpty() ? "NOT_EVALUATED" : "UNTRUSTED";
-    boolean later = false;
+    String signer = null, algorithm = null, validity = "UNKNOWN", trust = "NOT_EVALUATED";
+    Boolean later = null;
+    SignatureResult.CertificateSummary summary = null;
     try {
       int[] range = signature.getByteRange();
-      if (range == null
-          || range.length != 4
-          || range[0] != 0
-          || range[1] <= 0
-          || range[2] <= range[1]
-          || range[3] < 0
-          || (long) range[2] + range[3] > file.length) {
-        return invalid(signature, "签名字节范围非法", trust);
+      if (range == null || range.length != 4 || range[0] != 0 || range[1] <= 0
+          || range[2] <= range[1] || range[3] < 0 || (long) range[2] + range[3] > file.length) {
+        return unverified(signature, "INVALID", null, "签名字节范围非法");
       }
       if (file[range[1]] != '<' || file[range[2] - 1] != '>')
-        return invalid(signature, "签名范围缺口不是 Contents", trust);
+        return unverified(signature, "INVALID", null, "签名范围缺口不是 Contents");
       // 将范围缺口与当前签名字典的 Contents 对齐，防止验证另一段无关 CMS。
-      String hex =
-          new String(
-                  file,
-                  range[1] + 1,
-                  range[2] - range[1] - 2,
-                  java.nio.charset.StandardCharsets.US_ASCII)
-              .replaceAll("\\s", "");
+      String hex = new String(file, range[1] + 1, range[2] - range[1] - 2,
+          java.nio.charset.StandardCharsets.US_ASCII).replaceAll("\\s", "");
       byte[] gap = org.bouncycastle.util.encoders.Hex.decode(hex);
       if (!java.util.Arrays.equals(gap, signature.getContents()))
-        return invalid(signature, "签名范围与 Contents 不一致", trust);
+        return unverified(signature, "INVALID", null, "签名范围与 Contents 不一致");
       later = (long) range[2] + range[3] < file.length;
-      var cms =
-          new CMSSignedData(
-              new CMSProcessableByteArray(signature.getSignedContent(file)),
-              signature.getContents(file));
+      if (!"adbe.pkcs7.detached".equals(signature.getSubFilter())
+          && !"ETSI.CAdES.detached".equals(signature.getSubFilter()))
+        return unverified(signature, "UNKNOWN", later, "签名类型不受支持");
+      var cms = new CMSSignedData(new CMSProcessableByteArray(signature.getSignedContent(file)),
+          signature.getContents(file));
+      if (!cms.isDetachedSignature())
+        return unverified(signature, "INVALID", later, "CMS 内容不是分离式签名");
       var signers = cms.getSignerInfos().getSigners();
-      if (signers.size() != 1) return invalid(signature, "CMS 签署者数量不受支持", trust);
+      if (signers.isEmpty()) return unverified(signature, "INVALID", later, "CMS 缺少签署者");
+      if (signers.size() != 1)
+        return unverified(signature, "UNKNOWN", later, "CMS 签署者数量不受支持");
       var info = signers.iterator().next();
-      var matches =
-          cms.getCertificates().getMatches(null).stream()
-              .filter(holder -> info.getSID().match(holder))
-              .toList();
-      if (matches.size() != 1) return invalid(signature, "无法确定签署证书", trust);
+      algorithm = info.getDigestAlgOID() + " / " + info.getEncryptionAlgOID();
+      var matches = cms.getCertificates().getMatches(null).stream()
+          .filter(holder -> info.getSID().match(holder)).toList();
+      if (matches.size() != 1)
+        return new SignatureResult(signature.getName(), null, algorithm, "UNKNOWN", later,
+            "UNKNOWN", "NOT_EVALUATED", false, null, "无法确定签署证书");
       var converter = new JcaX509CertificateConverter();
       X509Certificate certificate = converter.getCertificate(matches.getFirst());
       signer = certificate.getSubjectX500Principal().getName();
-      algorithm = info.getDigestAlgOID() + " / " + info.getEncryptionAlgOID();
+      summary = new SignatureResult.CertificateSummary(signer,
+          certificate.getIssuerX500Principal().getName(), certificate.getSerialNumber().toString(),
+          certificate.getNotBefore().toInstant(), certificate.getNotAfter().toInstant());
       validity = validity(certificate);
-      integrity =
-          info.verify(new JcaSimpleSignerInfoVerifierBuilder().build(certificate.getPublicKey()))
-              ? "VALID"
-              : "INVALID";
-      List<X509Certificate> chain = new ArrayList<>();
-      for (var holder : cms.getCertificates().getMatches(null))
-        chain.add(converter.getCertificate(holder));
-      if (!anchors.isEmpty())
+      if (!anchors.isEmpty()) {
+        List<X509Certificate> chain = new ArrayList<>();
+        for (var holder : cms.getCertificates().getMatches(null))
+          chain.add(converter.getCertificate(holder));
         trust = trusted(certificate, chain, anchors) ? "TRUSTED" : "UNTRUSTED";
-      return new SignatureResult(
-          signature.getName(),
-          signer,
-          algorithm,
-          integrity,
-          later,
-          validity,
-          trust,
-          false,
-          "VALID".equals(integrity) ? null : "CMS 摘要或签名不匹配");
-    } catch (IOException
-        | GeneralSecurityException
-        | org.bouncycastle.cms.CMSException
-        | org.bouncycastle.operator.OperatorCreationException
-        | IllegalArgumentException
-        | ClassCastException
-        | IndexOutOfBoundsException exception) {
-      return new SignatureResult(
-          signature.getName(),
-          signer,
-          algorithm,
-          "INVALID",
-          later,
-          validity,
-          trust,
-          false,
-          "签名结构或密码学验证失败");
+      }
+      var verifier = new JcaSimpleSignerInfoVerifierBuilder().build(certificate.getPublicKey());
+      try {
+        verifier.getContentVerifier(info.toASN1Structure().getDigestEncryptionAlgorithm(), info.getDigestAlgorithmID());
+      } catch (IllegalArgumentException exception) {
+        return new SignatureResult(signature.getName(), signer, algorithm, "UNKNOWN", later,
+            validity, trust, false, summary, "签名算法或参数不受支持");
+      }
+      boolean valid = info.verify(verifier);
+      return new SignatureResult(signature.getName(), signer, algorithm, valid ? "VALID" : "INVALID",
+          later, validity, trust, false, summary, valid ? null : "CMS 摘要或签名不匹配");
+    } catch (GeneralSecurityException | org.bouncycastle.operator.OperatorCreationException exception) {
+      return new SignatureResult(signature.getName(), signer, algorithm, "UNKNOWN", later,
+          validity, trust, false, summary, "证书或密码学算法无法验证");
+    } catch (IOException | org.bouncycastle.cms.CMSException | IllegalArgumentException
+        | ClassCastException | IndexOutOfBoundsException exception) {
+      boolean unsupported = unsupportedAlgorithm(exception);
+      return new SignatureResult(signature.getName(), signer, algorithm,
+          unsupported ? "UNKNOWN" : "INVALID", later, validity, trust, false, summary,
+          unsupported ? "签名算法不受支持" : "签名结构或密码学验证失败");
     }
   }
 
-  private static SignatureResult invalid(PDSignature signature, String reason, String trust) {
-    return new SignatureResult(
-        signature.getName(), null, null, "INVALID", false, "UNKNOWN", trust, false, reason);
+  private static boolean unsupportedAlgorithm(Throwable failure) {
+    for (int i = 0; failure != null && i < 16; i++, failure = failure.getCause())
+      if (failure instanceof java.security.NoSuchAlgorithmException
+          || failure instanceof java.security.NoSuchProviderException
+          || failure instanceof org.bouncycastle.operator.OperatorCreationException) return true;
+    return false;
+  }
+
+  private static SignatureResult unverified(
+      PDSignature signature, String integrity, Boolean later, String reason) {
+    return new SignatureResult(signature.getName(), null, null, integrity, later,
+        "UNKNOWN", "NOT_EVALUATED", false, null, reason);
   }
 
   private static String validity(X509Certificate certificate) {
