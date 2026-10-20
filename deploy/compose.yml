@@ -1,0 +1,100 @@
+name: pdf-workbench-local
+services:
+  gateway:
+    image: nginx@sha256:970364228b1e4f932abc22d321932816782cca8a20b85a77552a7cfe9acfb3b5 # 1.30.6
+    ports:
+      - "127.0.0.1:5173:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../frontend/dist:/usr/share/nginx/html:ro
+    mem_limit: 128m
+    pids_limit: 64
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+  postgres:
+    image: postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24 # 17.11
+    ports:
+      - "127.0.0.1:15432:5432"
+    environment:
+      POSTGRES_DB: pdf_workbench
+      POSTGRES_USER: pdf_workbench
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    mem_limit: 512m
+    pids_limit: 128
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "pdf_workbench", "-d", "pdf_workbench"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+  redis:
+    image: redis@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0 # 8.10.2
+    ports:
+      - "127.0.0.1:16379:6379"
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - ./runtime/redis-users.acl:/run/secrets/redis-users.acl:ro
+      - redis_data:/data
+    mem_limit: 256m
+    pids_limit: 128
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--user", "workbench", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch@sha256:13b4a40bb095774f5fda635e45fd5677cc6a26565e42b24997b0c72b88e75984 # 9.5.5
+    ports:
+      - "127.0.0.1:19200:9200"
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "true"
+      xpack.security.autoconfiguration.enabled: "false"
+      xpack.security.http.ssl.enabled: "false"
+      xpack.ml.enabled: "false"
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?ELASTIC_PASSWORD is required}
+      ES_JAVA_OPTS: -Xms1g -Xmx1g
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    mem_limit: 2g
+    pids_limit: 1024
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", 'curl -fs -u "elastic:$$ELASTIC_PASSWORD" "http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow&timeout=5s" > /dev/null']
+      interval: 10s
+      timeout: 8s
+      retries: 20
+  rabbitmq:
+    image: rabbitmq@sha256:8668a6ed4a878a6619213d9d5721dd4983ecb662312fe233816e1d1ff8a96753 # 4.4.0
+    ports:
+      - "127.0.0.1:5672:5672"
+    environment:
+      RABBITMQ_DEFAULT_USER: workbench
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+      RABBITMQ_DEFAULT_VHOST: workbench
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: +S 2:2
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    mem_limit: 512m
+    pids_limit: 256
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+volumes:
+  postgres_data:
+  redis_data:
+  elasticsearch_data:
+  rabbitmq_data:

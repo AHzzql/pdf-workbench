@@ -19,3 +19,5 @@ frontend/playwright-report/
 backend/config/application-local.yml
 
 __pycache__/
+
+deploy/runtime/
