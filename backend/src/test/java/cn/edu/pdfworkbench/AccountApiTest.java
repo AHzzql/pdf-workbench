@@ -54,7 +54,12 @@ class AccountApiTest {
     String csrf;
 
     HttpResponse<String> send(String method, String path, Object value) throws Exception {
+      return send(method, path, value, null);
+    }
+
+    HttpResponse<String> send(String method, String path, Object value, String space) throws Exception {
       var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path));
+      if (space != null) request.header("X-Chat-Space", space);
       if (csrf != null) request.header("X-CSRF-TOKEN", csrf);
       if (value != null) request.header("Content-Type", "application/json");
       return http.send(
@@ -110,9 +115,18 @@ class AccountApiTest {
     var r = c.send("GET", "/api/v1/account/session", null);
     assertEquals(200, r.statusCode());
     assertFalse(c.node(r).get("authenticated").asBoolean());
-    assertTrue(c.cookies.getCookieStore().getCookies().isEmpty());
+    assertFalse(c.cookies.getCookieStore().getCookies().isEmpty());
+    String workspace = c.node(r).get("workspaceId").asText();
+    assertEquals(
+        workspace,
+        c.node(c.send("GET", "/api/v1/account/session", null)).get("workspaceId").asText());
+    assertDoesNotThrow(() -> UUID.fromString(workspace));
     assertEquals(403, c.send("POST", "/api/v1/account/register", Map.of()).statusCode());
     assertEquals(401, c.send("GET", "/api/v1/account/profile", null).statusCode());
+    assertEquals(
+        403,
+        c.send("POST", "/api/v1/pdf/ai/conversations/search", Map.of("query", "")).statusCode());
+    c.token();
     assertEquals(
         200,
         c.send("POST", "/api/v1/pdf/ai/conversations/search", Map.of("query", "")).statusCode());
@@ -235,6 +249,7 @@ class AccountApiTest {
   }
 
   String upload(Client c) throws Exception {
+    if (c.csrf == null) c.token();
     var out = new java.io.ByteArrayOutputStream();
     String boundary = "account-test-boundary";
     out.write(
@@ -262,6 +277,50 @@ class AccountApiTest {
     var r = c.send("POST", "/api/v1/pdf/ai/conversations", Map.of("documentId", document));
     assertEquals(200, r.statusCode(), r.body());
     return c.node(r).get("id").asText();
+  }
+
+  @Test
+  void independentGuestsCannotReadModifyOrClaimEachOthersWorkspace() throws Exception {
+    var a = new Client();
+    var b = new Client();
+    String spaceA =
+        a.node(a.send("GET", "/api/v1/account/session", null)).get("workspaceId").asText();
+    String spaceB =
+        b.node(b.send("GET", "/api/v1/account/session", null)).get("workspaceId").asText();
+    assertNotEquals(spaceA, spaceB);
+    String document = upload(a), chat = conversation(a, document);
+    b.token();
+    assertEquals(
+        0,
+        b.node(b.send("POST", "/api/v1/pdf/ai/conversations/search", Map.of("query", ""))).size());
+    for (String path :
+        List.of(
+            "/documents/" + document,
+            "/documents/" + document + "/file",
+            "/documents/" + document + "/chapters",
+            "/conversations/" + chat + "/messages")) {
+      assertEquals(404, b.send("GET", "/api/v1/pdf/ai" + path, null).statusCode(), path);
+      assertEquals(409, b.send("GET", "/api/v1/pdf/ai" + path, null, spaceA).statusCode(), path);
+    }
+    assertEquals(
+        404,
+        b.send("PATCH", "/api/v1/pdf/ai/conversations/" + chat, Map.of("title", "other")).statusCode());
+    assertEquals(
+        404,
+        b.send("DELETE", "/api/v1/pdf/ai/conversations/" + chat, Map.of("deleteDocument", true))
+            .statusCode());
+    assertEquals(
+        200, a.send("GET", "/api/v1/pdf/ai/documents/" + document + "/file", null).statusCode());
+    String email = email();
+    a.register(email);
+    a.login(email);
+    assertEquals(404, a.send("GET", "/api/v1/pdf/ai/documents/" + document, null).statusCode());
+    assertEquals(204, a.send("POST", "/api/v1/account/logout", null).statusCode());
+    String newSpace =
+        a.node(a.send("GET", "/api/v1/account/session", null)).get("workspaceId").asText();
+    assertNotEquals(spaceA, newSpace);
+    assertEquals(404, a.send("GET", "/api/v1/pdf/ai/documents/" + document, null).statusCode());
+    assertEquals(409, a.send("GET", "/api/v1/pdf/ai/status", null, spaceA).statusCode());
   }
 
   @Test
@@ -420,7 +479,13 @@ class AccountApiTest {
     var other = new Client();
     String emailB = email();
     other.register(emailB);
-    for (boolean switchAccount : List.of(false, true)) {
+    for (String transition : List.of("logout", "account-switch", "guest-login")) {
+      boolean fromGuest = transition.equals("guest-login");
+      if (fromGuest) {
+        assertEquals(204, a.send("POST", "/api/v1/account/logout", null).statusCode());
+        a.token();
+        chat = conversation(a, upload(a));
+      }
       var release = new java.util.concurrent.CountDownLatch(1);
       doAnswer(
           call -> {
@@ -453,7 +518,7 @@ class AccountApiTest {
               new java.io.InputStreamReader(
                   response.body(), java.nio.charset.StandardCharsets.UTF_8))) {
         for (String line; (line = reader.readLine()) != null && !line.isEmpty(); ) {}
-        if (switchAccount) a.login(emailB);
+        if (!transition.equals("logout")) a.login(emailB);
         else assertEquals(204, a.send("POST", "/api/v1/account/logout", null).statusCode());
         release.countDown();
         String tail =
@@ -471,6 +536,10 @@ class AccountApiTest {
         release.countDown();
       }
       a.login(emailA);
+      if (fromGuest) {
+        assertEquals(404, a.send("GET", "/api/v1/pdf/ai/runs/" + run, null).statusCode());
+        continue;
+      }
       for (int i = 0; i < 200; i++) {
         var result = a.node(a.send("GET", "/api/v1/pdf/ai/runs/" + run, null));
         if (!result.get("status").asText().equals("RUNNING")) break;

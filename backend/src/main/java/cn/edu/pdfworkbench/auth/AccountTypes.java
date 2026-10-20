@@ -7,7 +7,7 @@ public final class AccountTypes {
 
   public record Identity(String id, long version) implements java.io.Serializable {}
 
-  public record Session(boolean authenticated, User user) {}
+  public record Session(boolean authenticated, User user, String workspaceId) {}
 
   public record Register(String email, String displayName, String password) {}
 

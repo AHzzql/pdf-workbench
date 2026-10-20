@@ -35,10 +35,10 @@ public class AccountController {
   }
 
   @GetMapping("/session")
-  public Session session() {
+  public Session session(HttpServletRequest request) {
     var i = identity();
     var row = i == null ? null : service.current(i);
-    return new Session(row != null, row == null ? null : row.user());
+    return new Session(row != null, row == null ? null : row.user(), ChatWorkspace.owner(request, i));
   }
 
   @GetMapping("/csrf")
@@ -59,6 +59,7 @@ public class AccountController {
     var row = service.login(value, request.getRemoteAddr());
     request.getSession(true);
     request.changeSessionId();
+    request.getSession(false).removeAttribute(ChatWorkspace.GUEST_ATTRIBUTE);
     var context = SecurityContextHolder.createEmptyContext();
     context.setAuthentication(
         UsernamePasswordAuthenticationToken.authenticated(
@@ -66,7 +67,7 @@ public class AccountController {
     SecurityContextHolder.setContext(context);
     contexts.saveContext(context, request, response);
     new HttpSessionCsrfTokenRepository().saveToken(null, request, response);
-    return new Session(true, row.user());
+    return new Session(true, row.user(), row.id());
   }
 
   @GetMapping("/profile")

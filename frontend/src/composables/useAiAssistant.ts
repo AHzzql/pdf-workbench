@@ -1,4 +1,4 @@
-import { chatSpace } from "./useAccount";
+import { chatSpace, ensureChatSpace } from "./useAccount";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { AI_BASE, aiRequest } from "../api/ai";
 import type {
@@ -67,9 +67,7 @@ export function useAiAssistant(
   );
 
   function lastKey() {
-    return chatSpace.value === "guest"
-      ? "pdf-ai-conversation"
-      : `pdf-ai-conversation:${chatSpace.value}`;
+    return `pdf-ai-conversation:${chatSpace.value}`;
   }
   function saveLast(id: string | null) {
     try {
@@ -87,8 +85,14 @@ export function useAiAssistant(
     }
   }
   async function open() {
-    const current = revision;
     opened.value = true;
+    try {
+      await ensureChatSpace();
+    } catch (e) {
+      fail(e);
+      return;
+    }
+    const current = revision;
     if (!initialized) {
       initialized = true;
       try {
@@ -146,7 +150,8 @@ export function useAiAssistant(
   }
   watch(
     chatSpace,
-    () => {
+    (_space, previous) => {
+      if (!previous) return;
       autoWelcome = false;
       reset(true);
       history.value = [];

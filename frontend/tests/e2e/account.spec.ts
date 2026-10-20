@@ -139,3 +139,80 @@ test("账户服务故障不阻断游客，入口和弹窗适配各宽度", async
     ).toBeFocused();
   }
 });
+
+test("游客浏览器会话独立，过期空间不能恢复旧历史", async ({
+  page,
+  browser,
+}) => {
+  const firstSession = page.waitForResponse((response) =>
+    response.url().endsWith("/api/v1/account/session"),
+  );
+  await page.goto("/");
+  const session = await (await firstSession).json();
+  expect(session.authenticated).toBe(false);
+  expect(session.workspaceId).toMatch(/^[a-f0-9-]{36}$/);
+  const isolated = await browser.newContext();
+  try {
+    const otherPage = await isolated.newPage();
+    const otherSessionResponse = otherPage.waitForResponse((response) =>
+      response.url().endsWith("/api/v1/account/session"),
+    );
+    await otherPage.goto(new URL("/", page.url()).href);
+    const otherSession = await (await otherSessionResponse).json();
+    expect(otherSession.workspaceId).not.toBe(session.workspaceId);
+    const stale = await isolated.request.get(
+      new URL("/api/v1/pdf/ai/status", page.url()).href,
+      { headers: { "X-Chat-Space": session.workspaceId } },
+    );
+    expect(stale.status()).toBe(409);
+    const withoutCsrf = await page.request.post(
+      "/api/v1/pdf/ai/conversations/search",
+      { data: { query: "" } },
+    );
+    expect(withoutCsrf.status()).toBe(403);
+    const historyRequest = page.waitForRequest((request) =>
+      request.url().endsWith("/conversations/search"),
+    );
+    const historyResponse = page.waitForResponse((response) =>
+      response.url().endsWith("/conversations/search"),
+    );
+    await page.getByRole("button", { name: "打开 PDF 智能助手" }).click();
+    const history = await historyRequest;
+    expect((await historyResponse).status()).toBe(200);
+    expect(history.headers()["x-chat-space"]).toBe(session.workspaceId);
+    expect(history.headers()["x-csrf-token"]).toBeTruthy();
+    await page.evaluate((workspace) => {
+      localStorage.setItem(
+        `pdf-ai-conversation:${workspace}`,
+        "old-private-conversation",
+      );
+      localStorage.setItem("pdf-ai-conversation", "legacy-shared-conversation");
+    }, session.workspaceId);
+    const requested: string[] = [];
+    page.on("request", (request) => requested.push(request.url()));
+    await page.context().clearCookies();
+    const freshSession = page.waitForResponse((response) =>
+      response.url().endsWith("/api/v1/account/session"),
+    );
+    await page.reload();
+    const fresh = await (await freshSession).json();
+    expect(fresh.workspaceId).not.toBe(session.workspaceId);
+    const freshHistory = page.waitForResponse((response) =>
+      response.url().endsWith("/conversations/search"),
+    );
+    await page.getByRole("button", { name: "打开 PDF 智能助手" }).click();
+    expect((await freshHistory).status()).toBe(200);
+    await expect(page.locator(".ai-window")).toBeVisible();
+    expect(
+      requested.some((url) =>
+        /old-private-conversation|legacy-shared-conversation/.test(url),
+      ),
+    ).toBe(false);
+    await page.getByRole("button", { name: "关闭助手", exact: true }).click();
+    await page.getByLabel("选择 PDF 文件").setInputFiles(fixture);
+    await page.getByRole("button", { name: "提取文本", exact: true }).click();
+    await expect(page.locator(".extracted-text")).toContainText("Alpha");
+  } finally {
+    await isolated.close();
+  }
+});

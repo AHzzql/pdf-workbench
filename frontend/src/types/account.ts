@@ -5,6 +5,7 @@ export interface AccountUser {
 }
 export interface AccountSession {
   authenticated: boolean;
+  workspaceId: string;
   user: AccountUser | null;
 }
 export type AccountPanel = "login" | "register" | "profile" | "security";

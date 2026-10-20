@@ -9,7 +9,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
-import org.springframework.security.web.csrf.CsrfFilter;
 
 @Configuration
 public class AccountSecurityConfig {
@@ -31,14 +30,6 @@ public class AccountSecurityConfig {
                     .authenticated()
                     .anyRequest()
                     .permitAll())
-        .csrf(
-            c ->
-                c.requireCsrfProtectionMatcher(
-                    request -> {
-                      if (!CsrfFilter.DEFAULT_CSRF_MATCHER.matches(request)) return false;
-                      return !request.getRequestURI().startsWith("/api/v1/pdf/ai/")
-                          || AccountController.identity() != null;
-                    }))
         .requestCache(c -> c.disable())
         .formLogin(c -> c.disable())
         .httpBasic(c -> c.disable())

@@ -41,32 +41,34 @@ public class AccountSessionFilter extends OncePerRequestFilter {
         identity = null;
         if (ai) throw new ApiException(401, "ACCOUNT_LOGIN_REQUIRED", "账户会话已失效，请重新登录或继续游客使用");
       }
-      String owner = identity == null ? "guest" : identity.id();
-      String expected = request.getHeader("X-Chat-Space");
-      if (ai && expected != null && !expected.equals(owner))
-        throw new ApiException(409, "CHAT_SPACE_CHANGED", "聊天空间已切换，请重新打开智能助手");
       if (!ai) {
         chain.doFilter(request, response);
         return;
       }
+      String owner = ChatWorkspace.owner(request, identity);
+      String expected = request.getHeader("X-Chat-Space");
+      if (expected != null && !expected.equals(owner))
+        throw new ApiException(409, "CHAT_SPACE_CHANGED", "聊天空间已切换，请重新打开智能助手");
       final var account = identity;
       final var session = request.getSession(false);
       BooleanSupplier access =
-          account == null
-              ? () -> true
-              : () -> {
-                try {
-                  if (session == null) return false;
-                  var context = session.getAttribute("SPRING_SECURITY_CONTEXT");
-                  return context
-                          instanceof org.springframework.security.core.context.SecurityContext c
-                      && c.getAuthentication() != null
-                      && account.equals(c.getAuthentication().getPrincipal())
-                      && service.current(account) != null;
-                } catch (Exception e) {
-                  return false;
-                }
-              };
+          () -> {
+            try {
+              if (session == null) return false;
+              var context = session.getAttribute("SPRING_SECURITY_CONTEXT");
+              if (account == null)
+                return owner.equals(session.getAttribute(ChatWorkspace.GUEST_ATTRIBUTE))
+                    && !(context instanceof org.springframework.security.core.context.SecurityContext c
+                        && c.getAuthentication() != null
+                        && c.getAuthentication().getPrincipal() instanceof AccountTypes.Identity);
+              return context instanceof org.springframework.security.core.context.SecurityContext c
+                  && c.getAuthentication() != null
+                  && account.equals(c.getAuthentication().getPrincipal())
+                  && service.current(account) != null;
+            } catch (Exception e) {
+              return false;
+            }
+          };
       try (var scope = repository.scope(owner, access)) {
         chain.doFilter(request, response);
       }

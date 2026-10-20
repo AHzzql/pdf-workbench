@@ -49,8 +49,24 @@ class AiApiTest {
   final AtomicBoolean slow = new AtomicBoolean();
   final String base = "/api/v1/pdf/ai";
 
+  AiRepository.Scope workspace;
+
   @BeforeEach
-  void models() {
+  void models() throws Exception {
+    var cookies = new java.net.CookieManager(null, java.net.CookiePolicy.ACCEPT_ALL);
+    var csrf = new java.util.HashMap<String, String>();
+    http.getRestTemplate().setInterceptors(List.of((request, body, execution) -> {
+      cookies.get(request.getURI(), Map.of()).forEach((name, values) -> request.getHeaders().put(name, values));
+      if (!Set.of("GET", "HEAD", "OPTIONS", "TRACE").contains(request.getMethod().name()))
+        csrf.forEach((name, value) -> request.getHeaders().set(name, value));
+      var response = execution.execute(request, body);
+      cookies.put(request.getURI(), response.getHeaders());
+      return response;
+    }));
+    var session = http.getForObject("/api/v1/account/session", cn.edu.pdfworkbench.auth.AccountTypes.Session.class);
+    workspace = repository.scope(session.workspaceId(), () -> true);
+    var token = http.getForObject("/api/v1/account/csrf", com.fasterxml.jackson.databind.JsonNode.class);
+    csrf.put(token.get("headerName").asText(), token.get("token").asText());
     slow.set(false);
     when(models.embed(anyList()))
         .thenAnswer(
@@ -530,8 +546,14 @@ class AiApiTest {
 
   @AfterEach
   void stopRemaining() {
-    for (var c : repository.conversations())
-      for (var m : repository.messages(c.id()))
-        if (m.status().equals("RUNNING")) runs.cancel(m.id());
+    try {
+      if (workspace != null)
+        for (var c : repository.conversations())
+          for (var m : repository.messages(c.id()))
+            if (m.status().equals("RUNNING")) runs.cancel(m.id());
+    } finally {
+      if (workspace != null) workspace.close();
+      http.getRestTemplate().setInterceptors(List.of());
+    }
   }
 }

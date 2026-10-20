@@ -9,7 +9,13 @@ import type { AccountUser, AccountSession } from "../types/account";
 const user = shallowRef<AccountUser | null>(null);
 const pending = ref(false);
 const unavailable = ref(false);
-export const chatSpace = computed(() => user.value?.id || "guest");
+const guestWorkspace = ref("");
+export const chatSpace = computed(() => user.value?.id || guestWorkspace.value);
+export async function ensureChatSpace() {
+  if (!chatSpace.value) await useAccount().refresh();
+  if (!chatSpace.value) throw new Error("聊天会话暂不可用，请稍后重试");
+  return chatSpace.value;
+}
 let generation = 0;
 let restoring: Promise<void> | null = null;
 export function useAccount() {
@@ -19,10 +25,17 @@ export function useAccount() {
     restoring = (async () => {
       try {
         const result = await accountSession();
+        if (!result.workspaceId) throw new Error("聊天会话缺少空间标识");
         if (current === generation) {
           if (user.value?.id !== result.user?.id || !result.authenticated)
             clearAccountToken();
-          user.value = result.user;
+          if (result.authenticated) {
+            user.value = result.user;
+            guestWorkspace.value = "";
+          } else {
+            guestWorkspace.value = result.workspaceId;
+            user.value = null;
+          }
           unavailable.value = false;
         }
       } catch {
@@ -48,7 +61,10 @@ export function useAccount() {
         current === generation
       ) {
         clearAccountToken();
-        user.value = null;
+        if (user.value) {
+          guestWorkspace.value = "";
+          user.value = null;
+        }
       }
       if (e instanceof AccountError && e.status === 403) await refresh();
       throw e;
@@ -63,6 +79,7 @@ export function useAccount() {
         password,
       });
       user.value = result.user;
+      guestWorkspace.value = "";
       unavailable.value = false;
     });
   }
@@ -76,6 +93,7 @@ export function useAccount() {
   async function logout() {
     return perform(async () => {
       await accountWrite("/logout", "POST");
+      guestWorkspace.value = "";
       user.value = null;
       clearAccountToken();
     });
@@ -83,6 +101,7 @@ export function useAccount() {
   async function password(currentPassword: string, newPassword: string) {
     return perform(async () => {
       await accountWrite("/password", "POST", { currentPassword, newPassword });
+      guestWorkspace.value = "";
       user.value = null;
       clearAccountToken();
     });

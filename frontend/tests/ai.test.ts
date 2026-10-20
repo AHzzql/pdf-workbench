@@ -1,11 +1,28 @@
 import { useAccount } from "../src/composables/useAccount";
 import { clearAccountToken } from "../src/api/account";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import AiAnswer from "../src/components/AiAnswer.vue";
 import AiAssistant from "../src/components/AiAssistant.vue";
 import type { AiMessage, Citation } from "../src/types/ai";
 
+beforeEach(async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            authenticated: false,
+            user: null,
+            workspaceId: "guest-test",
+          }),
+        ),
+    ),
+  );
+  await useAccount().refresh();
+  vi.unstubAllGlobals();
+});
 afterEach(() => {
   useAccount().user.value = null;
   clearAccountToken();
@@ -63,7 +80,7 @@ describe("AI 阅读界面", () => {
   });
 
   it("切换账户仅保留 PDF，清空旧聊天并隔离历史指针", async () => {
-    localStorage.setItem("pdf-ai-conversation", "guest-last");
+    localStorage.setItem("pdf-ai-conversation:guest-test", "guest-last");
     localStorage.setItem("pdf-ai-conversation:account-a", "a-last");
     vi.stubGlobal(
       "fetch",
@@ -99,7 +116,7 @@ describe("AI 阅读界面", () => {
     click('[aria-label="历史对话"]');
     await flushPromises();
     expect(document.querySelector(".ai-history-list")?.textContent).toContain(
-      "guest-private",
+      "guest-test-private",
     );
     useAccount().user.value = {
       id: "account-a",
@@ -112,8 +129,10 @@ describe("AI 阅读界面", () => {
     );
     expect(
       document.querySelector(".ai-history-list")?.textContent,
-    ).not.toContain("guest-private");
-    expect(localStorage.getItem("pdf-ai-conversation")).toBe("guest-last");
+    ).not.toContain("guest-test-private");
+    expect(localStorage.getItem("pdf-ai-conversation:guest-test")).toBe(
+      "guest-last",
+    );
     expect(localStorage.getItem("pdf-ai-conversation:account-a")).toBe(
       "a-last",
     );
@@ -303,7 +322,7 @@ describe("AI 阅读界面", () => {
     wrapper.unmount();
   });
   it("加密历史的密码输入不会在首字符后消失", async () => {
-    localStorage.setItem("pdf-ai-conversation", "c");
+    localStorage.setItem("pdf-ai-conversation:guest-test", "c");
     const conversation = {
       id: "c",
       documentId: "d",
@@ -317,11 +336,13 @@ describe("AI 阅读界面", () => {
         if (url.endsWith("/file")) return new Response("PDF");
         const value = url.endsWith("/status")
           ? { configured: true }
-          : url.endsWith("/search")
-            ? [conversation]
-            : url.endsWith("/documents/d")
-              ? { id: "d", name: "encrypted.pdf", pages: 1, encrypted: true }
-              : [];
+          : url.endsWith("/csrf")
+            ? { headerName: "X-CSRF-TOKEN", token: "fixture" }
+            : url.endsWith("/search")
+              ? [conversation]
+              : url.endsWith("/documents/d")
+                ? { id: "d", name: "encrypted.pdf", pages: 1, encrypted: true }
+                : [];
         return new Response(JSON.stringify(value));
       }),
     );
