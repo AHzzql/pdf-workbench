@@ -106,9 +106,10 @@ def document():
     d.add_paragraph('PDF 文档处理系统','Title')
     p=d.add_paragraph('Part A 需求规格说明书');p.alignment=WD_ALIGN_PARAGRAPH.CENTER;p.paragraph_format.first_line_indent=Pt(0)
     for r in p.runs:set_font(r,18,'黑体')
-    for text in ['版本 1.0','2026 年 10 月 20 日']:
+    year,month,day=map(int,DATE.split('-'))
+    for text in [f'版本 {VERSION}',f'{year} 年 {month} 月 {day} 日']:
         p=d.add_paragraph(text);p.alignment=WD_ALIGN_PARAGRAPH.CENTER;p.paragraph_format.first_line_indent=Pt(0);p.paragraph_format.space_before=Pt(14)
-    p=paragraph(d,'本规格定义 PDF 文件选择、内容提取、文档信息、安全处理及水印功能，并建立需求、数据流、界面导航、接口与验收条件之间的对应关系。系统采用 Web 工作台，应用在 Windows 原生运行，数据库与私有对象存储由 Docker 承载。');p.paragraph_format.space_before=Pt(60)
+    p=paragraph(d,'本规格定义 PDF 文件选择、内容提取、文档信息、安全处理及水印功能，并建立需求、数据流、界面导航、接口与验收条件之间的对应关系。系统采用 Web 工作台，Java 应用在 Windows 原生运行，统一入口与数据服务由 Docker 承载。');p.paragraph_format.space_before=Pt(60)
     d.add_page_break();p=d.add_paragraph('目录');p.alignment=WD_ALIGN_PARAGRAPH.CENTER;p.paragraph_format.first_line_indent=Pt(0)
     for r in p.runs:set_font(r,18,'黑体',True)
     p=d.add_paragraph();p.paragraph_format.first_line_indent=Pt(0);field(p,'TOC \\o "1-2" \\h \\z \\u')
@@ -154,16 +155,18 @@ def document():
 
     heading(d,'5 系统架构与技术可行性')
     heading(d,'5.1 模块与部署职责',2)
-    paragraph(d,'采用模块化单体。主服务与 PDF 执行入口属于同一代码库，分别承担 HTTP 协调与文档处理；不拆分微服务。Windows 直接运行 Java，Node.js 负责开发和构建；Docker 仅提供 PostgreSQL 与私有对象存储。')
+    paragraph(d,'采用同一代码库内的模块化架构，区分 Web、后台 Worker 与受限 PDF 执行进程。Windows 原生运行 Java，Node.js 负责前端开发和构建；Nginx 提供正式静态页面并代理 API。数据库、可过期状态、派生索引、消息投递与私有文件服务由 Docker 承载，不拆分独立业务微服务。')
     table(d,'表 6 技术选型与职责',['模块','选型','职责与理由'],ARCHITECTURE,[2.5,4.3,8.7])
     heading(d,'5.2 执行边界与故障处理',2)
     paragraph(d,'主服务使用有界执行器取得处理名额后，以 ProcessBuilder 参数列表启动受限 Java 子进程。PDFBox、签名和图片解码在该进程中执行；密码通过本次受控输入通道传递，不进入命令行。处理期限初值 120 秒，超时终止执行进程并形成明确结果。')
-    paragraph(d,'普通操作保持一次请求返回结果的接口语义。有必要后台运行的任务由数据库记录状态，有界执行器仅提供执行名额；领取、租约和提交状态采用短事务，文件读写 不占用数据库行锁。敏感凭据操作在可用执行槽内直接交付；中断后重新输入，不自动重放。')
-    paragraph(d,'PostgreSQL 同时承担业务持久化及必要调度，不另设 Redis 或消息队列。SeaweedFS 承担实际文件服务，避免文件长期依赖 Windows 绝对路径。PDF 子进程用于限制内存与故障范围，其运行权限、输入校验和依赖更新分别管理。')
+    paragraph(d,'11 个核心 PDF 接口保持一次请求返回结果的同步语义，不先入消息队列再等待。PDF 子进程限制解析器的内存与崩溃范围，异步线程仅承担协调及 I/O；敏感凭据操作中断后重新输入，不自动重放。')
+    paragraph(d,'索引构建和文件清理由后台 Worker 执行。业务事务同时写入任务与 Outbox；Worker 用短租约领取 Outbox，收到发布确认且无路由退回后标记已投递。消费时以数据库任务标识、投递版本和递增执行令牌去重，结果与终态同事务提交后手动确认。网络等待、对象读写和 PDF 处理不持有任务行锁。')
+    paragraph(d,'后台任务初始租约 30 秒，执行窗口 15 分钟，最多尝试三次，失败按有限退避重投，永久失败进入死信队列；清理队列初始并发 1、索引队列并发 2，每类最多 128 个未完成项。取消或租约接管撤销旧令牌的提交权。删除先写墓碑并撤销访问，再清理文件及派生索引；重复清理保持幂等。')
+    paragraph(d,'正则搜索直接处理所选页文字，不依赖 Elasticsearch。Redis、检索或 AMQP 故障仅影响依赖对应服务的操作，其余同步 PDF 接口仍可执行。私有文件经 S3 读写，归属和对象关系由 PostgreSQL 维护。')
 
-    heading(d,'5.3 本机部署架构',2)
-    figure(d,'08-architecture.png','图 1 逻辑与本机部署架构',width=14)
-    paragraph(d,'主服务同源提供页面与 API，数据库及 S3 端口只向本机开放。Docker 承载中间件，应用使用 Windows 原生环境。路径、端口和凭据由配置管理，构建产物可迁移至本地虚拟机；公网入口使用 HTTPS。')
+    heading(d,'5.3 本机部署架构',2,page=True)
+    figure(d,'08-architecture.png','图 1 逻辑与本机部署架构')
+    paragraph(d,'浏览器通过 Nginx 同源访问页面和 API；Web 不连接 AMQP，Worker 不监听 HTTP。本机入口及数据服务端口绑定回环，容器通过宿主专用地址访问 Windows Web。路径与凭据通过配置提供；公网使用独立 TLS、域名允许列表与可信代理配置。单机容器和持久卷不能替代配套备份或主机级容灾。',style='Small')
 
     heading(d,'6 数据流设计',page=True)
     heading(d,'6.1 上下文与图例',2)
@@ -242,8 +245,8 @@ def document():
 def main():
     OUT.mkdir(parents=True,exist_ok=True);figs=graphics.build(OUT/'diagrams');spec=contract.build(OUT);document()
     links=''.join(f'<li><a href="diagrams/{f["id"]}.svg">{f["title"]}</a></li>' for f in figs)
-    (OUT/'index.html').write_text('''<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PDF 文档处理 Part A</title><link rel="icon" href="data:,"><style>body{max-width:920px;margin:52px auto;padding:0 24px;font:17px/1.9 "Microsoft YaHei",sans-serif;color:#222}h1{font-size:30px}h2{margin-top:32px;font-size:22px}a{color:#222;text-underline-offset:4px}li{margin:8px 0}footer{border-top:1px solid #ccc;margin-top:40px;padding-top:15px;font-size:14px}</style><h1>PDF 文档处理系统</h1><p>Part A 需求规格说明书与接口设计</p><h2>文档与接口</h2><ul><li><a href="PartA需求规格说明书.docx">Part A 需求规格说明书</a></li><li><a href="swagger/index.html">Swagger 核心接口原型</a></li><li><a href="openapi.json">OpenAPI 3.0.3 契约</a></li></ul><h2>数据流与界面图</h2><ul>'''+links+'''</ul><footer>版本 1.0　2026 年 10 月 20 日</footer></html>''',encoding='utf-8')
-    (OUT/'README.md').write_text('''# PDF 文档处理系统 Part A\n\n`PartA需求规格说明书.docx` 为主文档；`openapi.json` 为核心接口设计契约；`swagger/index.html` 为本地 Swagger 原型；`diagrams` 保存 SVG 图源、PNG 及节点连线数据。\n\n可直接打开 `index.html` 查看交付目录。Swagger 使用本地资源，不依赖 CDN；执行请求时连接契约中配置的本机应用地址。\n\n编辑需求与图形数据后，使用带 python-docx 和 Pillow 的 Python 运行 `tools/part_a/build.py` 重建，随后更新 Word 目录并重新渲染检查。\n''',encoding='utf-8')
+    (OUT/'index.html').write_text('''<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PDF 文档处理 Part A</title><link rel="icon" href="data:,"><style>body{max-width:920px;margin:52px auto;padding:0 24px;font:17px/1.9 "Microsoft YaHei",sans-serif;color:#222}h1{font-size:30px}h2{margin-top:32px;font-size:22px}a{color:#222;text-underline-offset:4px}li{margin:8px 0}footer{border-top:1px solid #ccc;margin-top:40px;padding-top:15px;font-size:14px}</style><h1>PDF 文档处理系统</h1><p>Part A 需求规格说明书与接口设计</p><h2>文档与接口</h2><ul><li><a href="PartA需求规格说明书.docx">Part A 需求规格说明书</a></li><li><a href="swagger/index.html">Swagger 核心接口原型</a></li><li><a href="openapi.json">OpenAPI 3.0.3 契约</a></li></ul><h2>数据流与界面图</h2><ul>'''+links+f'''</ul><footer>版本 {VERSION}　{DATE}</footer></html>''',encoding='utf-8')
+    (OUT/'README.md').write_text('''# PDF 文档处理系统 Part A\n\n`PartA需求规格说明书.docx` 为主文档；`openapi.json` 为核心接口设计契约；`swagger/index.html` 为本地 Swagger 原型；`diagrams` 保存 SVG 图源、PNG 及节点连线数据。\n\n可直接打开 `index.html` 查看交付目录。通过 Nginx 启动本机服务后，访问 `http://127.0.0.1:5173/part-a/`；Swagger 使用本地资源和同源 API，不依赖 CDN。\n\n编辑需求与图形数据后，使用带 python-docx 和 Pillow 的 Python 运行 `tools/part_a/build.py` 重建。`tools/part_a/render.ps1` 通过本机 Word/WPS 的 Word.Application 接口更新目录并导出校核 PDF；`rasterize.py` 使用 pypdfium2 生成逐页图，`check.py` 检查结构、图源、需求及接口一致性。\n''',encoding='utf-8')
     print(json.dumps({'document':str(OUT/'PartA需求规格说明书.docx'),'requirements':len(REQUIREMENTS),'figures':len(figs),'operations':len(spec['paths'])},ensure_ascii=False))
 
 if __name__=='__main__':main()

@@ -31,6 +31,8 @@ Web 仅提交与读取持久任务，不连接 AMQP；Worker 统一发布 Outbox
 
 访问 `http://127.0.0.1:5173`。Nginx 与 Vite 开发服务器共用 5173，不能同时监听。8080 为原生 Web 回环端口；15432、16379、19200、5672 分别为本机 PostgreSQL、Redis、Elasticsearch 和 AMQP 端口。
 
+`http://127.0.0.1:5173/part-a/` 提供需求文档、图形和本地 Swagger 原型。原型通过相对根地址调用同源 API，不额外开放跨域来源；缺失文件返回 404，隐藏文件与 Word 临时锁文件禁止访问。
+
 ## 验证
 
 在另一个 PowerShell 会话执行：

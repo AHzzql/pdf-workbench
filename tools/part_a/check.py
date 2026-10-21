@@ -5,7 +5,7 @@ from collections import Counter
 import xml.etree.ElementTree as E
 import json,re,hashlib
 from PIL import Image
-from content import REQUIREMENTS,INTERFACES
+from content import REQUIREMENTS,INTERFACES,VERSION,DATE
 
 ROOT=Path(__file__).resolve().parents[2];OUT=ROOT/'docs/part-a';QA=ROOT/'backend/target/part-a-qa'
 NS={'w':'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
@@ -16,6 +16,7 @@ def run():
         checks.append({'check':name,'passed':bool(condition),'detail':detail})
     spec=json.loads((OUT/'openapi.json').read_text(encoding='utf-8'))
     check('OpenAPI version',spec['openapi']=='3.0.3')
+    check('Swagger API uses the same-origin gateway',spec['servers']==[{'url':'/','description':'当前同源入口'}])
     check('Eleven core operations',len(spec['paths'])==11 and all(set(v)=={'post'} for v in spec['paths'].values()))
     all_requirements={r['id'] for r in REQUIREMENTS if r['scope']=='纳入'}
     case_ids=[r['case'] for r in REQUIREMENTS if r['scope']=='纳入']
@@ -74,11 +75,22 @@ def run():
         actual={op['post']['summary'].split()[0] for op in spec['paths'].values() if r['id'] in op['post']['x-requirements']}
         check('Contract coverage '+r['id'],actual==expected,str(sorted(actual)))
     check('Ten figures',len(graphs)==10)
+    architecture=graphs['08-architecture']
+    architecture_nodes={n['id']:n['label'] for n in architecture['nodes']}
+    architecture_edges={(e['from'],e['to']) for e in architecture['edges']}
+    check('Deployment includes all service boundaries',{'BROWSER','GATEWAY','WEB','WORKER','EXEC','PG','REDIS','MQ','S3','ES'}<=set(architecture_nodes))
+    check('Gateway forwards API to Web',('BROWSER','GATEWAY') in architecture_edges and ('GATEWAY','WEB') in architecture_edges)
+    check('Core PDF process is outside broker path',('WEB','EXEC') in architecture_edges and not any((a=='MQ' and b in ['WEB','EXEC']) for a,b in architecture_edges))
+    check('Worker handles durable delivery',('PG','WORKER') in architecture_edges and ('WORKER','MQ') in architecture_edges and ('MQ','WORKER') in architecture_edges)
+    check('PostgreSQL is not the session store','会话' not in architecture_nodes['PG'] and 'Outbox' in architecture_nodes['PG'])
     with ZipFile(OUT/'PartA需求规格说明书.docx') as z:
         doc=E.fromstring(z.read('word/document.xml'));styles=E.fromstring(z.read('word/styles.xml'))
         text='\n'.join(''.join(t.text or '' for t in p.findall('.//w:t',NS)) for p in doc.findall('.//w:p',NS))
         check('All requirements in Word',all(r['id'] in text and r['title'] in text for r in REQUIREMENTS))
         check('All acceptance IDs in Word',all(c in text for c in case_ids))
+        year,month,day=map(int,DATE.split('-'))
+        check('Word cover matches published version',f'版本 {VERSION}' in text and f'{year} 年 {month} 月 {day} 日' in text)
+        check('Index matches published version',f'版本 {VERSION}' in (OUT/'index.html').read_text(encoding='utf-8') and DATE in (OUT/'index.html').read_text(encoding='utf-8'))
         check('No defensive or conversational text',not any(x in text for x in ['按你的要求','待用户确认','不代表已经实现','不生成虚构','不能冒充','老师未提出','作为 AI','为你生成','未经验证不得','不增加老师']))
         check('No extension chapters',not any(x in text for x in ['智能阅读','agent','Agent','账户注册','登录模块','AI 辅助']))
         colored=[]
@@ -92,6 +104,15 @@ def run():
         check('Automatic TOC field',any('TOC ' in (x.text or '') for x in doc.findall('.//w:instrText',NS)))
         check('No tracked changes',not doc.findall('.//w:ins',NS) and not doc.findall('.//w:del',NS))
         check('Ten embedded figures',len(doc.findall('.//w:drawing',NS))==10)
+        media={hashlib.sha256(z.read(name)).hexdigest() for name in z.namelist() if name.startswith('word/media/')}
+        expected_media={hashlib.sha256(path.read_bytes()).hexdigest() for path in (OUT/'diagrams').glob('*.png')}
+        check('Word embeds current diagram sources',len(expected_media)==10 and expected_media<=media)
+        check('All selected services appear in Word',all(name in text for name in ['Nginx','PostgreSQL','Redis','Elasticsearch','RabbitMQ','SeaweedFS']))
+        check('Core API remains synchronous','11 个核心 PDF 接口保持一次请求返回结果的同步语义' in text)
+        check('Regex does not rely on Elasticsearch','正则搜索直接处理所选页文字，不依赖 Elasticsearch' in text)
+        check('Web and Worker responsibilities separated','Web 不连接 AMQP，Worker 不监听 HTTP' in text)
+        check('Durable delivery includes confirmation and fencing',all(t in text for t in ['Outbox','递增执行令牌','手动确认','死信队列']))
+        check('No outdated middleware exclusions',not any(t in text for t in ['不引入 Redis','不另设 Redis','只部署 PostgreSQL 与对象存储','由 Spring Boot 同源提供']))
     baseline=json.loads((Path(__file__).with_name('baseline-documents.json')).read_text(encoding='utf-8'))
     check('Original Word files unchanged',all(hashlib.sha256((ROOT/k).read_bytes()).hexdigest()==v for k,v in baseline.items()))
     result={'checks':len(checks),'passed':sum(c['passed'] for c in checks),'failures':[c for c in checks if not c['passed']],'details':checks}

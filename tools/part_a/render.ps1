@@ -5,10 +5,12 @@ $root=Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $input=Join-Path $root 'docs/part-a/PartA需求规格说明书.docx'
 $out=Join-Path $root 'backend/target/part-a-qa'
 New-Item -ItemType Directory -Path $out -Force | Out-Null
-$word=$null; $doc=$null
+$word=$null; $doc=$null; $owned=$false; $alerts=$null; $security=$null
 try {
     $word=New-Object -ComObject Word.Application
-    $word.Visible=$false
+    $owned=$word.Documents.Count -eq 0
+    $alerts=$word.DisplayAlerts; $security=$word.AutomationSecurity
+    if ($owned) { $word.Visible=$false }
     $word.DisplayAlerts=0
     $word.AutomationSecurity=3
     $doc=$word.Documents.Open($input, $false, $false)
@@ -34,6 +36,11 @@ try {
     [pscustomobject]@{Pages=$doc.ComputeStatistics(2);Pdf=$pdf;Document=$input} | ConvertTo-Json -Compress
 } finally {
     if ($doc) { $doc.Close(0); [Runtime.InteropServices.Marshal]::ReleaseComObject($doc) | Out-Null }
-    if ($word) { $word.Quit(); [Runtime.InteropServices.Marshal]::ReleaseComObject($word) | Out-Null }
+    if ($word) {
+        if ($null -ne $alerts) { $word.DisplayAlerts=$alerts }
+        if ($null -ne $security) { $word.AutomationSecurity=$security }
+        if ($owned -and $word.Documents.Count -eq 0) { $word.Quit() }
+        [Runtime.InteropServices.Marshal]::ReleaseComObject($word) | Out-Null
+    }
     [GC]::Collect();[GC]::WaitForPendingFinalizers()
 }

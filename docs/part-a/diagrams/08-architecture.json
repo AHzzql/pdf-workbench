@@ -6,153 +6,293 @@
       "id": "BROWSER",
       "label": "浏览器\nVue 3 / TypeScript / PDF.js",
       "x": 700,
-      "y": 95,
-      "width": 760,
-      "height": 130,
+      "y": 80,
+      "width": 1040,
+      "height": 100,
       "kind": "external"
     },
     {
-      "id": "APP",
-      "label": "Windows Java 主服务\n接口、授权、任务协调与页面资源",
+      "id": "GATEWAY",
+      "label": "Docker Nginx\n静态资源与同源 API 入口",
       "x": 700,
-      "y": 350,
-      "width": 760,
-      "height": 150,
+      "y": 270,
+      "width": 1040,
+      "height": 120,
+      "kind": "process"
+    },
+    {
+      "id": "WEB",
+      "label": "Windows Java Web\n输入校验与同步处理协调",
+      "x": 380,
+      "y": 510,
+      "width": 620,
+      "height": 140,
+      "kind": "process"
+    },
+    {
+      "id": "WORKER",
+      "label": "Windows 后台 Worker\n投递、租约与后台执行",
+      "x": 1040,
+      "y": 510,
+      "width": 620,
+      "height": 140,
       "kind": "process"
     },
     {
       "id": "EXEC",
       "label": "受限 Java PDF 子进程\nPDFBox / Bouncy Castle / RE2/J",
-      "x": 700,
-      "y": 620,
-      "width": 760,
+      "x": 380,
+      "y": 765,
+      "width": 620,
       "height": 145,
       "kind": "process"
     },
     {
       "id": "PG",
-      "label": "Docker PostgreSQL\n业务、会话和执行记录",
-      "x": 320,
-      "y": 940,
-      "width": 580,
-      "height": 160,
+      "label": "PostgreSQL\n业务 / 任务 / Outbox",
+      "x": 230,
+      "y": 1110,
+      "width": 400,
+      "height": 150,
+      "kind": "store"
+    },
+    {
+      "id": "REDIS",
+      "label": "Redis\nWeb 可过期状态",
+      "x": 700,
+      "y": 1110,
+      "width": 430,
+      "height": 150,
+      "kind": "store"
+    },
+    {
+      "id": "MQ",
+      "label": "RabbitMQ\nWorker 异步投递",
+      "x": 1160,
+      "y": 1110,
+      "width": 420,
+      "height": 150,
       "kind": "store"
     },
     {
       "id": "S3",
-      "label": "Docker SeaweedFS\n私有 PDF 与处理结果",
-      "x": 1080,
-      "y": 940,
-      "width": 580,
-      "height": 160,
+      "label": "SeaweedFS S3\nWeb / Worker 私有文件",
+      "x": 350,
+      "y": 1465,
+      "width": 600,
+      "height": 150,
+      "kind": "store"
+    },
+    {
+      "id": "ES",
+      "label": "Elasticsearch\nWorker 派生内容索引",
+      "x": 1050,
+      "y": 1465,
+      "width": 600,
+      "height": 150,
       "kind": "store"
     }
   ],
   "edges": [
     {
       "from": "BROWSER",
-      "to": "APP",
-      "label": "同源 HTTP；公网配置 HTTPS",
+      "to": "GATEWAY",
+      "label": "HTTP 本机 / HTTPS 公网",
       "points": [
         [
           700,
-          160
+          130
         ],
         [
           700,
-          275
+          210
         ]
       ]
     },
     {
-      "from": "APP",
+      "from": "GATEWAY",
+      "to": "WEB",
+      "label": "API 反向代理",
+      "points": [
+        [
+          380,
+          330
+        ],
+        [
+          380,
+          440
+        ]
+      ]
+    },
+    {
+      "from": "WEB",
       "to": "EXEC",
-      "label": "有界执行与受控输入",
+      "label": "有界启动 / 受控输入与结果",
       "points": [
         [
-          700,
-          425
+          380,
+          580
         ],
         [
-          700,
-          547
+          380,
+          692.5
         ]
       ]
     },
     {
-      "from": "EXEC",
-      "to": "APP",
-      "label": "结果、状态与诊断",
-      "points": [
-        [
-          1080,
-          620
-        ],
-        [
-          1260,
-          620
-        ],
-        [
-          1260,
-          350
-        ],
-        [
-          1080,
-          350
-        ]
-      ]
-    },
-    {
-      "from": "APP",
+      "from": "WEB",
       "to": "PG",
-      "label": "JDBC",
+      "label": "业务事务 / Outbox",
       "points": [
         [
-          320,
-          350
+          70,
+          510
         ],
         [
-          160,
-          350
+          20,
+          510
         ],
         [
-          160,
-          790
+          20,
+          990
         ],
         [
-          320,
-          790
+          230,
+          990
         ],
         [
-          320,
-          860
+          230,
+          1035
         ]
       ]
     },
     {
-      "from": "APP",
-      "to": "S3",
-      "label": "S3 接口",
+      "from": "WEB",
+      "to": "REDIS",
+      "label": "临时状态 / 限流",
       "points": [
         [
-          1080,
-          425
+          690,
+          510
         ],
         [
-          1180,
-          425
+          710,
+          510
         ],
         [
-          1180,
-          795
+          710,
+          1035
+        ]
+      ]
+    },
+    {
+      "from": "PG",
+      "to": "WORKER",
+      "label": "任务领取 / 租约 / 结果提交",
+      "points": [
+        [
+          430,
+          1110
         ],
         [
-          1080,
-          795
+          460,
+          1110
         ],
         [
-          1080,
-          860
+          460,
+          920
+        ],
+        [
+          800,
+          920
+        ],
+        [
+          800,
+          580
+        ]
+      ]
+    },
+    {
+      "from": "WORKER",
+      "to": "MQ",
+      "label": "Outbox\n确认发布",
+      "points": [
+        [
+          1230,
+          580
+        ],
+        [
+          1230,
+          1035
+        ]
+      ]
+    },
+    {
+      "from": "MQ",
+      "to": "WORKER",
+      "label": "任务投递\n手动确认",
+      "points": [
+        [
+          1090,
+          1035
+        ],
+        [
+          1090,
+          580
+        ]
+      ]
+    },
+    {
+      "from": "WORKER",
+      "to": "S3",
+      "label": "文件读写与清理",
+      "points": [
+        [
+          1350,
+          550
+        ],
+        [
+          1380,
+          550
+        ],
+        [
+          1380,
+          1300
+        ],
+        [
+          350,
+          1300
+        ],
+        [
+          350,
+          1390
+        ]
+      ]
+    },
+    {
+      "from": "WORKER",
+      "to": "ES",
+      "label": "索引写入与清理",
+      "points": [
+        [
+          1350,
+          510
+        ],
+        [
+          1390,
+          510
+        ],
+        [
+          1390,
+          1250
+        ],
+        [
+          1050,
+          1250
+        ],
+        [
+          1050,
+          1390
         ]
       ]
     }

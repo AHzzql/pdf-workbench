@@ -7,8 +7,8 @@
   },
   "servers": [
     {
-      "url": "http://127.0.0.1:8080",
-      "description": "本机应用接口"
+      "url": "/",
+      "description": "当前同源入口"
     }
   ],
   "tags": [
