@@ -1,0 +1,35 @@
+# ADR-002：私有对象存储与文件发布边界
+
+日期：2026-10-21
+
+状态：采用
+
+## 背景
+
+Web 与 Worker 是独立 Windows 进程，后续允许使用独立工作目录。持久文件不能依赖某个进程本机目录；文件所有权、发布、删除和恢复需要有独立于 S3 列表的权威记录。核心 PDF 工具仍采用同步请求与请求级临时文件，不增加对象存储前置依赖。
+
+## 决策
+
+SeaweedFS S3 保存持久 PDF 与派生内容，PostgreSQL 保存空间、文档、对象种类、不可变键、长度、SHA-256 及清单状态。对象路径由空间 UUID、文档 UUID、上传代次 UUID 和固定文件种类生成；原始文件名不进入路径，客户端不提交对象键。授权查询先经过 PostgreSQL，S3 身份为服务身份，不为游客或账户分发密钥。存储客户端本身不替代业务授权。
+
+上传先保存有期限的暂存清单，再在事务外写入文件，成功校验后同事务发布清单和业务记录。写入带 `If-None-Match: *` 与 SHA-256 校验和，禁止覆盖已有键；确认丢失不能据此推断写入失败或直接删除对象。过期暂存与删除墓碑由 Worker 幂等清理；数据库提交前后崩溃必须通过清单状态区分。已发布文件不参与暂存回收。
+
+下载按数据库清单校验长度和 SHA-256；本机副本为临时传输缓存，不作为故障回退源。PDF 上限 50 MiB，内容上限 32 MiB，每个存储客户端最多 4 个在途传输。连接超时 2 秒、读超时 5 秒、请求总时限 60 秒、单次尝试 30 秒、最多两次尝试；响应体另有 60 秒窗口和长度限制。失败中止流并删除本次创建的部分副本，已有本机目标不覆盖。SDK 错误不将底层正文、凭据或地址直接暴露给接口调用者。
+
+采用 AWS SDK for Java 2.56.0 的同步 S3 客户端和 URLConnection 传输，显式设置 endpoint、region、path-style 及静态服务凭据，不使用默认凭据链、系统代理或环境代理。排除 SDK 的默认 Apache5 传递依赖，保持 Spring 的 JDK HTTP 传输选择及既有重试行为。非回环连接要求 HTTPS；不提供跳过证书校验选项。客户端生命周期随服务关闭，不为每个对象建立独立 SDK 客户端。
+
+## 本机部署
+
+镜像固定为 SeaweedFS 4.48 的 digest。单容器内包含 master、volume、filer、S3；命名卷同时保存文件块和元数据，不使用外部 filer 数据库。只发布 `127.0.0.1:18333 → 8333`。控制端口不发布，master、volume、filer 监听容器回环；S3 使用独立 bridge 网络，关闭容器间通信，不连接其他组件网络。内部 JWT 同时约束 filer 写入、读取与 IAM 缓存管理调用。关闭 HTTP IAM、Iceberg、Lance、自动建桶及非空桶递归删除。
+
+应用静态身份只授予单个私有桶的 Read/Write/List。桶管理从本机容器入口执行，不向应用设置 Admin 凭据。SeaweedFS 的 GET bucket policy 映射到 Read，并不等于策略修改权；策略写入拒绝以实际 PUT 请求验证。公开安全公告指出 S3 gRPC 可达性及未设置 JWT 的风险，不能把 HTTP 签名校验当成所有控制面的认证。[S3 路由与动作](https://github.com/seaweedfs/seaweedfs/blob/4.48/weed/s3api/s3api_server.go)、[IAM gRPC 边界](https://github.com/seaweedfs/seaweedfs/security/advisories/GHSA-5fx4-c9qp-36jc)。
+
+卷大小 1 GiB、每次增长 1 个、最多 8 个；桶路径写入启用 fsync。单节点无主机故障转移能力，命名卷与 fsync 不能代替备份；PostgreSQL 与对象文件必须配套备份。容器内存上限 512 MiB、上传并发 2、总上传额度 100 MiB、读取缓存 64 MiB；实际吞吐与容量由压力基线校验，不从配置上限推断。
+
+## 取舍与验证
+
+共享目录最简单，但需要共享盘并保留跨进程目录约束；数据库大字段会扩大业务库与备份负担。S3 提供独立文件边界，同时增加网络故障和跨资源发布协议。单机不增加对象存储集群或管理控制台，保留后续标准 S3 迁移能力。
+
+验证使用真实 S3 与本机协议夹具：空文件/超限、50 MiB 文件、完整性、不同目录的客户端、并发条件写入、错误凭据、匿名和跨桶请求、策略写入拒绝、删除重试、重启持久化、错误响应、截断/过量响应、超时、传输背压和重定向。业务切换还需验证数据库清单、空间隔离、墓碑、暂存租约及旧文件迁移；传输层测试不作为这些业务规则的替代。
+
+依据：[SeaweedFS 4.48](https://github.com/seaweedfs/seaweedfs/releases/tag/4.48)、[静态凭据和桶级权限](https://github.com/seaweedfs/seaweedfs/wiki/S3-Credentials)、[SDK URLConnection 配置](https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/http-configuration-url.html)。

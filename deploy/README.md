@@ -19,7 +19,7 @@ mvn.cmd -f backend/pom.xml package
 .\deploy\Start-Web.ps1
 ```
 
-`Start-Local.ps1` 创建本机凭据并启动五个容器；重复调用保留已有凭据和命名卷。`Start-Web.ps1` 启动 Windows 原生 Java 服务，默认关闭模型调用；数据目录为 `deploy/runtime/data`。模型配置通过环境变量或本机配置文件提供，显式使用 `-EnableModel` 启用。
+`Start-Local.ps1` 创建本机凭据并启动六个容器，初始化私有存储桶；重复调用保留已有凭据和命名卷。`Start-Web.ps1` 启动 Windows 原生 Java 服务，默认关闭模型调用；数据目录为 `deploy/runtime/data`。模型配置通过环境变量或本机配置文件提供，显式使用 `-EnableModel` 启用。
 
 在第二个 PowerShell 会话启动 Worker：
 
@@ -29,7 +29,7 @@ mvn.cmd -f backend/pom.xml package
 
 Web 仅提交与读取持久任务，不连接 AMQP；Worker 统一发布 Outbox、维护租约并消费任务，不监听 HTTP，二者使用相同数据库、任务命名空间与数据目录。模型调用默认关闭；启用时 Web 和 Worker 均使用 `-EnableModel`。更改 `-DataDirectory` 或 `-DatabaseSchema` 时两进程保持一致。
 
-访问 `http://127.0.0.1:5173`。Nginx 与 Vite 开发服务器共用 5173，不能同时监听。8080 为原生 Web 回环端口；15432、16379、19200、5672 分别为本机 PostgreSQL、Redis、Elasticsearch 和 AMQP 端口。
+访问 `http://127.0.0.1:5173`。Nginx 与 Vite 开发服务器共用 5173，不能同时监听。8080 为原生 Web 回环端口；15432、16379、19200、5672、18333 分别为本机 PostgreSQL、Redis、Elasticsearch、AMQP 和 S3 端口。
 
 `http://127.0.0.1:5173/part-a/` 提供需求文档、图形和本地 Swagger 原型。原型通过相对根地址调用同源 API，不额外开放跨域来源；缺失文件返回 404，隐藏文件与 Word 临时锁文件禁止访问。
 
@@ -39,6 +39,8 @@ Web 仅提交与读取持久任务，不连接 AMQP；Worker 统一发布 Outbox
 
 ```powershell
 .\deploy\Test-Local.ps1
+.\deploy\Test-Initialization.ps1
+.\deploy\Test-ObjectStore.ps1 -Restart
 .\deploy\Verify-Persistence.ps1
 npm --prefix frontend run test:gateway
 ```
@@ -47,7 +49,15 @@ npm --prefix frontend run test:gateway
 
 模型请求仅连接 8189 的合成夹具。验证目录位于 `backend/target`，结束时删除随机数据库模式、ES 索引与 RabbitMQ 队列；8180、8181 或 8189 被占用时停止验证，不终止其他进程。执行前运行 Maven 测试并打包，以提供合成 PDF 与测试夹具。
 
-Maven 集成测试使用本机真实 PostgreSQL、Redis、Elasticsearch 和 RabbitMQ；每组数据测试使用随机模式、索引及队列命名空间。普通 PDF 工具测试及独立示例保持原调用方式。
+Maven 集成测试使用本机真实 PostgreSQL、Redis、Elasticsearch、RabbitMQ 和私有 S3；每组数据测试使用随机模式、索引、队列命名空间及对象 UUID。普通 PDF 工具测试及独立示例保持原调用方式。
+
+## 私有对象存储
+
+SeaweedFS 4.48 使用独立 bridge 网络，关闭容器间通信，仅将 S3 HTTP 端口发布到 `127.0.0.1:18333`。master、volume、filer 的 HTTP/gRPC 监听容器回环地址；S3 gRPC 不发布，IAM 写入缓存使用内部 JWT。IAM HTTP、Iceberg、Lance 和自动建桶关闭。应用身份只有 `pdf-workbench-private` 桶的 Read/Write/List 权限；桶初始化通过本机容器管理入口执行。
+
+`Initialize-Local.ps1` 追加生成 S3 与内部 JWT 凭据，保留原有服务密码；身份和安全配置写入忽略的 runtime 文件，已有配置不一致时中止，不覆盖。`Initialize-ObjectBucket.ps1` 校验桶所有者并设置每次增长一个 1 GiB 卷、写入 fsync；单实例最多 8 个卷，容器内存上限 512 MiB。独立网络并非断网环境；Docker Desktop 的 internal 网络不提供这里所需的宿主端口映射。
+
+`Test-ObjectStore.ps1` 从打包程序运行探针，验证随机对象的跨客户端读取、SHA-256、条件写入、匿名/错误密钥/跨桶/策略写入拒绝和幂等删除；`-Restart` 在写入后重启对象存储容器，再由新 JVM 读取，验证命名卷保留。脚本只重启 objects 服务，临时清单位于 `backend/target/object-probe-*`；若删除探针失败，保留清单供重试，不扫描或删除业务对象。S3 是应用内部服务，不通过 Nginx 为浏览器代理或提供公开文件 URL。
 
 ## 后台任务
 

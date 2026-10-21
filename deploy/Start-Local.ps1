@@ -9,4 +9,5 @@ $arguments = @('compose', '--env-file', (Join-Path $PSScriptRoot '.env.local'), 
 if ($LASTEXITCODE -ne 0) { throw 'Invalid middleware configuration.' }
 & docker @arguments up --detach --wait --wait-timeout 240
 if ($LASTEXITCODE -ne 0) { throw 'Middleware startup failed.' }
+& (Join-Path $PSScriptRoot 'Initialize-ObjectBucket.ps1')
 Write-Output 'Local gateway: http://127.0.0.1:5173'
