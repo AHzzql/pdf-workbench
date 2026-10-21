@@ -36,6 +36,8 @@ Elasticsearch 保存从 PDF 派生的文本块、页码、文档标识、空间�
 
 写索引采用批量接口及稳定文档标识；只有目标版本全部写入后才切换就绪状态。删除先在 PostgreSQL 写入墓碑，再异步清理对象与索引，防止旧任务重新写入被删除的数据。索引可以从业务记录和对象存储重建。检索服务故障返回检索不可用，不将故障解释成零条结果；原有不依赖索引的 PDF 操作继续执行。
 
+索引构建在 PostgreSQL 保存独立 UUID 令牌、10 分钟租约与就绪代次，每批嵌入前后续约。所有批次通过 ES 逐项状态检查、刷新及数量校验后，以令牌和有效租约条件更新就绪指针；查询同时过滤空间、文档、就绪代次、索引版本和允许的文本块。重建失败保留原就绪代次，不暴露半成品。删除事务锁定文档行、检查会话引用并写入墓碑，创建引用采用相同行锁；已撤销或过期的构建无法发布就绪状态。派生旧代次和进程崩溃残留统一进入生命周期清理范围。[批量写入](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-bulk)、[kNN 过滤](https://www.elastic.co/docs/reference/query-languages/query-dsl/query-dsl-knn-query)、[索引别名](https://www.elastic.co/docs/manage-data/data-store/aliases)。
+
 ## 决策三：RabbitMQ 的可靠任务投递
 
 RabbitMQ 负责索引构建、重建、文件清理及其他可异步执行的耗时任务。现有同步 PDF 接口由本机有界协调器直接启动受限子进程，不为保持同步响应而先入队再阻塞等待。

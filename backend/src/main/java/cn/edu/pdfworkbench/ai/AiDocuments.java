@@ -104,20 +104,9 @@ public class AiDocuments {
       var d = repository.document(id);
       if (d.status().equals("DELETING")) throw new ApiException(409, "DOCUMENT_DELETING", "文档正在清理");
       var content = repository.content(id);
-      if (!d.status().equals("READY") || !Files.exists(repository.indexPath(id))) {
+      if (!retrieval.ready(id, content.chunks().size())) {
         progress.accept("正在准备检索索引");
         retrieval.index(id, content.chunks(), progress);
-        repository.save(
-            new Document(
-                d.id(),
-                d.name(),
-                d.hash(),
-                d.version(),
-                d.pages(),
-                d.encrypted(),
-                "READY",
-                "",
-                d.createdAt()));
       }
       return content;
     } finally {
@@ -130,28 +119,15 @@ public class AiDocuments {
     if (d.status().equals("DELETING")) throw new ApiException(409, "DOCUMENT_DELETING", "文档正在清理");
     long now = System.currentTimeMillis();
     var c = new Conversation(UUID.randomUUID().toString(), id, "新对话", now, now);
-    repository.save(c);
-    return c;
+    return repository.createConversation(c);
   }
 
   public synchronized void delete(String id) throws IOException {
     var lock = locks.computeIfAbsent(id, k -> new ReentrantLock());
     if (!lock.tryLock()) throw new ApiException(409, "DOCUMENT_BUSY", "文档正在处理");
     try {
-      var d = repository.document(id);
-      if (repository.conversations().stream().anyMatch(c -> c.documentId().equals(id)))
-        throw new ApiException(409, "DOCUMENT_IN_USE", "文档仍有关联会话");
-      repository.save(
-          new Document(
-              d.id(),
-              d.name(),
-              d.hash(),
-              d.version(),
-              d.pages(),
-              d.encrypted(),
-              "DELETING",
-              "",
-              d.createdAt()));
+      repository.markDeleting(id);
+      retrieval.delete(id);
       Path index = repository.indexPath(id);
       if (Files.exists(index))
         try (var walk = Files.walk(index)) {

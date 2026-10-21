@@ -49,6 +49,10 @@ final class TestServices implements AutoCloseable {
 
   String url() { return baseUrl() + "?currentSchema=" + schema; }
   String password() { return credentials.get("POSTGRES_PASSWORD"); }
+  cn.edu.pdfworkbench.ai.ElasticsearchSettings searchSettings() {
+    return new cn.edu.pdfworkbench.ai.ElasticsearchSettings("http://127.0.0.1:19200", "elastic",
+        credentials.get("ELASTIC_PASSWORD"), "pdf-workbench-test-" + schema.substring("wb_test_".length()));
+  }
   JdbcTemplate jdbc() { return new JdbcTemplate(source); }
 
   void register(DynamicPropertyRegistry properties) {
@@ -62,6 +66,8 @@ final class TestServices implements AutoCloseable {
     properties.add("spring.data.redis.username", () -> "workbench");
     properties.add("spring.data.redis.password", () -> credentials.get("REDIS_PASSWORD"));
     properties.add("spring.session.redis.namespace", () -> namespace);
+    properties.add("search.password", () -> searchSettings().password());
+    properties.add("search.alias", () -> searchSettings().alias());
     properties.add("spring.config.import", () -> "optional:classpath:test-no-local.yml");
     properties.add("ai.api-key", () -> "");
     properties.add("ai.base-url", () -> "http://127.0.0.1:9");
@@ -72,6 +78,17 @@ final class TestServices implements AutoCloseable {
     if (closed) return;
     closed = true;
     source.close();
+    var search = searchSettings();
+    if (!search.physicalIndex().matches("pdf-workbench-test-[a-f0-9]{32}-v1"))
+      throw new IllegalStateException("Invalid test index");
+    try {
+      var request = java.net.http.HttpRequest.newBuilder(java.net.URI.create(search.url() + "/" + search.physicalIndex()))
+          .timeout(java.time.Duration.ofSeconds(10)).header("Authorization", "Basic " + Base64.getEncoder()
+              .encodeToString((search.username() + ":" + search.password()).getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+          .DELETE().build();
+      var result = java.net.http.HttpClient.newHttpClient().send(request, java.net.http.HttpResponse.BodyHandlers.discarding());
+      if (result.statusCode() != 200 && result.statusCode() != 404) throw new IllegalStateException("Test index cleanup failed");
+    } catch (Exception e) { throw new IllegalStateException("Test index cleanup failed", e); }
     if (!schema.matches("wb_test_[a-f0-9]{32}")) throw new IllegalStateException("Invalid test schema");
     try (var connection = DriverManager.getConnection(baseUrl(), "pdf_workbench", password());
         var statement = connection.createStatement()) {

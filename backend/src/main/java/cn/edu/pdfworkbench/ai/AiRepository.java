@@ -16,6 +16,7 @@ public class AiRepository {
   private final AiSettings settings;
   private final ObjectMapper json;
   private final JdbcTemplate database;
+  private final org.springframework.transaction.support.TransactionTemplate transactions;
   private final ThreadLocal<String> owner = new ThreadLocal<>();
   private final ThreadLocal<java.util.function.BooleanSupplier> access =
       ThreadLocal.withInitial(() -> () -> true);
@@ -66,6 +67,8 @@ public class AiRepository {
     this.settings = settings;
     this.json = json;
     this.database = database;
+    this.transactions = new org.springframework.transaction.support.TransactionTemplate(
+        new org.springframework.jdbc.datasource.DataSourceTransactionManager(java.util.Objects.requireNonNull(database.getDataSource())));
   }
 
   public Path documentPath(String id) {
@@ -205,6 +208,75 @@ public class AiRepository {
   public synchronized void deleteConversation(String id) {
     conversation(id);
     database.update("DELETE FROM ai_conversations WHERE workspace_id=?::uuid AND id=?::uuid", owner(), id);
+  }
+
+  public String indexGeneration(String id) {
+    validateId(id);
+    return one(database.query(
+        "SELECT index_generation::text FROM ai_documents WHERE workspace_id=?::uuid AND id=?::uuid",
+        (row, n) -> row.getString(1), owner(), id));
+  }
+
+  public boolean claimIndex(String id, String token) {
+    validateId(id);
+    validateId(token);
+    return database.update(
+        "UPDATE ai_documents SET index_build_token=?::uuid,index_lease_until=clock_timestamp()+interval '10 minutes'"
+            + " WHERE workspace_id=?::uuid AND id=?::uuid AND payload->>'status'<>'DELETING'"
+            + " AND (index_build_token IS NULL OR index_lease_until<clock_timestamp())",
+        token, owner(), id) == 1;
+  }
+
+  public boolean renewIndex(String id, String token) {
+    return database.update(
+        "UPDATE ai_documents SET index_lease_until=clock_timestamp()+interval '10 minutes'"
+            + " WHERE workspace_id=?::uuid AND id=?::uuid AND index_build_token=?::uuid"
+            + " AND index_lease_until>clock_timestamp() AND payload->>'status'<>'DELETING'",
+        owner(), id, token) == 1;
+  }
+
+  public boolean completeIndex(String id, String token, String version) {
+    return database.update(
+        "UPDATE ai_documents SET index_generation=?::uuid,index_build_token=NULL,index_lease_until=NULL,"
+            + " payload=jsonb_set(jsonb_set(payload,'{status}','\"READY\"'),'{version}',to_jsonb(?::text))"
+            + " WHERE workspace_id=?::uuid AND id=?::uuid AND index_build_token=?::uuid"
+            + " AND index_lease_until>clock_timestamp() AND payload->>'status'<>'DELETING'",
+        token, version, owner(), id, token) == 1;
+  }
+
+  public void releaseIndex(String id, String token) {
+    database.update(
+        "UPDATE ai_documents SET index_build_token=NULL,index_lease_until=NULL"
+            + " WHERE workspace_id=?::uuid AND id=?::uuid AND index_build_token=?::uuid",
+        owner(), id, token);
+  }
+
+  private Document lockDocument(String id) {
+    validateId(id);
+    return one(database.query(
+        "SELECT payload FROM ai_documents WHERE workspace_id=?::uuid AND id=?::uuid FOR UPDATE",
+        (row, n) -> read(row.getString(1), Document.class), owner(), id));
+  }
+
+  public Conversation createConversation(Conversation value) {
+    return transactions.execute(status -> {
+      if (lockDocument(value.documentId()).status().equals("DELETING"))
+        throw new ApiException(409, "DOCUMENT_DELETING", "文档正在清理");
+      save(value);
+      return value;
+    });
+  }
+
+  public void markDeleting(String id) {
+    transactions.executeWithoutResult(status -> {
+      lockDocument(id);
+      if (database.queryForObject("SELECT COUNT(*) FROM ai_conversations WHERE workspace_id=?::uuid AND doc_id=?::uuid",
+          Integer.class, owner(), id) != 0) throw new ApiException(409, "DOCUMENT_IN_USE", "文档仍有关联会话");
+      database.update(
+          "UPDATE ai_documents SET index_build_token=NULL,index_lease_until=NULL,"
+              + " payload=jsonb_set(payload,'{status}','\"DELETING\"') WHERE workspace_id=?::uuid AND id=?::uuid",
+          owner(), id);
+    });
   }
 
   public void deleteDocumentRecord(String id) {

@@ -24,7 +24,7 @@ public record AiSettings(
   }
 
   public String indexVersion() {
-    return "pdf-v1-" + embeddingModel + "-1024";
+    return "pdf-v2-es-cjk-" + embeddingModel + "-1024";
   }
 
   @Override

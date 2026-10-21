@@ -33,6 +33,7 @@ class RedisUnavailableApiTest {
   static void configuration(DynamicPropertyRegistry properties) {
     SERVICES.register(properties);
     properties.add("spring.data.redis.port", () -> 9);
+    properties.add("search.url", () -> "http://127.0.0.1:9");
   }
 
   @Autowired TestRestTemplate http;

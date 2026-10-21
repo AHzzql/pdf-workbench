@@ -26,11 +26,13 @@ function Start-Node([int] $Port, [int] $RedisPort = 16379) {
     $info.RedirectStandardError = $true
     foreach ($argument in @('-Xmx256m','-jar',$jar,"--server.port=$Port","--spring.data.redis.port=$RedisPort",'--spring.config.import=optional:classpath:native-probe.yml',
         "--spring.flyway.schemas=$schema","--spring.flyway.default-schema=$schema",'--spring.datasource.hikari.maximum-pool-size=3',
-        "--spring.session.redis.namespace=pdf-workbench:test:$run","--ai.data-directory=$directory/files",
+        "--spring.session.redis.namespace=pdf-workbench:test:$run","--search.alias=pdf-workbench-test-$run","--ai.data-directory=$directory/files",
         "--workbench.temporary-root=$directory/tmp",'--ai.api-key=fixture','--ai.base-url=http://127.0.0.1:9','--ai.rerank-url=http://127.0.0.1:9')) { $info.ArgumentList.Add($argument) }
+    if ($RedisPort -eq 9) { $info.ArgumentList.Add('--search.url=http://127.0.0.1:9') }
     $info.Environment['DATABASE_URL'] = "jdbc:postgresql://127.0.0.1:15432/pdf_workbench?currentSchema=$schema"
     $info.Environment['DATABASE_PASSWORD'] = $credentials.POSTGRES_PASSWORD
     $info.Environment['REDIS_PASSWORD'] = $credentials.REDIS_PASSWORD
+    $info.Environment['ELASTIC_PASSWORD'] = $credentials.ELASTIC_PASSWORD
     $process = [Diagnostics.Process]::Start($info)
     $node = [pscustomobject]@{ Process = $process; Output = $process.StandardOutput.ReadToEndAsync(); Error = $process.StandardError.ReadToEndAsync(); Port = $Port }
     $processes.Add($node)
@@ -133,10 +135,16 @@ try {
     if ($core.StatusCode -ne 200 -or ($core.Content | ConvertFrom-Json).pageCount -ne 1) {
         throw 'Stateless PDF operation depended on session storage.'
     }
-    Write-Output 'PASS unavailable Redis closes stateful routes while PDF operations remain available with an existing cookie'
+    Write-Output 'PASS unavailable Redis/Elasticsearch leave PDF operations available with an existing cookie; stateful routes fail closed'
 } finally {
     foreach ($node in $processes) { Stop-Node $node; $node.Process.Dispose() }
-    if ($schema -notmatch '^wb_native_[a-f0-9]{32}$') { throw 'Invalid verification schema.' }
-    & docker compose --env-file (Join-Path $PSScriptRoot '.env.local') -f (Join-Path $PSScriptRoot 'compose.yml') exec -T postgres psql -U pdf_workbench -d pdf_workbench -v ON_ERROR_STOP=1 -c "DROP SCHEMA IF EXISTS $schema CASCADE;" | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw 'Verification schema cleanup failed.' }
+    try {
+        $searchHeaders = @{ Authorization = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('elastic:' + $credentials.ELASTIC_PASSWORD)) }
+        $removed = Invoke-WebRequest "http://127.0.0.1:19200/pdf-workbench-test-$run-v1" -Method Delete -Headers $searchHeaders -SkipHttpErrorCheck -TimeoutSec 10
+        if ($removed.StatusCode -notin @(200,404)) { throw 'Verification index cleanup failed.' }
+    } finally {
+        if ($schema -notmatch '^wb_native_[a-f0-9]{32}$') { throw 'Invalid verification schema.' }
+        & docker compose --env-file (Join-Path $PSScriptRoot '.env.local') -f (Join-Path $PSScriptRoot 'compose.yml') exec -T postgres psql -U pdf_workbench -d pdf_workbench -v ON_ERROR_STOP=1 -c "DROP SCHEMA IF EXISTS $schema CASCADE;" | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Verification schema cleanup failed.' }
+    }
 }

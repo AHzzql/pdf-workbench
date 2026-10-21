@@ -60,20 +60,25 @@ public class AiController {
   @GetMapping("/documents/{id}/chapters")
   @Operation(summary = "读取文档目录")
   public List<Chapter> chapters(@PathVariable String id) throws Exception {
-    repository.document(id);
+    readable(id);
     return repository.content(id).chapters();
   }
 
   @GetMapping("/documents/{id}/file")
   @Operation(summary = "读取历史会话关联的原始 PDF")
   public ResponseEntity<FileSystemResource> file(@PathVariable String id) {
-    repository.document(id);
+    readable(id);
     var p = repository.documentPath(id);
     if (!Files.exists(p)) throw new ApiException(404, "PDF_MISSING", "关联的 PDF 文件已不存在");
     return ResponseEntity.ok()
         .contentType(MediaType.APPLICATION_PDF)
         .header("Content-Disposition", "attachment; filename=\"document.pdf\"")
         .body(new FileSystemResource(p));
+  }
+
+  private void readable(String id) {
+    if (repository.document(id).status().equals("DELETING"))
+      throw new ApiException(409, "DOCUMENT_DELETING", "文档正在清理");
   }
 
   @DeleteMapping("/documents/{id}")

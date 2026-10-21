@@ -33,9 +33,16 @@ mvn.cmd -f backend/pom.xml package
 npm --prefix frontend run test:gateway
 ```
 
-`Verify-Persistence.ps1` 使用 8180、8181 两个独立 Java 进程、独立数据库模式及合成 PDF，验证共享数据、权限隔离、跨节点撤销、强制终止后的恢复和分布式限流；再将独立节点的 Redis 地址指向本机关闭端口，验证会话返回 503、携带原会话 Cookie 的 PDF 基础操作仍成功。模型地址限定为本机关闭的测试端口；验证数据位于 `backend/target`，数据库模式在结束时删除。8180、8181 被占用时停止验证，不终止其他进程。
+`Verify-Persistence.ps1` 使用 8180、8181 两个独立 Java 进程、独立数据库模式及合成 PDF，验证共享数据、权限隔离、跨节点撤销、强制终止后的恢复和分布式限流；再将独立节点的 Redis 和 ES 地址指向本机关闭端口，验证会话返回 503、携带原会话 Cookie 的 PDF 基础操作仍成功。模型地址限定为本机关闭的测试端口；验证数据位于 `backend/target`，数据库模式在结束时删除。8180、8181 被占用时停止验证，不终止其他进程。
 
-Maven 集成测试连接本机真实 PostgreSQL/Redis，为每组数据测试创建随机数据库模式；普通 PDF 工具测试及独立示例保持原调用方式。
+Maven 集成测试连接本机真实 PostgreSQL、Redis 和 Elasticsearch，为每组数据测试创建随机数据库模式及测试索引，外部模型使用合成向量；普通 PDF 工具测试及独立示例保持原调用方式。
+
+## 文档索引
+
+检索使用共享别名 `pdf-workbench-chunks`，初始物理索引为 `pdf-workbench-chunks-v1`，采用单主分片、零副本、内置 CJK 分析器及 1024 维余弦向量。修改嵌入模型后按数据库索引版本重建，原有 PDF 正则接口不经过 ES。`ELASTIC_URL`、`ELASTIC_USER`、`ELASTIC_PASSWORD` 和 `ELASTIC_ALIAS` 提供连接配置；`Start-Web.ps1` 从本机凭据文件载入密码。
+
+每个构建有独立代次；全部批次写入、刷新并计数成功后，数据库条件更新发布就绪指针。构建中断或删除不能发布半成品。索引读取失败返回 503，不按空结果处理；基础 PDF 接口独立于检索服务。旧的本机 Lucene 索引不再读写，既有目录在文档删除时清理。旧 ES 代次及异常退出残留的自动回收尚未接入调度。
+
 
 ## 旧数据导入
 

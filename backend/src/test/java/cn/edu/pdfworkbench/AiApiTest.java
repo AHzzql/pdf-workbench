@@ -52,6 +52,7 @@ class AiApiTest {
   @Autowired TestRestTemplate http;
   @Autowired AiRepository repository;
   @Autowired AiRuns runs;
+  @Autowired ElasticsearchIndex searchIndex;
   @MockitoBean AiModelClient models;
   final AtomicBoolean slow = new AtomicBoolean();
   final String base = "/api/v1/pdf/ai";
@@ -272,6 +273,9 @@ class AiApiTest {
     var d = upload(pdf("Delete sample"));
     var c = conversation(d);
     await(ask(c, "BRIEF", null).id());
+    String generation = repository.indexGeneration(d.id());
+    assertNotNull(generation);
+    assertTrue(searchIndex.ready(repository.owner(), d.id(), generation, d.version(), 1));
     var response =
         http.exchange(
             base + "/conversations/" + c.id(),
@@ -290,6 +294,7 @@ class AiApiTest {
         Void.class);
     assertFalse(Files.exists(repository.documentPath(d.id())));
     assertFalse(Files.exists(repository.indexPath(d.id())));
+    assertFalse(searchIndex.ready(repository.owner(), d.id(), generation, d.version(), 1));
     assertEquals(
         HttpStatus.NOT_FOUND,
         http.getForEntity(base + "/conversations/" + c.id() + "/messages", String.class)
@@ -525,7 +530,7 @@ class AiApiTest {
     assertEquals(a.id(), repository.message(first.id()).conversationId());
   }
 
-  @Test
+  @RepeatedTest(3)
   void concurrentRunsAreBoundedAndCancellationReleasesCapacity() throws Exception {
     slow.set(true);
     var d = upload(pdf("Concurrent Alpha"));
@@ -549,6 +554,17 @@ class AiApiTest {
                         base + "/conversations/" + c.id() + "/messages", request, Message.class)
                     .id())
             .status());
+  }
+
+  @Test
+  void deletionTombstoneBlocksDownloadsChaptersAndNewConversations() throws Exception {
+    var d = upload(pdf("tombstone source"));
+    repository.markDeleting(d.id());
+    for (String path : List.of("/documents/" + d.id() + "/file", "/documents/" + d.id() + "/chapters"))
+      assertEquals(HttpStatus.CONFLICT, http.getForEntity(base + path, String.class).getStatusCode());
+    assertEquals(HttpStatus.CONFLICT, http.postForEntity(base + "/conversations", new CreateConversation(d.id()), String.class).getStatusCode());
+    assertEquals(HttpStatus.OK, http.exchange(base + "/documents/" + d.id(), HttpMethod.DELETE, HttpEntity.EMPTY, Void.class).getStatusCode());
+    assertEquals(HttpStatus.NOT_FOUND, http.getForEntity(base + "/documents/" + d.id(), String.class).getStatusCode());
   }
 
   @AfterEach

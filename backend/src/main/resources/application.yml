@@ -53,6 +53,11 @@ server:
   error:
     include-message: never
     include-stacktrace: never
+search:
+  url: ${ELASTIC_URL:http://127.0.0.1:19200}
+  username: ${ELASTIC_USER:elastic}
+  password: ${ELASTIC_PASSWORD:}
+  alias: ${ELASTIC_ALIAS:pdf-workbench-chunks}
 springdoc:
   api-docs:
     version: OPENAPI_3_0
