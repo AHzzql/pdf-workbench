@@ -59,6 +59,8 @@ public final class S3ObjectStore implements AutoCloseable {
     this.bucket = settings.bucket();
   }
 
+  public String bucket() { return bucket; }
+
   static S3Client client(S3Settings settings) {
     return S3Client.builder().endpointOverride(java.net.URI.create(settings.endpoint()))
         .region(Region.of(settings.region()))

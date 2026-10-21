@@ -16,7 +16,7 @@ class AiTaskHandlerProtocolTest {
   @TempDir Path directory;
   @Test void reactiveProviderCheckpointsRemainInThePersistedTasksWorkspace() throws Exception {
     var server=TaskNativeFixture.startModel(0);
-    try(var database=new TestServices()) {
+    try(var database=new TestServices(); var objects=new cn.edu.pdfworkbench.storage.S3ObjectStore(database.objectSettings())) {
       String base="http://127.0.0.1:"+server.getAddress().getPort();
       var settings=new AiSettings(directory.toString(),"fixture",base,base+"/rerank","chat","embed","rank");
       var json=new ObjectMapper(); var repository=new AiRepository(settings,json,database.jdbc());
@@ -28,7 +28,7 @@ class AiTaskHandlerProtocolTest {
       when(retrieval.search(eq(document),anyString(),anyList())).thenReturn(List.of(chunk));
       var tasks=new TaskStore(database.jdbc(),new TaskSettings(database.taskNamespace(),"all",30,128,3,900));
       var reading=new AiReading(repository,models,documents,retrieval,new AiIntent(models,json));
-      var handler=new AiTaskHandler(repository,documents,retrieval,reading,settings,tasks);
+      var handler=new AiTaskHandler(repository,documents,retrieval,reading,settings,tasks,new cn.edu.pdfworkbench.storage.DocumentStorage(database.jdbc(),objects));
       try(var scope=repository.scope(workspace,()->true)) {
         repository.save(new Document(document,"fixture.pdf","hash",settings.indexVersion(),1,false,"READY","",1));
         repository.save(new Conversation(conversation,document,"title",1,1));

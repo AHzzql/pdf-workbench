@@ -17,13 +17,13 @@ $java = Join-Path $env:JAVA_HOME 'bin/java.exe'
 if (!(Test-Path $java) -or !(Test-Path $jar)) { throw 'JDK and packaged application are required.' }
 if (!$DataDirectory) { $DataDirectory = Join-Path $PSScriptRoot 'runtime/data' }
 $DataDirectory = [IO.Path]::GetFullPath($DataDirectory)
-$names = @('DATABASE_PASSWORD','POSTGRES_PASSWORD','REDIS_PASSWORD','ELASTIC_PASSWORD','RABBITMQ_PASSWORD','DATABASE_URL')
+$names = @('DATABASE_PASSWORD','POSTGRES_PASSWORD','REDIS_PASSWORD','ELASTIC_PASSWORD','RABBITMQ_PASSWORD','DATABASE_URL','S3_ACCESS_KEY','S3_SECRET_KEY')
 $previous = @{}
 foreach ($name in $names) { $previous[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
 try {
     foreach ($line in Get-Content -LiteralPath (Join-Path $PSScriptRoot '.env.local')) {
         $pair = $line -split '=', 2
-        if ($pair.Count -eq 2 -and $pair[0] -in @('POSTGRES_PASSWORD','REDIS_PASSWORD','ELASTIC_PASSWORD','RABBITMQ_PASSWORD')) {
+        if ($pair.Count -eq 2 -and $pair[0] -in @('POSTGRES_PASSWORD','REDIS_PASSWORD','ELASTIC_PASSWORD','RABBITMQ_PASSWORD','S3_ACCESS_KEY','S3_SECRET_KEY')) {
             [Environment]::SetEnvironmentVariable($pair[0], $pair[1], 'Process')
         }
     }
@@ -42,5 +42,8 @@ try {
     & $java @arguments
     if ($LASTEXITCODE -ne 0) { throw 'Application process failed.' }
 } finally {
-    foreach ($name in $names) { [Environment]::SetEnvironmentVariable($name, $previous[$name], 'Process') }
+    foreach ($name in $names) {
+        if ($null -eq $previous[$name]) { Remove-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue }
+        else { [Environment]::SetEnvironmentVariable($name, $previous[$name], 'Process') }
+    }
 }

@@ -21,6 +21,8 @@ mvn.cmd -f backend/pom.xml package
 
 `Start-Local.ps1` 创建本机凭据并启动六个容器，初始化私有存储桶；重复调用保留已有凭据和命名卷。`Start-Web.ps1` 启动 Windows 原生 Java 服务，默认关闭模型调用；数据目录为 `deploy/runtime/data`。模型配置通过环境变量或本机配置文件提供，显式使用 `-EnableModel` 启用。
 
+升级程序包前停止本机 Web 和 Worker，Windows 进程会占用运行中的 JAR；打包完成后启动新版本，Flyway 在启动时应用数据库迁移。
+
 在第二个 PowerShell 会话启动 Worker：
 
 ```powershell
@@ -41,6 +43,7 @@ Web 仅提交与读取持久任务，不连接 AMQP；Worker 统一发布 Outbox
 .\deploy\Test-Local.ps1
 .\deploy\Test-Initialization.ps1
 .\deploy\Test-ObjectStore.ps1 -Restart
+.\deploy\Verify-FileRecovery.ps1
 .\deploy\Verify-Persistence.ps1
 npm --prefix frontend run test:gateway
 ```
@@ -48,6 +51,8 @@ npm --prefix frontend run test:gateway
 `Verify-Persistence.ps1` 使用 8180、8181 两个 Web、独立 Worker、8189 本机模型协议夹具及合成 PDF。验证包括共享会话、账户及文档隔离、跨节点撤销、强制终止后恢复、分布式限流、基础 PDF 故障边界；还会让 Web 无法连接 AMQP，终止提交进程后由 Worker 发布并完成任务，随后强制终止生成中的 Worker，校验租约接管、消息不重复及新 fencing token。取消由另一 Web 提交，并验证 SSE、模型连接关闭及消费者继续可用；文档通过队列完成墓碑后的清理。
 
 模型请求仅连接 8189 的合成夹具。验证目录位于 `backend/target`，结束时删除随机数据库模式、ES 索引与 RabbitMQ 队列；8180、8181 或 8189 被占用时停止验证，不终止其他进程。执行前运行 Maven 测试并打包，以提供合成 PDF 与测试夹具。
+
+`Verify-FileRecovery.ps1` 创建随机数据库模式和一个部分上传的私有 S3 对象，启动独立 headless Worker；验证暂存租约到期后自动退役、远端对象消失且清理墓碑保留。该脚本使用独立任务命名空间和工作目录，结束后清理测试对象、队列及模式。`Verify-Persistence.ps1` 的依赖故障节点同时将 Redis、Elasticsearch 和 S3 指向不可用端点，检查核心 PDF 请求仍能完成。
 
 Maven 集成测试使用本机真实 PostgreSQL、Redis、Elasticsearch、RabbitMQ 和私有 S3；每组数据测试使用随机模式、索引、队列命名空间及对象 UUID。普通 PDF 工具测试及独立示例保持原调用方式。
 
@@ -58,6 +63,8 @@ SeaweedFS 4.48 使用独立 bridge 网络，关闭容器间通信，仅将 S3 HT
 `Initialize-Local.ps1` 追加生成 S3 与内部 JWT 凭据，保留原有服务密码；身份和安全配置写入忽略的 runtime 文件，已有配置不一致时中止，不覆盖。`Initialize-ObjectBucket.ps1` 校验桶所有者并设置每次增长一个 1 GiB 卷、写入 fsync；单实例最多 8 个卷，容器内存上限 512 MiB。独立网络并非断网环境；Docker Desktop 的 internal 网络不提供这里所需的宿主端口映射。
 
 `Test-ObjectStore.ps1` 从打包程序运行探针，验证随机对象的跨客户端读取、SHA-256、条件写入、匿名/错误密钥/跨桶/策略写入拒绝和幂等删除；`-Restart` 在写入后重启对象存储容器，再由新 JVM 读取，验证命名卷保留。脚本只重启 objects 服务，临时清单位于 `backend/target/object-probe-*`；若删除探针失败，保留清单供重试，不扫描或删除业务对象。S3 是应用内部服务，不通过 Nginx 为浏览器代理或提供公开文件 URL。
+
+Worker 使用独立回收线程，初始每 60 秒处理最多 8 组清单，不复用任务心跳线程；Web 不执行回收。STAGING 租约 10 分钟，过期后进入不可发布的 GARBAGE；回收领取租约为 5 分钟，删除成功后每日复查并保留精确代次标识。文档清理任务先退役清单，再清理索引、本机副本及远端对象，成功后提交业务记录删除；S3 故障保留墓碑与清理标识。
 
 ## 后台任务
 
@@ -84,6 +91,16 @@ SeaweedFS 4.48 使用独立 bridge 网络，关闭容器间通信，仅将 S3 HT
 ```
 
 导入保留标识、编码后的密码及文件原件，重复导入不覆盖 PostgreSQL 中已存在的新数据。原共享游客目录导入隔离空间，不分配给新的会话。源数据库以只读方式打开；目标文件冲突或缺失时中止数据库事务。数据库回滚不删除已经复制的文件，目标目录可能保留无业务引用的文件。
+
+## 私有文件迁移
+
+旧 H2 业务记录导入 PostgreSQL 后，或升级已有 PostgreSQL 服务时，使用原持久文件目录发布 S3 清单：
+
+```powershell
+.\deploy\Migrate-Files.ps1 -SourceDirectory 'D:\workbench-data'
+```
+
+`-DatabaseSchema` 可指定已存在的模式；省略时使用连接配置中的当前模式。迁移按空间和文档 UUID 定位原 PDF/JSON，验证源摘要及内容结构；每文档独立提交，不覆盖已有 READY 清单，不删除源文件。重复执行跳过已发布文档；失败时停止，保留已经迁移的文档及未发布对象的清理记录。错误目录、缺失文件、摘要冲突和无效内容不会发布清单。S3 失败不转换成本机读取成功。迁移期间停止写入该旧目录的应用，业务库和原文件备份保持配套。
 
 ## 数据与安全边界
 

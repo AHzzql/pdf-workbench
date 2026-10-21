@@ -12,8 +12,8 @@ public final class ObjectStoreProbe {
   private static final byte[] SAMPLE = "private-storage-integrity-probe\n".getBytes(java.nio.charset.StandardCharsets.UTF_8);
 
   public static void main(String[] args) {
-    if (args.length != 2 || !Set.of("write", "verify", "delete").contains(args[0])) {
-      System.err.println("Usage: ObjectStoreProbe <write|verify|delete> <probe-directory>");
+    if (args.length != 2 || !Set.of("write", "verify", "delete", "missing").contains(args[0])) {
+      System.err.println("Usage: ObjectStoreProbe <write|verify|delete|missing> <probe-directory>");
       System.exit(2);
     }
     try {
@@ -23,6 +23,7 @@ public final class ObjectStoreProbe {
         case "write" -> write(settings, directory);
         case "verify" -> verify(settings, directory);
         case "delete" -> delete(settings, directory);
+        case "missing" -> missing(settings, directory);
         default -> throw new IllegalArgumentException();
       }
       System.out.println("PASS private object storage " + args[0]);
@@ -98,5 +99,13 @@ public final class ObjectStoreProbe {
 
   private static S3ObjectStore.ObjectRef manifest(Path directory) throws java.io.IOException {
     return new ObjectMapper().readValue(directory.resolve("manifest.json").toFile(), S3ObjectStore.ObjectRef.class);
+  }
+
+  private static void missing(S3Settings settings, Path directory) throws Exception {
+    try (var store = new S3ObjectStore(settings)) {
+      try { store.getContent(manifest(directory)); }
+      catch (ApiException e) { if (e.status()==404) return; throw e; }
+      throw new IllegalStateException("Object remains readable");
+    }
   }
 }

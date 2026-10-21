@@ -14,9 +14,12 @@ public class AiTaskHandler implements TaskHandler {
   private final AiReading reading;
   private final AiSettings settings;
   private final TaskStore tasks;
+  private final cn.edu.pdfworkbench.storage.DocumentStorage files;
 
-  public AiTaskHandler(AiRepository repository, AiDocuments documents, AiRetrieval retrieval, AiReading reading, AiSettings settings, TaskStore tasks) {
+  public AiTaskHandler(AiRepository repository, AiDocuments documents, AiRetrieval retrieval, AiReading reading, AiSettings settings, TaskStore tasks,
+      cn.edu.pdfworkbench.storage.DocumentStorage files) {
     this.repository=repository; this.documents=documents; this.retrieval=retrieval; this.reading=reading; this.settings=settings; this.tasks=tasks;
+    this.files=files;
   }
 
   @Override public Runnable execute(TaskStore.Task task) throws Exception {
@@ -32,7 +35,9 @@ public class AiTaskHandler implements TaskHandler {
         yield () -> {};
       }
       case CLEAN -> {
+        files.retire(task.workspace(),task.document());
         documents.cleanFiles(task.document());
+        files.cleanDocument(task.workspace(),task.document());
         yield () -> repository.deleteDocumentRecord(task.document());
       }
     };

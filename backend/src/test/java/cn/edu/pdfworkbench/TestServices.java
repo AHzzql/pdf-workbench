@@ -49,6 +49,9 @@ final class TestServices implements AutoCloseable {
 
   String url() { return baseUrl() + "?currentSchema=" + schema; }
   String password() { return credentials.get("POSTGRES_PASSWORD"); }
+  cn.edu.pdfworkbench.storage.S3Settings objectSettings() {
+    return cn.edu.pdfworkbench.storage.S3Settings.environment(credentials);
+  }
   cn.edu.pdfworkbench.ai.ElasticsearchSettings searchSettings() {
     return new cn.edu.pdfworkbench.ai.ElasticsearchSettings("http://127.0.0.1:19200", "elastic",
         credentials.get("ELASTIC_PASSWORD"), "pdf-workbench-test-" + schema.substring("wb_test_".length()));
@@ -78,6 +81,8 @@ final class TestServices implements AutoCloseable {
     properties.add("spring.rabbitmq.password", () -> credentials.get("RABBITMQ_PASSWORD"));
     properties.add("search.password", () -> searchSettings().password());
     properties.add("search.alias", () -> searchSettings().alias());
+    properties.add("storage.access-key", () -> credentials.get("S3_ACCESS_KEY"));
+    properties.add("storage.secret-key", () -> credentials.get("S3_SECRET_KEY"));
     properties.add("spring.config.import", () -> "optional:classpath:test-no-local.yml");
     properties.add("ai.api-key", () -> "");
     properties.add("ai.base-url", () -> "http://127.0.0.1:9");

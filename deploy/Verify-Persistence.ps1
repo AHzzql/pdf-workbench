@@ -32,12 +32,17 @@ function Start-Node([int] $Port, [int] $RedisPort = 16379, [switch] $Worker) {
         "--workbench.temporary-root=$directory/tmp",'--ai.api-key=fixture','--ai.base-url=http://127.0.0.1:8189','--ai.rerank-url=http://127.0.0.1:8189/rerank')) { $info.ArgumentList.Add($argument) }
     if (!$Worker) { $info.ArgumentList.Add('--spring.rabbitmq.port=9') }
     if ($Worker) { $info.ArgumentList.Add('--spring.main.web-application-type=none'); $info.ArgumentList.Add('--spring.main.keep-alive=true'); $info.ArgumentList.Add('--tasks.role=worker') }
-    if ($RedisPort -eq 9) { $info.ArgumentList.Add('--search.url=http://127.0.0.1:9') }
+    if ($RedisPort -eq 9) {
+        $info.ArgumentList.Add('--search.url=http://127.0.0.1:9')
+        $info.ArgumentList.Add('--storage.endpoint=http://127.0.0.1:9')
+    }
     $info.Environment['DATABASE_URL'] = "jdbc:postgresql://127.0.0.1:15432/pdf_workbench?currentSchema=$schema"
     $info.Environment['DATABASE_PASSWORD'] = $credentials.POSTGRES_PASSWORD
     $info.Environment['REDIS_PASSWORD'] = $credentials.REDIS_PASSWORD
     $info.Environment['ELASTIC_PASSWORD'] = $credentials.ELASTIC_PASSWORD
     $info.Environment['RABBITMQ_PASSWORD'] = $credentials.RABBITMQ_PASSWORD
+    $info.Environment['S3_ACCESS_KEY'] = $credentials.S3_ACCESS_KEY
+    $info.Environment['S3_SECRET_KEY'] = $credentials.S3_SECRET_KEY
     $process = [Diagnostics.Process]::Start($info)
     $node = [pscustomobject]@{ Process = $process; Output = $process.StandardOutput.ReadToEndAsync(); Error = $process.StandardError.ReadToEndAsync(); Port = $Port }
     $processes.Add($node)
@@ -183,7 +188,7 @@ try {
     if ($core.StatusCode -ne 200 -or ($core.Content | ConvertFrom-Json).pageCount -ne 1) {
         throw 'Stateless PDF operation depended on session storage.'
     }
-    Write-Output 'PASS unavailable Redis/Elasticsearch leave PDF operations available with an existing cookie; stateful routes fail closed'
+    Write-Output 'PASS unavailable Redis/Elasticsearch/S3 leave PDF operations available with an existing cookie; stateful routes fail closed'
     Stop-Node $unavailable
     Hold-Model $true
     $crashId=[Guid]::NewGuid().ToString()

@@ -48,6 +48,9 @@ try {
     try {
         if (Test-Path -LiteralPath (Join-Path $directory 'manifest.json')) { Invoke-Probe 'delete' }
     } finally {
-        foreach ($name in $previous.Keys) { [Environment]::SetEnvironmentVariable($name, $previous[$name], 'Process') }
+        foreach ($name in $previous.Keys) {
+            if ($null -eq $previous[$name]) { Remove-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue }
+            else { [Environment]::SetEnvironmentVariable($name, $previous[$name], 'Process') }
+        }
     }
 }

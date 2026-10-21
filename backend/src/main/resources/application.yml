@@ -68,6 +68,12 @@ server:
 tasks:
   namespace: ${TASK_NAMESPACE:pdf-workbench.tasks.v1}
   role: ${TASK_ROLE:web}
+storage:
+  endpoint: ${S3_ENDPOINT:http://127.0.0.1:18333}
+  region: ${S3_REGION:us-east-1}
+  bucket: ${S3_BUCKET:pdf-workbench-private}
+  access-key: ${S3_ACCESS_KEY:}
+  secret-key: ${S3_SECRET_KEY:}
 search:
   url: ${ELASTIC_URL:http://127.0.0.1:19200}
   username: ${ELASTIC_USER:elastic}
