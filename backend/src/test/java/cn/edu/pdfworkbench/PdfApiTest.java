@@ -23,7 +23,13 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.util.LinkedMultiValueMap;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 class PdfApiTest {
+  static final TestServices SERVICES = new TestServices();
+
+  @org.junit.jupiter.api.AfterAll
+  static void closeServices() { SERVICES.close(); }
+
   static final Path TEMP;
 
   static {
@@ -36,6 +42,7 @@ class PdfApiTest {
 
   @DynamicPropertySource
   static void configuration(DynamicPropertyRegistry registry) {
+    SERVICES.register(registry);
     registry.add("workbench.temporary-root", TEMP::toString);
   }
 

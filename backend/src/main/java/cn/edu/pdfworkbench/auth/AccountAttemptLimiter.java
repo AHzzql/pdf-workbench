@@ -1,37 +1,53 @@
 package cn.edu.pdfworkbench.auth;
 
 import cn.edu.pdfworkbench.exception.ApiException;
-import java.time.Clock;
+import java.nio.charset.StandardCharsets;
+import java.security.*;
 import java.util.*;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
 @Component
 public class AccountAttemptLimiter {
-  private record Window(long expires, int count) {}
+  private static final DefaultRedisScript<Long> CHECK = new DefaultRedisScript<>("""
+      local count = tonumber(redis.call('GET', KEYS[1]) or '0')
+      if count >= tonumber(ARGV[1]) then return 0 end
+      if ARGV[2] == '1' then
+        count = redis.call('INCR', KEYS[1])
+        if count == 1 then redis.call('PEXPIRE', KEYS[1], 900000) end
+      end
+      return 1
+      """, Long.class);
+  private final StringRedisTemplate redis;
+  private final String namespace;
 
-  private final Map<String, Window> windows = new HashMap<>();
-  private final Clock clock;
-
-  public AccountAttemptLimiter() {
-    this(Clock.systemUTC());
+  public AccountAttemptLimiter(StringRedisTemplate redis,
+      @Value("${spring.session.redis.namespace:pdf-workbench:session:v1}") String namespace) {
+    this.redis = redis;
+    this.namespace = namespace;
   }
 
-  AccountAttemptLimiter(Clock clock) {
-    this.clock = clock;
+  private String key(String value) {
+    try {
+      return namespace + ":attempts:" + HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
   }
 
-  public synchronized void check(String key, int limit, boolean consume) {
-    long now = clock.millis();
-    windows.entrySet().removeIf(e -> e.getValue().expires() <= now);
-    var w = windows.get(key);
-    if (w != null && w.count() >= limit || w == null && windows.size() >= 2048)
-      throw new ApiException(429, "ACCOUNT_TOO_MANY_ATTEMPTS", "操作过于频繁，请在 15 分钟后重试");
-    if (consume)
-      windows.put(
-          key, new Window(w == null ? now + 900000 : w.expires(), w == null ? 1 : w.count() + 1));
+  public void check(String value, int limit, boolean consume) {
+    try {
+      Long result = redis.execute(CHECK, List.of(key(value)), Integer.toString(limit), consume ? "1" : "0");
+      if (result == null) throw new ApiException(503, "ACCOUNT_LIMITER_UNAVAILABLE", "账户服务暂不可用，请稍后重试");
+      if (result == 0) throw new ApiException(429, "ACCOUNT_TOO_MANY_ATTEMPTS", "操作过于频繁，请在 15 分钟后重试");
+    } catch (DataAccessException e) {
+      throw new ApiException(503, "ACCOUNT_LIMITER_UNAVAILABLE", "账户服务暂不可用，请稍后重试");
+    }
   }
 
-  public synchronized void clear(String key) {
-    windows.remove(key);
+  public void clear(String value) {
+    try { redis.delete(key(value)); }
+    catch (DataAccessException e) { /* 计数仍按原 TTL 到期，已完成的业务操作不回滚。 */ }
   }
 }

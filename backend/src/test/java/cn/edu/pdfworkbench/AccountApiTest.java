@@ -17,7 +17,13 @@ import org.springframework.test.context.*;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 class AccountApiTest {
+  static final TestServices SERVICES = new TestServices();
+
+  @org.junit.jupiter.api.AfterAll
+  static void closeServices() { SERVICES.close(); }
+
   static final Path ROOT;
 
   static {
@@ -30,12 +36,35 @@ class AccountApiTest {
 
   @DynamicPropertySource
   static void properties(DynamicPropertyRegistry r) {
-    r.add("account.data-directory", () -> ROOT.resolve("accounts").toString());
+    SERVICES.register(r);
     r.add("ai.data-directory", () -> ROOT.resolve("reading").toString());
   }
 
   @org.springframework.beans.factory.annotation.Autowired
   org.springdoc.webmvc.api.OpenApiWebMvcResource openApi;
+
+  @org.springframework.beans.factory.annotation.Autowired
+  org.springframework.data.redis.core.StringRedisTemplate redis;
+
+  @Test
+  void redisRateWindowIsSharedAndExpires() throws Exception {
+    String prefix = "pdf-workbench:test:rate:" + UUID.randomUUID();
+    var first = new cn.edu.pdfworkbench.auth.AccountAttemptLimiter(redis, prefix);
+    var second = new cn.edu.pdfworkbench.auth.AccountAttemptLimiter(redis, prefix);
+    for (int i = 0; i < 5; i++) first.check("email-ip", 5, true);
+    assertEquals(429, assertThrows(cn.edu.pdfworkbench.exception.ApiException.class, () -> second.check("email-ip", 5, false)).status());
+    try (var keys = redis.scan(org.springframework.data.redis.core.ScanOptions.scanOptions().match(prefix + ":attempts:*").count(100).build())) {
+      assertTrue(keys.hasNext());
+      String key = keys.next();
+      assertTrue(redis.getExpire(key) > 0 && redis.getExpire(key) <= 900);
+      redis.expire(key, java.time.Duration.ofMillis(1));
+      long deadline = System.nanoTime() + java.time.Duration.ofSeconds(2).toNanos();
+      while (Boolean.TRUE.equals(redis.hasKey(key)) && System.nanoTime() < deadline) Thread.sleep(10);
+      assertFalse(Boolean.TRUE.equals(redis.hasKey(key)));
+      second.check("email-ip", 5, true);
+      second.clear("email-ip");
+    }
+  }
 
   @Test
   void openApiResourceBuilds() throws Exception {

@@ -15,7 +15,8 @@ export default defineConfig({
   reporter: [["list"], ["html", { open: "never" }]],
   webServer: [
     {
-      command: "mvn spring-boot:run",
+      command:
+        "pwsh -NoProfile -File ../deploy/Start-Web.ps1 -Port 8082 -DataDirectory ./target/account-e2e/ai -DatabaseSchema wb_e2e_account -SessionNamespace pdf-workbench:e2e:account",
       cwd: "../backend",
       url: "http://127.0.0.1:8082/v3/api-docs",
       reuseExistingServer: false,
@@ -26,9 +27,6 @@ export default defineConfig({
         AI_API_KEY: "",
         AI_BASE_URL: "http://127.0.0.1:9",
         AI_RERANK_URL: "http://127.0.0.1:9",
-        ACCOUNT_DATA_DIRECTORY: path.resolve(
-          "../backend/target/account-e2e/accounts",
-        ),
         AI_DATA_DIRECTORY: path.resolve("../backend/target/account-e2e/ai"),
       },
     },

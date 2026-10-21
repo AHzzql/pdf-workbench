@@ -14,11 +14,13 @@ public class AccountSessionFilter extends OncePerRequestFilter {
   private final AccountService service;
   private final AiRepository repository;
   private final ObjectMapper json;
+  private final SessionAccess sessions;
 
-  public AccountSessionFilter(AccountService service, AiRepository repository, ObjectMapper json) {
+  public AccountSessionFilter(AccountService service, AiRepository repository, ObjectMapper json, SessionAccess sessions) {
     this.service = service;
     this.repository = repository;
     this.json = json;
+    this.sessions = sessions;
   }
 
   @Override
@@ -50,25 +52,8 @@ public class AccountSessionFilter extends OncePerRequestFilter {
       if (expected != null && !expected.equals(owner))
         throw new ApiException(409, "CHAT_SPACE_CHANGED", "聊天空间已切换，请重新打开智能助手");
       final var account = identity;
-      final var session = request.getSession(false);
-      BooleanSupplier access =
-          () -> {
-            try {
-              if (session == null) return false;
-              var context = session.getAttribute("SPRING_SECURITY_CONTEXT");
-              if (account == null)
-                return owner.equals(session.getAttribute(ChatWorkspace.GUEST_ATTRIBUTE))
-                    && !(context instanceof org.springframework.security.core.context.SecurityContext c
-                        && c.getAuthentication() != null
-                        && c.getAuthentication().getPrincipal() instanceof AccountTypes.Identity);
-              return context instanceof org.springframework.security.core.context.SecurityContext c
-                  && c.getAuthentication() != null
-                  && account.equals(c.getAuthentication().getPrincipal())
-                  && service.current(account) != null;
-            } catch (Exception e) {
-              return false;
-            }
-          };
+      final var sessionId = request.getSession(false).getId();
+      BooleanSupplier access = () -> sessions.active(sessionId, account, owner);
       try (var scope = repository.scope(owner, access)) {
         chain.doFilter(request, response);
       }

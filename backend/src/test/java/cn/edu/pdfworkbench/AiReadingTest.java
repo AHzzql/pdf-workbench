@@ -91,7 +91,8 @@ class AiReadingTest {
   }
 
   @Test
-  void repositoryReopensHistoryAndMarksInterruptedRuns() {
+  void repositoryReopensHistoryWithoutStoppingAnotherInstancesRun() {
+    try (var database = new TestServices()) {
     var settings =
         new AiSettings(
             root.toString(),
@@ -102,7 +103,9 @@ class AiReadingTest {
             "embed",
             "rank");
     var json = new ObjectMapper();
-    var first = new AiRepository(settings, json);
+    var first = new AiRepository(settings, json, database.jdbc());
+    String owner = UUID.randomUUID().toString();
+    try (var scope = first.scope(owner, () -> true)) {
     String d = UUID.randomUUID().toString(),
         c = UUID.randomUUID().toString(),
         m = UUID.randomUUID().toString();
@@ -123,12 +126,16 @@ class AiReadingTest {
             List.of(),
             1,
             3));
-    var reopened = new AiRepository(settings, json);
-    assertEquals("STOPPED", reopened.message(m).status());
+    var reopened = new AiRepository(settings, json, database.jdbc());
+    try (var otherScope = reopened.scope(owner, () -> true)) {
+    assertEquals("RUNNING", reopened.message(m).status());
     assertEquals("partial", reopened.messages(c).getFirst().text());
-    assertEquals(4, reopened.message(m).sequence());
+    assertEquals(3, reopened.message(m).sequence());
     assertEquals("History", reopened.conversations().getFirst().title());
     assertThrows(ApiException.class, () -> reopened.documentPath("../../secrets"));
+    }
+    }
+    }
   }
 
   private Chunk chunk(String id, int page, int start, String text) {

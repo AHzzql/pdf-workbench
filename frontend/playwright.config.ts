@@ -13,7 +13,8 @@ export default defineConfig({
   reporter: [["list"], ["html", { open: "never" }]],
   webServer: [
     {
-      command: "mvn spring-boot:run",
+      command:
+        "pwsh -NoProfile -File ../deploy/Start-Web.ps1 -DataDirectory ./target/e2e/ai -DatabaseSchema wb_e2e_default -SessionNamespace pdf-workbench:e2e:default",
       cwd: "../backend",
       url: "http://127.0.0.1:8080/v3/api-docs",
       reuseExistingServer: true,

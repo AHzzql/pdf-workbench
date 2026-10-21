@@ -3,6 +3,34 @@ spring:
     import: optional:file:./config/application-local.yml,optional:file:./backend/config/application-local.yml
   application:
     name: pdf-workbench
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://127.0.0.1:15432/pdf_workbench}
+    username: ${DATABASE_USER:pdf_workbench}
+    password: ${DATABASE_PASSWORD:${POSTGRES_PASSWORD:}}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 1
+      connection-timeout: 5000
+  flyway:
+    enabled: true
+    clean-disabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:16379}
+      username: ${REDIS_USER:workbench}
+      password: ${REDIS_PASSWORD:}
+      connect-timeout: 2s
+      timeout: 2s
+  session:
+    timeout: 30m
+    servlet:
+      filter-dispatcher-types: request
+    redis:
+      namespace: ${SESSION_NAMESPACE:pdf-workbench:session:v1}
+      repository-type: default
+      flush-mode: immediate
   servlet:
     multipart:
       max-file-size: 50MB
@@ -46,6 +74,3 @@ ai:
 logging:
   level:
     org.springframework.ai: OFF
-
-account:
-  data-directory: ${ACCOUNT_DATA_DIRECTORY:${user.home}/.pdf-workbench/accounts}

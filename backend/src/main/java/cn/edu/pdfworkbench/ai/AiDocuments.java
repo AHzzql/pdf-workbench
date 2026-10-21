@@ -34,6 +34,7 @@ public class AiDocuments {
     if (file.isEmpty() || file.getSize() > 50L * 1024 * 1024)
       throw new ApiException(413, "FILE_TOO_LARGE", "PDF 文件必须为 1 字节至 50 MiB");
     var known = repository.documents();
+    Files.createDirectories(repository.root());
     Path temp = Files.createTempFile(repository.root(), "upload-", ".tmp");
     String id = UUID.randomUUID().toString();
     boolean saved = false;

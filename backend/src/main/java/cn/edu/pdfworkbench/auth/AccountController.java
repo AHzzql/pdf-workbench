@@ -38,6 +38,10 @@ public class AccountController {
   public Session session(HttpServletRequest request) {
     var i = identity();
     var row = i == null ? null : service.current(i);
+    if (i != null && row == null) {
+      logout(request);
+      i = null;
+    }
     return new Session(row != null, row == null ? null : row.user(), ChatWorkspace.owner(request, i));
   }
 
@@ -59,7 +63,6 @@ public class AccountController {
     var row = service.login(value, request.getRemoteAddr());
     request.getSession(true);
     request.changeSessionId();
-    request.getSession(false).removeAttribute(ChatWorkspace.GUEST_ATTRIBUTE);
     var context = SecurityContextHolder.createEmptyContext();
     context.setAuthentication(
         UsernamePasswordAuthenticationToken.authenticated(
@@ -72,7 +75,9 @@ public class AccountController {
 
   @GetMapping("/profile")
   public User profile() {
-    return service.current(required()).user();
+    var row = service.current(required());
+    if (row == null) throw new ApiException(401, "ACCOUNT_LOGIN_REQUIRED", "请重新登录账户");
+    return row.user();
   }
 
   @PatchMapping("/profile")

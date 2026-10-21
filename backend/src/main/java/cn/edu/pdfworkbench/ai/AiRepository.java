@@ -9,20 +9,21 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class AiRepository {
   private final AiSettings settings;
   private final ObjectMapper json;
-  private final java.util.Map<String, JdbcTemplate> databases = new java.util.HashMap<>();
-  private final ThreadLocal<String> owner = ThreadLocal.withInitial(() -> "guest");
+  private final JdbcTemplate database;
+  private final ThreadLocal<String> owner = new ThreadLocal<>();
   private final ThreadLocal<java.util.function.BooleanSupplier> access =
       ThreadLocal.withInitial(() -> () -> true);
 
   public String owner() {
-    return owner.get();
+    var value = owner.get();
+    if (value == null) throw new ApiException(503, "CHAT_SPACE_REQUIRED", "聊天空间未初始化");
+    return value;
   }
 
   public java.util.function.BooleanSupplier access() {
@@ -30,14 +31,12 @@ public class AiRepository {
   }
 
   public Path root() {
-    return owner().equals("guest")
-        ? settings.root()
-        : settings.root().resolve("users").resolve(owner());
+    return settings.root().resolve("users").resolve(owner());
   }
 
   public Scope scope(String value, java.util.function.BooleanSupplier guard) {
-    if (!value.equals("guest")) validateId(value);
-    var scope = new Scope(owner(), access());
+    validateId(value);
+    var scope = new Scope(owner.get(), access());
     owner.set(value);
     access.set(guard);
     return scope;
@@ -53,67 +52,20 @@ public class AiRepository {
     }
 
     public void close() {
-      owner.set(previous);
-      access.set(guard);
+      if (previous == null) {
+        owner.remove();
+        access.remove();
+      } else {
+        owner.set(previous);
+        access.set(guard);
+      }
     }
   }
 
-  public AiRepository(AiSettings settings, ObjectMapper json) {
+  public AiRepository(AiSettings settings, ObjectMapper json, JdbcTemplate database) {
     this.settings = settings;
     this.json = json;
-  }
-
-  private synchronized JdbcTemplate db() {
-    JdbcTemplate db = databases.get(owner());
-    if (db != null) return db;
-    try {
-      Files.createDirectories(root());
-    } catch (IOException e) {
-      throw new ApiException(500, "AI_STORAGE_ERROR", "无法创建本机数据目录");
-    }
-    var data =
-        new DriverManagerDataSource(
-            "jdbc:h2:file:"
-                + root().resolve("history").toString().replace('\\', '/')
-                + ";DB_CLOSE_ON_EXIT=FALSE",
-            "sa",
-            "");
-    db = new JdbcTemplate(data);
-
-    db.execute(
-        "CREATE TABLE IF NOT EXISTS ai_documents(id VARCHAR(64) PRIMARY KEY, payload CLOB NOT"
-            + " NULL)");
-    db.execute(
-        "CREATE TABLE IF NOT EXISTS ai_conversations(id VARCHAR(64) PRIMARY KEY, doc_id VARCHAR(64)"
-            + " NOT NULL, updated BIGINT NOT NULL, payload CLOB NOT NULL)");
-    db.execute(
-        "CREATE TABLE IF NOT EXISTS ai_messages(id VARCHAR(100) PRIMARY KEY, conversation_id"
-            + " VARCHAR(64) NOT NULL, created BIGINT NOT NULL, payload CLOB NOT NULL)");
-    db.execute(
-        "CREATE INDEX IF NOT EXISTS ai_messages_conversation ON ai_messages(conversation_id,"
-            + " created)");
-    databases.put(owner(), db);
-    for (var m :
-        db.query(
-            "SELECT payload FROM ai_messages", (r, n) -> read(r.getString(1), Message.class))) {
-      if (m.status().equals("RUNNING"))
-        save(
-            new Message(
-                m.id(),
-                m.conversationId(),
-                m.role(),
-                m.text(),
-                "STOPPED",
-                "服务重启，生成已中断",
-                m.mode(),
-                m.question(),
-                m.pages(),
-                m.chapterId(),
-                m.citations(),
-                m.createdAt(),
-                m.sequence() + 1));
-    }
-    return db;
+    this.database = database;
   }
 
   public Path documentPath(String id) {
@@ -132,7 +84,7 @@ public class AiRepository {
   }
 
   public static void validateId(String id) {
-    if (id == null || !id.matches("[a-f0-9-]{36}"))
+    if (id == null || !id.matches("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"))
       throw new ApiException(400, "INVALID_ID", "标识格式不正确");
   }
 
@@ -153,22 +105,29 @@ public class AiRepository {
   }
 
   public synchronized void save(Document value) {
-    db().update("MERGE INTO ai_documents KEY(id) VALUES(?,?)", value.id(), write(value));
+    database.update(
+        "INSERT INTO ai_documents(workspace_id,id,payload) VALUES(?::uuid,?::uuid,?::jsonb)"
+            + " ON CONFLICT(workspace_id,id) DO UPDATE SET payload=excluded.payload",
+        owner(), value.id(), write(value));
   }
 
   public synchronized void save(Conversation value) {
-    db().update(
-            "MERGE INTO ai_conversations KEY(id) VALUES(?,?,?,?)",
-            value.id(),
+    database.update(
+            "INSERT INTO ai_conversations(workspace_id,id,doc_id,updated,payload)"
+                + " VALUES(?::uuid,?::uuid,?::uuid,?,?::jsonb) ON CONFLICT(workspace_id,id)"
+                + " DO UPDATE SET doc_id=excluded.doc_id,updated=excluded.updated,payload=excluded.payload",
+            owner(), value.id(),
             value.documentId(),
             value.updatedAt(),
             write(value));
   }
 
   public synchronized void save(Message value) {
-    db().update(
-            "MERGE INTO ai_messages KEY(id) VALUES(?,?,?,?)",
-            value.id(),
+    database.update(
+            "INSERT INTO ai_messages(workspace_id,id,conversation_id,created,payload)"
+                + " VALUES(?::uuid,?::uuid,?::uuid,?,?::jsonb) ON CONFLICT(workspace_id,id)"
+                + " DO UPDATE SET conversation_id=excluded.conversation_id,created=excluded.created,payload=excluded.payload",
+            owner(), value.id(),
             value.conversationId(),
             value.createdAt(),
             write(value));
@@ -177,29 +136,29 @@ public class AiRepository {
   public Document document(String id) {
     validateId(id);
     return one(
-        db().query(
-                "SELECT payload FROM ai_documents WHERE id=?",
+        database.query(
+                "SELECT payload FROM ai_documents WHERE workspace_id=?::uuid AND id=?::uuid",
                 (r, n) -> read(r.getString(1), Document.class),
-                id));
+                owner(), id));
   }
 
   public Conversation conversation(String id) {
     validateId(id);
     return one(
-        db().query(
-                "SELECT payload FROM ai_conversations WHERE id=?",
+        database.query(
+                "SELECT payload FROM ai_conversations WHERE workspace_id=?::uuid AND id=?::uuid",
                 (r, n) -> read(r.getString(1), Conversation.class),
-                id));
+                owner(), id));
   }
 
   public Message message(String id) {
-    if (id == null || !id.matches("[a-f0-9-]{36}"))
+    if (id == null || !id.matches("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"))
       throw new ApiException(400, "INVALID_ID", "标识格式不正确");
     return one(
-        db().query(
-                "SELECT payload FROM ai_messages WHERE id=?",
+        database.query(
+                "SELECT payload FROM ai_messages WHERE workspace_id=?::uuid AND id=?::uuid",
                 (r, n) -> read(r.getString(1), Message.class),
-                id));
+                owner(), id));
   }
 
   private <T> T one(List<T> values) {
@@ -208,25 +167,27 @@ public class AiRepository {
   }
 
   public List<Document> documents() {
-    return db().query(
-            "SELECT payload FROM ai_documents", (r, n) -> read(r.getString(1), Document.class));
+    return database.query(
+            "SELECT payload FROM ai_documents WHERE workspace_id=?::uuid",
+            (r, n) -> read(r.getString(1), Document.class), owner());
   }
 
   public List<Conversation> conversations() {
-    return db().query(
-            "SELECT payload FROM ai_conversations ORDER BY updated DESC",
-            (r, n) -> read(r.getString(1), Conversation.class));
+    return database.query(
+            "SELECT payload FROM ai_conversations WHERE workspace_id=?::uuid ORDER BY updated DESC,id",
+            (r, n) -> read(r.getString(1), Conversation.class), owner());
   }
 
   public List<Message> messages(String id) {
     conversation(id);
-    return db().query(
-            "SELECT payload FROM ai_messages WHERE conversation_id=? ORDER BY created,id",
+    return database.query(
+            "SELECT payload FROM ai_messages WHERE workspace_id=?::uuid AND conversation_id=?::uuid ORDER BY created,id",
             (r, n) -> read(r.getString(1), Message.class),
-            id);
+            owner(), id);
   }
 
   public void content(String id, Content value) throws IOException {
+    Files.createDirectories(root());
     var target = contentPath(id);
     var temp = Files.createTempFile(root(), "content-", ".tmp");
     try {
@@ -243,11 +204,11 @@ public class AiRepository {
 
   public synchronized void deleteConversation(String id) {
     conversation(id);
-    db().update("DELETE FROM ai_messages WHERE conversation_id=?", id);
-    db().update("DELETE FROM ai_conversations WHERE id=?", id);
+    database.update("DELETE FROM ai_conversations WHERE workspace_id=?::uuid AND id=?::uuid", owner(), id);
   }
 
   public void deleteDocumentRecord(String id) {
-    db().update("DELETE FROM ai_documents WHERE id=?", id);
+    validateId(id);
+    database.update("DELETE FROM ai_documents WHERE workspace_id=?::uuid AND id=?::uuid", owner(), id);
   }
 }

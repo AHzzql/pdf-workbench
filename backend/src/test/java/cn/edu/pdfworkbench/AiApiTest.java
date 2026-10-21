@@ -25,7 +25,13 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.util.LinkedMultiValueMap;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 class AiApiTest {
+  static final TestServices SERVICES = new TestServices();
+
+  @org.junit.jupiter.api.AfterAll
+  static void closeServices() { SERVICES.close(); }
+
   static final Path ROOT;
 
   static {
@@ -38,6 +44,7 @@ class AiApiTest {
 
   @DynamicPropertySource
   static void config(DynamicPropertyRegistry r) {
+    SERVICES.register(r);
     r.add("ai.data-directory", ROOT::toString);
     r.add("ai.api-key", () -> "");
   }

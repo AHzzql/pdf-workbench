@@ -81,6 +81,11 @@ public class ApiExceptionHandler {
     return error(422, "DOCUMENT_INVALID", "文件无法解析");
   }
 
+  @ExceptionHandler(org.springframework.dao.DataAccessException.class)
+  ResponseEntity<ErrorBody> storage(Exception e) {
+    return error(503, "DATA_STORAGE_UNAVAILABLE", "数据服务暂不可用，请稍后重试");
+  }
+
   @ExceptionHandler(Exception.class)
   ResponseEntity<ErrorBody> unknown(Exception e) {
     return error(500, "INTERNAL_ERROR", "处理失败");
