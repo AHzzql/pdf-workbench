@@ -53,6 +53,14 @@ final class TestServices implements AutoCloseable {
     return new cn.edu.pdfworkbench.ai.ElasticsearchSettings("http://127.0.0.1:19200", "elastic",
         credentials.get("ELASTIC_PASSWORD"), "pdf-workbench-test-" + schema.substring("wb_test_".length()));
   }
+  String taskNamespace() { return "pdf-workbench.test." + schema.substring("wb_test_".length()); }
+  org.springframework.amqp.rabbit.connection.CachingConnectionFactory rabbit() {
+    var factory = new org.springframework.amqp.rabbit.connection.CachingConnectionFactory("127.0.0.1",5672);
+    factory.setUsername("workbench"); factory.setPassword(credentials.get("RABBITMQ_PASSWORD")); factory.setVirtualHost("workbench");
+    factory.setPublisherConfirmType(org.springframework.amqp.rabbit.connection.CachingConnectionFactory.ConfirmType.CORRELATED);
+    factory.setPublisherReturns(true);
+    return factory;
+  }
   JdbcTemplate jdbc() { return new JdbcTemplate(source); }
 
   void register(DynamicPropertyRegistry properties) {
@@ -66,6 +74,8 @@ final class TestServices implements AutoCloseable {
     properties.add("spring.data.redis.username", () -> "workbench");
     properties.add("spring.data.redis.password", () -> credentials.get("REDIS_PASSWORD"));
     properties.add("spring.session.redis.namespace", () -> namespace);
+    properties.add("tasks.namespace", this::taskNamespace);
+    properties.add("spring.rabbitmq.password", () -> credentials.get("RABBITMQ_PASSWORD"));
     properties.add("search.password", () -> searchSettings().password());
     properties.add("search.alias", () -> searchSettings().alias());
     properties.add("spring.config.import", () -> "optional:classpath:test-no-local.yml");
@@ -78,6 +88,12 @@ final class TestServices implements AutoCloseable {
     if (closed) return;
     closed = true;
     source.close();
+    var rabbit = rabbit();
+    try {
+      var admin = new org.springframework.amqp.rabbit.core.RabbitAdmin(rabbit);
+      for (String route : List.of("reading","index","cleanup","dead")) admin.deleteQueue(taskNamespace()+"."+route);
+      admin.deleteExchange(taskNamespace());
+    } finally { rabbit.destroy(); }
     var search = searchSettings();
     if (!search.physicalIndex().matches("pdf-workbench-test-[a-f0-9]{32}-v1"))
       throw new IllegalStateException("Invalid test index");

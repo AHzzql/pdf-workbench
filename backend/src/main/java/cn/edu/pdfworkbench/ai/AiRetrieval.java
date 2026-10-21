@@ -26,6 +26,10 @@ public class AiRetrieval {
   }
 
   public void index(String id, List<Chunk> chunks, Consumer<String> progress) throws IOException {
+    index(id, chunks, progress, token -> repository.completeIndex(id, token, settings.indexVersion()));
+  }
+
+  public void index(String id, List<Chunk> chunks, Consumer<String> progress, java.util.function.Function<String,Boolean> publish) throws IOException {
     String token = UUID.randomUUID().toString();
     boolean complete = false;
     try {
@@ -43,7 +47,7 @@ public class AiRetrieval {
       index.refresh();
       if (!index.ready(repository.owner(), id, token, settings.indexVersion(), chunks.size()))
         throw new ApiException(503, "SEARCH_INDEX_FAILED", "文档索引不完整，请稍后重试");
-      if (!repository.completeIndex(id, token, settings.indexVersion())) throw lostLease();
+      if (!publish.apply(token)) throw lostLease();
       complete = true;
     } finally {
       cleanup(id, token, complete);
@@ -70,7 +74,7 @@ public class AiRetrieval {
   }
 
   private void renew(String id, String token) {
-    if (Thread.currentThread().isInterrupted()) throw new java.util.concurrent.CancellationException();
+    if (Thread.currentThread().isInterrupted() || !repository.access().getAsBoolean()) throw new java.util.concurrent.CancellationException();
     if (!repository.renewIndex(id, token)) throw lostLease();
   }
 

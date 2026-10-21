@@ -3,6 +3,7 @@ package cn.edu.pdfworkbench.ai;
 import static cn.edu.pdfworkbench.ai.AiTypes.*;
 
 import cn.edu.pdfworkbench.exception.ApiException;
+import cn.edu.pdfworkbench.tasks.TaskStore;
 import cn.edu.pdfworkbench.model.TextOptions;
 import cn.edu.pdfworkbench.util.PdfInfoUtils;
 import cn.edu.pdfworkbench.util.PdfTextUtils;
@@ -22,12 +23,14 @@ public class AiDocuments {
   private final AiRepository repository;
   private final AiSettings settings;
   private final AiRetrieval retrieval;
+  private final TaskStore tasks;
   private final Map<String, ReentrantLock> locks = new ConcurrentHashMap<>();
 
-  public AiDocuments(AiRepository repository, AiSettings settings, AiRetrieval retrieval) {
+  public AiDocuments(AiRepository repository, AiSettings settings, AiRetrieval retrieval, TaskStore tasks) {
     this.repository = repository;
     this.settings = settings;
     this.retrieval = retrieval;
+    this.tasks = tasks;
   }
 
   public synchronized Document register(MultipartFile file, String password) throws Exception {
@@ -105,8 +108,16 @@ public class AiDocuments {
       if (d.status().equals("DELETING")) throw new ApiException(409, "DOCUMENT_DELETING", "文档正在清理");
       var content = repository.content(id);
       if (!retrieval.ready(id, content.chunks().size())) {
-        progress.accept("正在准备检索索引");
-        retrieval.index(id, content.chunks(), progress);
+        progress.accept("等待检索索引");
+        var task = tasks.enqueue(repository.owner(), TaskStore.Kind.INDEX, id, id, null);
+        long deadline = System.nanoTime() + java.time.Duration.ofMinutes(5).toNanos();
+        while (!retrieval.ready(id, content.chunks().size())) {
+          if (Thread.currentThread().isInterrupted() || !repository.access().getAsBoolean()) throw new java.util.concurrent.CancellationException();
+          var current = tasks.get(task.id());
+          if (current == null || current.terminal()) throw new ApiException(503, "SEARCH_INDEX_FAILED", "文档索引未能完成，请稍后重试");
+          if (System.nanoTime() > deadline) throw new ApiException(503, "SEARCH_INDEX_TIMEOUT", "文档索引等待超时，请稍后重试");
+          Thread.sleep(100);
+        }
       }
       return content;
     } finally {
@@ -122,37 +133,39 @@ public class AiDocuments {
     return repository.createConversation(c);
   }
 
-  public synchronized void delete(String id) throws IOException {
-    var lock = locks.computeIfAbsent(id, k -> new ReentrantLock());
-    if (!lock.tryLock()) throw new ApiException(409, "DOCUMENT_BUSY", "文档正在处理");
-    try {
+  public void delete(String id) throws IOException {
+    tasks.submission(() -> {
+      tasks.cancelDocument(repository.owner(), id);
       repository.markDeleting(id);
-      retrieval.delete(id);
-      Path index = repository.indexPath(id);
-      if (Files.exists(index))
-        try (var walk = Files.walk(index)) {
-          for (var p : walk.sorted(Comparator.reverseOrder()).toList()) Files.delete(p);
-        }
-      Files.deleteIfExists(repository.documentPath(id));
-      Files.deleteIfExists(repository.contentPath(id));
-      repository.deleteDocumentRecord(id);
-    } finally {
-      lock.unlock();
-    }
+      tasks.enqueue(repository.owner(), TaskStore.Kind.CLEAN, id, id, null);
+      return null;
+    });
   }
 
-  public synchronized void deleteConversation(String id, boolean cleanDocument) throws IOException {
-    var conversation = repository.conversation(id);
-    var lock = locks.computeIfAbsent(conversation.documentId(), k -> new ReentrantLock());
-    if (!lock.tryLock()) throw new ApiException(409, "DOCUMENT_BUSY", "文档正在处理，请稍后重试");
+  public void cleanFiles(String id) throws IOException {
     try {
+      if (!repository.document(id).status().equals("DELETING")) throw new ApiException(409, "DOCUMENT_NOT_DELETING", "文档尚未进入清理状态");
+    } catch (ApiException e) { if (e.status() == 404) return; throw e; }
+    retrieval.delete(id);
+    Path index = repository.indexPath(id);
+    if (Files.exists(index))
+      try (var walk = Files.walk(index)) {
+        for (var path : walk.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);
+      }
+    Files.deleteIfExists(repository.documentPath(id));
+    Files.deleteIfExists(repository.contentPath(id));
+  }
+
+  public void deleteConversation(String id, boolean cleanDocument) throws IOException {
+    tasks.submission(() -> {
+      var conversation = repository.conversation(id);
+      if (tasks.busy(repository.owner(), id)) throw new ApiException(409, "RUN_ACTIVE", "请先停止当前会话的生成");
       repository.deleteConversation(id);
-      if (cleanDocument
-          && repository.conversations().stream()
-              .noneMatch(c -> c.documentId().equals(conversation.documentId())))
-        delete(conversation.documentId());
-    } finally {
-      lock.unlock();
-    }
+      if (cleanDocument && repository.conversations().stream().noneMatch(c -> c.documentId().equals(conversation.documentId()))) {
+        try { delete(conversation.documentId()); }
+        catch (IOException e) { throw new java.io.UncheckedIOException(e); }
+      }
+      return null;
+    });
   }
 }

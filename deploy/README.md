@@ -21,6 +21,14 @@ mvn.cmd -f backend/pom.xml package
 
 `Start-Local.ps1` 创建本机凭据并启动五个容器；重复调用保留已有凭据和命名卷。`Start-Web.ps1` 启动 Windows 原生 Java 服务，默认关闭模型调用；数据目录为 `deploy/runtime/data`。模型配置通过环境变量或本机配置文件提供，显式使用 `-EnableModel` 启用。
 
+在第二个 PowerShell 会话启动 Worker：
+
+```powershell
+.\deploy\Start-Worker.ps1
+```
+
+Web 仅提交与读取持久任务，不连接 AMQP；Worker 统一发布 Outbox、维护租约并消费任务，不监听 HTTP，二者使用相同数据库、任务命名空间与数据目录。模型调用默认关闭；启用时 Web 和 Worker 均使用 `-EnableModel`。更改 `-DataDirectory` 或 `-DatabaseSchema` 时两进程保持一致。
+
 访问 `http://127.0.0.1:5173`。Nginx 与 Vite 开发服务器共用 5173，不能同时监听。8080 为原生 Web 回环端口；15432、16379、19200、5672 分别为本机 PostgreSQL、Redis、Elasticsearch 和 AMQP 端口。
 
 ## 验证
@@ -33,9 +41,19 @@ mvn.cmd -f backend/pom.xml package
 npm --prefix frontend run test:gateway
 ```
 
-`Verify-Persistence.ps1` 使用 8180、8181 两个独立 Java 进程、独立数据库模式及合成 PDF，验证共享数据、权限隔离、跨节点撤销、强制终止后的恢复和分布式限流；再将独立节点的 Redis 和 ES 地址指向本机关闭端口，验证会话返回 503、携带原会话 Cookie 的 PDF 基础操作仍成功。模型地址限定为本机关闭的测试端口；验证数据位于 `backend/target`，数据库模式在结束时删除。8180、8181 被占用时停止验证，不终止其他进程。
+`Verify-Persistence.ps1` 使用 8180、8181 两个 Web、独立 Worker、8189 本机模型协议夹具及合成 PDF。验证包括共享会话、账户及文档隔离、跨节点撤销、强制终止后恢复、分布式限流、基础 PDF 故障边界；还会让 Web 无法连接 AMQP，终止提交进程后由 Worker 发布并完成任务，随后强制终止生成中的 Worker，校验租约接管、消息不重复及新 fencing token。取消由另一 Web 提交，并验证 SSE、模型连接关闭及消费者继续可用；文档通过队列完成墓碑后的清理。
 
-Maven 集成测试连接本机真实 PostgreSQL、Redis 和 Elasticsearch，为每组数据测试创建随机数据库模式及测试索引，外部模型使用合成向量；普通 PDF 工具测试及独立示例保持原调用方式。
+模型请求仅连接 8189 的合成夹具。验证目录位于 `backend/target`，结束时删除随机数据库模式、ES 索引与 RabbitMQ 队列；8180、8181 或 8189 被占用时停止验证，不终止其他进程。执行前运行 Maven 测试并打包，以提供合成 PDF 与测试夹具。
+
+Maven 集成测试使用本机真实 PostgreSQL、Redis、Elasticsearch 和 RabbitMQ；每组数据测试使用随机模式、索引及队列命名空间。普通 PDF 工具测试及独立示例保持原调用方式。
+
+## 后台任务
+
+`TASK_NAMESPACE` 默认为 `pdf-workbench.tasks.v1`，`TASK_ROLE` 区分 `web`、`worker`；`all` 用于同进程集成测试。`RABBITMQ_HOST`、`RABBITMQ_PORT`、`RABBITMQ_USER`、`RABBITMQ_PASSWORD`、`RABBITMQ_VHOST` 配置 AMQP，密码由启动脚本载入。索引、生成、清理队列各有容量限制，预取 1；原 11 个 PDF 同步接口不入队。
+
+业务写入、任务和 Outbox 同事务提交。发布使用持久化消息、mandatory 与关联确认；业务终态提交后手动 ACK，重复消息按任务版本和 fencing token 去重。领取后崩溃的任务在租约到期后重试；领取前未处理的已确认投递有定期重发。运行任务初始租约 30 秒、执行窗口 15 分钟、最多三次尝试。取消撤销数据库执行权，并中断单任务线程；Web 或 Worker 重启不批量改写旧消息状态。升级前没有持久任务记录的消息不会自动恢复。
+
+停止进程保留数据库、Redis、ES 和队列数据。执行终态及已发布 Outbox 的保留期、游客过期回收与旧索引代次自动回收尚未接入调度。
 
 ## 文档索引
 

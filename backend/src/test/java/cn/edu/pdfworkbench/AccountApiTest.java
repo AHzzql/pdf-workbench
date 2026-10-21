@@ -22,7 +22,7 @@ class AccountApiTest {
   static final TestServices SERVICES = new TestServices();
 
   @org.junit.jupiter.api.AfterAll
-  static void closeServices() { SERVICES.close(); }
+  static void closeServices(@org.springframework.beans.factory.annotation.Autowired cn.edu.pdfworkbench.tasks.TaskRuntime runtime) { runtime.stop(); SERVICES.close(); }
 
   static final Path ROOT;
 
@@ -37,6 +37,7 @@ class AccountApiTest {
   @DynamicPropertySource
   static void properties(DynamicPropertyRegistry r) {
     SERVICES.register(r);
+    r.add("tasks.role", () -> "all");
     r.add("ai.data-directory", () -> ROOT.resolve("reading").toString());
   }
 

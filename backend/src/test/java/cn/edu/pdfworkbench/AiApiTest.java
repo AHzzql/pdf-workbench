@@ -30,7 +30,7 @@ class AiApiTest {
   static final TestServices SERVICES = new TestServices();
 
   @org.junit.jupiter.api.AfterAll
-  static void closeServices() { SERVICES.close(); }
+  static void closeServices(@Autowired cn.edu.pdfworkbench.tasks.TaskRuntime runtime) { runtime.stop(); SERVICES.close(); }
 
   static final Path ROOT;
 
@@ -45,6 +45,7 @@ class AiApiTest {
   @DynamicPropertySource
   static void config(DynamicPropertyRegistry r) {
     SERVICES.register(r);
+    r.add("tasks.role", () -> "all");
     r.add("ai.data-directory", ROOT::toString);
     r.add("ai.api-key", () -> "");
   }
@@ -292,6 +293,7 @@ class AiApiTest {
         HttpMethod.DELETE,
         new HttpEntity<>(new DeleteConversation(true)),
         Void.class);
+    awaitDeleted(d.id());
     assertFalse(Files.exists(repository.documentPath(d.id())));
     assertFalse(Files.exists(repository.indexPath(d.id())));
     assertFalse(searchIndex.ready(repository.owner(), d.id(), generation, d.version(), 1));
@@ -557,6 +559,27 @@ class AiApiTest {
   }
 
   @Test
+  void cancellingProviderCallsDoesNotStopSharedQueueConsumers() throws Exception {
+    var c=conversation(upload(pdf("Cancellation Alpha")));
+    for(int round=0;round<4;round++) {
+      slow.set(true);var message=ask(c,"BRIEF",null);
+      long deadline=System.nanoTime()+java.time.Duration.ofSeconds(8).toNanos();
+      while(snapshotText(message.id()).isBlank() && System.nanoTime()<deadline)Thread.sleep(25);
+      assertFalse(snapshotText(message.id()).isBlank());
+      assertEquals("STOPPED",runs.cancel(message.id()).status());
+      slow.set(false);
+      assertEquals("COMPLETED",await(ask(c,"BRIEF",null).id()).status());
+    }
+    var connection=SERVICES.rabbit();
+    try {
+      var admin=new org.springframework.amqp.rabbit.core.RabbitAdmin(connection);
+      assertEquals(2,admin.getQueueInfo(SERVICES.taskNamespace()+".reading").getConsumerCount());
+    } finally {connection.destroy();}
+  }
+
+  private String snapshotText(String id) { return http.getForObject(base+"/runs/"+id,Message.class).text(); }
+
+  @Test
   void deletionTombstoneBlocksDownloadsChaptersAndNewConversations() throws Exception {
     var d = upload(pdf("tombstone source"));
     repository.markDeleting(d.id());
@@ -564,7 +587,21 @@ class AiApiTest {
       assertEquals(HttpStatus.CONFLICT, http.getForEntity(base + path, String.class).getStatusCode());
     assertEquals(HttpStatus.CONFLICT, http.postForEntity(base + "/conversations", new CreateConversation(d.id()), String.class).getStatusCode());
     assertEquals(HttpStatus.OK, http.exchange(base + "/documents/" + d.id(), HttpMethod.DELETE, HttpEntity.EMPTY, Void.class).getStatusCode());
-    assertEquals(HttpStatus.NOT_FOUND, http.getForEntity(base + "/documents/" + d.id(), String.class).getStatusCode());
+    awaitDeleted(d.id());
+  }
+
+  private void awaitDeleted(String id) throws Exception {
+    long deadline=System.nanoTime()+java.time.Duration.ofSeconds(10).toNanos();
+    while (System.nanoTime()<deadline) {
+      var response=http.getForEntity(base+"/documents/"+id,String.class);
+      if (response.getStatusCode()==HttpStatus.NOT_FOUND) return;
+      assertEquals(HttpStatus.OK,response.getStatusCode());
+      assertTrue(response.getBody().contains("DELETING"));
+      var file=http.getForEntity(base+"/documents/"+id+"/file",String.class);
+      assertTrue(Set.of(HttpStatus.CONFLICT,HttpStatus.NOT_FOUND).contains(file.getStatusCode()));
+      Thread.sleep(50);
+    }
+    fail("Background cleanup did not finish");
   }
 
   @AfterEach

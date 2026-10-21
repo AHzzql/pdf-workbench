@@ -26,11 +26,13 @@ class ElasticsearchRetrievalTest {
   AiModelClient models;
   ElasticsearchIndex index;
   AiRetrieval retrieval;
+  cn.edu.pdfworkbench.tasks.TaskStore tasks;
 
   @BeforeEach
   void setup() {
     settings = new AiSettings(directory.toString(), "", "http://127.0.0.1:9", "http://127.0.0.1:9", "chat", "embed", "rank");
     repository = new AiRepository(settings, new ObjectMapper(), DATABASE.jdbc());
+    tasks = new cn.edu.pdfworkbench.tasks.TaskStore(DATABASE.jdbc(), new cn.edu.pdfworkbench.tasks.TaskSettings("pdf-workbench.unit", "all", 30, 128, 3, 900));
     models = mock(AiModelClient.class);
     index = new ElasticsearchIndex(DATABASE.searchSettings(), new ObjectMapper());
     retrieval = new AiRetrieval(repository, models, settings, index);
@@ -144,7 +146,9 @@ class ElasticsearchRetrievalTest {
       document(id); retrieval.index(id, List.of(chunk("p1-0", "retained")), ignored -> {});
     }
     try (var scope = repository.scope(owner, () -> true)) {
-      new AiDocuments(repository, settings, retrieval).delete(id);
+      new AiDocuments(repository, settings, retrieval, tasks).delete(id);
+      new AiDocuments(repository, settings, retrieval, tasks).cleanFiles(id);
+      repository.deleteDocumentRecord(id);
       assertEquals(404, assertThrows(ApiException.class, () -> repository.document(id)).status());
     }
     try (var scope = repository.scope(secondOwner, () -> true)) { assertTrue(retrieval.ready(id, 1)); }
@@ -200,12 +204,14 @@ class ElasticsearchRetrievalTest {
       java.nio.file.Files.write(repository.documentPath(id), new byte[] {1,2,3});
       var unavailable = mock(AiRetrieval.class);
       doThrow(new ApiException(503, "SEARCH_UNAVAILABLE", "fixture")).when(unavailable).delete(id);
-      var documents = new AiDocuments(repository, settings, unavailable);
-      assertEquals(503, assertThrows(ApiException.class, () -> documents.delete(id)).status());
+      var documents = new AiDocuments(repository, settings, unavailable, tasks);
+      assertEquals(503, assertThrows(ApiException.class, () -> { documents.delete(id); documents.cleanFiles(id); }).status());
       assertEquals("DELETING", repository.document(id).status());
       assertTrue(java.nio.file.Files.exists(repository.documentPath(id)));
       assertEquals("DOCUMENT_DELETING", assertThrows(ApiException.class, () -> documents.createConversation(id)).code());
-      new AiDocuments(repository, settings, retrieval).delete(id);
+      new AiDocuments(repository, settings, retrieval, tasks).delete(id);
+      new AiDocuments(repository, settings, retrieval, tasks).cleanFiles(id);
+      repository.deleteDocumentRecord(id);
       assertFalse(java.nio.file.Files.exists(repository.documentPath(id)));
       assertEquals(404, assertThrows(ApiException.class, () -> repository.document(id)).status());
     }

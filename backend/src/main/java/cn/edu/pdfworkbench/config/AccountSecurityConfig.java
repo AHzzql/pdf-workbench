@@ -11,6 +11,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
 
 @Configuration
+@org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
 public class AccountSecurityConfig {
   @Bean
   AuthenticationManager accountAuthenticationManager() {

@@ -23,6 +23,18 @@ spring:
       password: ${REDIS_PASSWORD:}
       connect-timeout: 2s
       timeout: 2s
+  rabbitmq:
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:workbench}
+    password: ${RABBITMQ_PASSWORD:}
+    virtual-host: ${RABBITMQ_VHOST:workbench}
+    connection-timeout: 2s
+    requested-heartbeat: 15s
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
   session:
     timeout: 30m
     servlet:
@@ -53,6 +65,9 @@ server:
   error:
     include-message: never
     include-stacktrace: never
+tasks:
+  namespace: ${TASK_NAMESPACE:pdf-workbench.tasks.v1}
+  role: ${TASK_ROLE:web}
 search:
   url: ${ELASTIC_URL:http://127.0.0.1:19200}
   username: ${ELASTIC_USER:elastic}

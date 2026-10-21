@@ -16,6 +16,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @RestController
 @RequestMapping("/api/v1/pdf/ai")
 @Tag(name = "AI 智能阅读")
+@org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
 public class AiController {
   private final AiRepository repository;
   private final AiDocuments documents;

@@ -1,67 +1,47 @@
 package cn.edu.pdfworkbench.ai;
 
 import static cn.edu.pdfworkbench.ai.AiTypes.*;
-
 import cn.edu.pdfworkbench.exception.ApiException;
+import cn.edu.pdfworkbench.tasks.TaskStore;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.BooleanSupplier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Service
+@ConditionalOnWebApplication
 public class AiRuns {
   private final AiRepository repository;
-  private final AiReading reading;
   private final AiModelClient models;
-  private final Map<String, Run> active = new ConcurrentHashMap<>();
-  private final ExecutorService workers = Executors.newVirtualThreadPerTaskExecutor();
-  private final ScheduledExecutorService heartbeat = Executors.newSingleThreadScheduledExecutor();
-  private static final Set<String> MODES =
-      Set.of("AUTO", "WELCOME", "ASK", "BRIEF", "DETAILED", "CHAPTER");
-
-  private static class Run {
-    Message message;
-    String stage = "等待处理";
-    Future<?> task;
-    boolean done;
-    long saved;
-    String owner;
-    java.util.function.BooleanSupplier access;
-    final List<Listener> listeners = new CopyOnWriteArrayList<>();
-
-    Run(Message message) {
-      this.message = message;
+  private final TaskStore tasks;
+  private final ScheduledExecutorService polling = Executors.newSingleThreadScheduledExecutor();
+  private final List<Subscription> subscriptions = new CopyOnWriteArrayList<>();
+  private static final Set<String> MODES = Set.of("AUTO","WELCOME","ASK","BRIEF","DETAILED","CHAPTER");
+  private static final class Subscription {
+    final String owner, id;
+    final BooleanSupplier access;
+    final SseEmitter emitter;
+    long sequence = -1, sent;
+    String stage = "";
+    Subscription(String owner, String id, BooleanSupplier access, SseEmitter emitter) {
+      this.owner=owner; this.id=id; this.access=access; this.emitter=emitter;
     }
   }
 
-  private record Listener(SseEmitter emitter, java.util.function.BooleanSupplier access) {}
-
-  private String key(String id) {
-    return repository.owner() + "/" + id;
+  public AiRuns(AiRepository repository, AiModelClient models, TaskStore tasks) {
+    this.repository=repository; this.models=models; this.tasks=tasks;
+    polling.scheduleWithFixedDelay(() -> subscriptions.forEach(this::emit), 500, 500, TimeUnit.MILLISECONDS);
   }
 
-  public AiRuns(AiRepository repository, AiReading reading, AiModelClient models) {
-    this.repository = repository;
-    this.reading = reading;
-    this.models = models;
-    heartbeat.scheduleAtFixedRate(
-        () ->
-            active
-                .values()
-                .forEach(
-                    r -> {
-                      synchronized (r) {
-                        emit(r);
-                      }
-                    }),
-        15,
-        15,
-        TimeUnit.SECONDS);
+  public Message start(String conversationId, Ask ask, boolean retry) {
+    return tasks.submission(() -> submit(conversationId, ask, retry));
   }
 
-  public synchronized Message start(String conversationId, Ask ask, boolean retry) {
+  private Message submit(String conversationId, Ask ask, boolean retry) {
     models.requireConfigured();
     AiRepository.validateId(ask.requestId());
     if (ask.mode() == null
@@ -101,7 +81,7 @@ public class AiRuns {
     }
     if (ask.mode().equals("AUTO") && (ask.pages() != null || ask.chapterId() != null))
       throw new ApiException(400, "INVALID_SCOPE", "自动阅读的范围由问题中的页码或章节确定");
-    if (active.size() >= 2 || busy(conversationId))
+    if (busy(conversationId))
       throw new ApiException(429, "AI_BUSY", "生成任务已满，或当前会话正在生成");
     var doc = repository.document(conversation.documentId());
     try {
@@ -156,189 +136,56 @@ public class AiRuns {
     repository.save(
         new Conversation(
             conversation.id(), conversation.documentId(), title, conversation.createdAt(), now));
-    var run = new Run(message);
-    run.owner = repository.owner();
-    run.access = repository.access();
-    active.put(key(message.id()), run);
-    run.task = workers.submit(() -> execute(run, conversation));
+    tasks.enqueue(repository.owner(), TaskStore.Kind.GENERATE, message.id(), doc.id(), conversationId);
     return message;
   }
 
-  private void execute(Run run, Conversation conversation) {
-    try (var scope = repository.scope(run.owner, run.access)) {
-      executeScoped(run, conversation);
-    }
-  }
-
-  private void executeScoped(Run run, Conversation conversation) {
-    try {
-      var citations =
-          reading.generate(
-              conversation,
-              run.message,
-              stage -> {
-                synchronized (run) {
-                  ensureActive(run);
-                  run.stage = stage;
-                  emit(run);
-                }
-              },
-              text -> {
-                synchronized (run) {
-                  ensureActive(run);
-                  if (run.message.text().length() + text.length() > 50000)
-                    throw new ApiException(413, "AI_OUTPUT_LIMIT", "回答超过长度限制");
-                  update(run, run.message.text() + text, "RUNNING", "", List.of());
-                }
-              });
-      synchronized (run) {
-        if (!run.done) {
-          String text = AiReading.validateReferences(run.message.text(), citations);
-          if (text.isBlank()) throw new ApiException(502, "EMPTY_ANSWER", "模型未返回有效回答，请重试");
-          finish(run, "COMPLETED", "", text, AiReading.usedCitations(text, citations));
-        }
-      }
-    } catch (Exception e) {
-      synchronized (run) {
-        if (!run.done)
-          finish(
-              run,
-              Thread.currentThread().isInterrupted() ? "STOPPED" : "FAILED",
-              e instanceof ApiException a ? a.getMessage() : "处理未完成，请稍后重试",
-              run.message.text(),
-              List.of());
-      }
-    } finally {
-      active.remove(run.owner + "/" + run.message.id(), run);
-    }
-  }
-
-  private void ensureActive(Run run) {
-    if (run.done || Thread.currentThread().isInterrupted()) throw new CancellationException();
-  }
-
-  private void update(Run r, String text, String status, String error, List<Citation> citations) {
-    var m = r.message;
-    r.message =
-        new Message(
-            m.id(),
-            m.conversationId(),
-            m.role(),
-            text,
-            status,
-            error,
-            m.mode(),
-            m.question(),
-            m.pages(),
-            m.chapterId(),
-            citations,
-            m.createdAt(),
-            m.sequence() + 1);
-    if (!status.equals("RUNNING") || System.currentTimeMillis() - r.saved >= 250) {
-      repository.save(r.message);
-      r.saved = System.currentTimeMillis();
-    }
-    emit(r);
-  }
-
-  private void finish(Run r, String status, String error, String text, List<Citation> citations) {
-    r.done = true;
-    r.stage = status.equals("COMPLETED") ? "已完成" : status.equals("STOPPED") ? "已停止" : "生成失败";
-    update(r, text, status, error, citations);
-    r.listeners.forEach(listener -> listener.emitter().complete());
-    r.listeners.clear();
-  }
-
-  private void emit(Run r) {
-    for (var listener : r.listeners) {
-      var emitter = listener.emitter();
-      try {
-        if (!listener.access().getAsBoolean()) {
-          r.listeners.remove(listener);
-          emitter.complete();
-          continue;
-        }
-        emitter.send(
-            SseEmitter.event()
-                .name("snapshot")
-                .id(Long.toString(r.message.sequence()))
-                .data(Map.of("message", r.message, "stage", r.stage)));
-      } catch (IOException | IllegalStateException e) {
-        r.listeners.remove(listener);
-        emitter.complete();
-      }
-    }
-  }
-
-  public boolean busy(String conversationId) {
-    return active.values().stream()
-        .anyMatch(
-            r ->
-                r.owner.equals(repository.owner())
-                    && r.message.conversationId().equals(conversationId));
-  }
-
-  public Message snapshot(String id) {
-    var run = active.get(key(id));
-    if (run == null) return repository.message(id);
-    synchronized (run) {
-      return run.message;
-    }
-  }
+  public boolean busy(String conversationId) { return tasks.busy(repository.owner(), conversationId); }
+  public Message snapshot(String id) { return repository.message(id); }
 
   public SseEmitter events(String id) throws IOException {
     repository.message(id);
-    var emitter = new SseEmitter(0L);
-    var listener = new Listener(emitter, repository.access());
-    var run = active.get(key(id));
-    if (run == null) {
-      var message = repository.message(id);
-      emitter.send(
-          SseEmitter.event()
-              .name("snapshot")
-              .data(Map.of("message", message, "stage", message.status())));
-      emitter.complete();
-    } else
-      synchronized (run) {
-        emitter.onCompletion(() -> run.listeners.remove(listener));
-        emitter.onTimeout(() -> run.listeners.remove(listener));
-        emitter.onError(e -> run.listeners.remove(listener));
-        run.listeners.add(listener);
-        emit(run);
-        if (run.done) emitter.complete();
-      }
+    if (subscriptions.size() >= 128) throw new ApiException(429, "STREAM_CAPACITY", "订阅连接已满，请稍后重试");
+    var emitter = new SseEmitter(120000L);
+    var subscription = new Subscription(repository.owner(), id, repository.access(), emitter);
+    emitter.onCompletion(() -> subscriptions.remove(subscription));
+    emitter.onTimeout(() -> subscriptions.remove(subscription));
+    emitter.onError(error -> subscriptions.remove(subscription));
+    subscriptions.add(subscription); emit(subscription);
     return emitter;
   }
 
-  public synchronized Message cancel(String id) {
-    var run = active.get(key(id));
-    if (run == null) return repository.message(id);
-    synchronized (run) {
-      if (!run.done) finish(run, "STOPPED", "", run.message.text(), List.of());
-      if (run.task != null) run.task.cancel(true);
-      active.remove(key(id), run);
-      return run.message;
-    }
+  private void emit(Subscription subscription) {
+    try {
+      if (!subscription.access.getAsBoolean()) { subscriptions.remove(subscription); subscription.emitter.complete(); return; }
+      try (var scope = repository.scope(subscription.owner, subscription.access)) {
+        var message = repository.message(subscription.id);
+        var task = tasks.forMessage(subscription.owner, subscription.id);
+        String stage = task == null ? message.status() : task.stage();
+        if (message.sequence() != subscription.sequence || !stage.equals(subscription.stage) || System.currentTimeMillis()-subscription.sent >= 15000) {
+          subscription.emitter.send(SseEmitter.event().name("snapshot").id(Long.toString(message.sequence()))
+              .data(Map.of("message", message, "stage", stage)));
+          subscription.sequence=message.sequence(); subscription.stage=stage; subscription.sent=System.currentTimeMillis();
+        }
+        if (!message.status().equals("RUNNING")) { subscriptions.remove(subscription); subscription.emitter.complete(); }
+      }
+    } catch (Exception e) { subscriptions.remove(subscription); subscription.emitter.complete(); }
+  }
+
+  public Message cancel(String id) {
+    repository.message(id);
+    tasks.cancelMessage(repository.owner(), id);
+    return repository.message(id);
   }
 
   public Message retry(String id, String requestId) {
-    var m = repository.message(id);
-    if (!m.role().equals("assistant") || m.status().equals("RUNNING"))
+    var message = repository.message(id);
+    if (!message.role().equals("assistant") || message.status().equals("RUNNING"))
       throw new ApiException(409, "RUN_ACTIVE", "该消息不能重试");
-    return start(
-        m.conversationId(),
-        new Ask(requestId, m.mode(), m.question(), m.pages(), m.chapterId()),
-        true);
+    return start(message.conversationId(), new Ask(requestId,message.mode(),message.question(),message.pages(),message.chapterId()), true);
   }
 
-  @PreDestroy
-  public void shutdown() {
-    for (var run : List.copyOf(active.values())) {
-      try (var scope = repository.scope(run.owner, run.access)) {
-        cancel(run.message.id());
-      }
-    }
-    heartbeat.shutdownNow();
-    workers.shutdownNow();
+  @PreDestroy public void shutdown() {
+    polling.shutdownNow(); subscriptions.forEach(subscription -> subscription.emitter.complete()); subscriptions.clear();
   }
 }

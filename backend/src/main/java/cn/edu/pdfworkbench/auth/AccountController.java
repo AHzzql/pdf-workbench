@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/account")
+@org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
 public class AccountController {
   private final AccountService service;
   private final HttpSessionSecurityContextRepository contexts =

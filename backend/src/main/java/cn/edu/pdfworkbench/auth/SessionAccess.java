@@ -6,6 +6,7 @@ import org.springframework.session.SessionRepository;
 import org.springframework.stereotype.Component;
 
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
 public class SessionAccess {
   private final SessionRepository<? extends Session> sessions;
   private final AccountService accounts;

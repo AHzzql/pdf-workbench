@@ -48,6 +48,14 @@ Worker 完成目标版本的持久化后手动 ACK，重复的终态任务直接
 
 采用 durable quorum queue，本机为单节点；单节点不能抵御主机或磁盘整体故障。文件内容、打开密码、证书私钥不进入消息，消息仅包含任务标识和必要的版本信息。[RabbitMQ 可靠交付](https://www.rabbitmq.com/docs/reliability)、[发布确认与消费确认](https://www.rabbitmq.com/docs/confirms)。
 
+实现采用 Spring AMQP 3.2.10 与 Rabbit Java Client 5.25.0，由 Spring Boot BOM 管理版本。`work_tasks` 保存执行状态与 fencing token，`task_outbox` 保存任务标识、投递版本、路由及发布租约；每类任务初始最多 128 个未完成项，每空间最多两个未完成生成，同会话最多一个。索引、生成、清理分别使用独立 quorum 队列，并发为 2、2、1，预取为 1，消息持久化且溢出拒绝发布。业务永久失败通过确认发布的死信 Outbox 交付；无效协议消息使用 broker 死信路由，数据库记录是任务状态主存储。
+
+执行租约初始 30 秒，心跳间隔 1 秒，任务总执行窗口 15 分钟，最多三次尝试，重试间隔初始为 2、4 秒。发布 Outbox 使用 15 秒短租约与 SKIP LOCKED，确认等待不持有数据库事务；连接故障有客户端退避。已确认但 60 秒仍未领取的任务，以原投递版本重发并由任务领取去重，覆盖消费领取前断连或投递进入 broker 死信的情形。执行确认后、数据库标记前崩溃允许重复投递；有效令牌下的结果与任务终态同事务提交。
+
+Web 角色仅写入和读取持久任务，不启动 AMQP 发布、恢复或消费者；Worker 统一承担这些职责，以非 Web 应用启动。消费线程等待有界任务线程，取消与超时只中断任务线程，不中断共享 AMQP 消费线程；失效消费者由运行时恢复。流式快照来自 PostgreSQL，提供连接所在节点无关的顺序号；模型响应线程显式绑定持久任务所属空间，不依赖线程继承或消息中的客户端身份。取消事务撤销执行权，Worker 心跳中止本机请求，迟到的结果不能覆盖 STOPPED。索引发布与文档墓碑按“任务行、文档行”顺序加锁，避免反向锁等待。
+
+模型流使用请求级 JDK HttpClient，完成、异常和线程中断后统一关闭该传输实例，不影响嵌入与重排连接。Spring Framework 6.2.18 的 JDK 响应体使用缓存订阅，单独取消下游订阅可能继续接收响应；请求级关闭提供明确的资源释放边界，代价是流式请求不复用连接池。[JDK 响应体实现](https://github.com/spring-projects/spring-framework/blob/v6.2.18/spring-web/src/main/java/org/springframework/http/client/reactive/JdkClientHttpResponse.java)。
+
 ## 决策四：Nginx 同源入口与 Windows 网络
 
 Nginx 提供同源静态资源、请求体限制和反向代理。构建资源按内容哈希长期缓存，API 和私有下载不缓存；上传请求流式转发，流式响应关闭代理缓冲。业务参数不进入 URL，日志不记录正文、授权头、会话 Cookie 或下载凭据。应用限流读取经过明确代理边界校验的客户端地址；外部提供的转发头不能直接作为可信身份。

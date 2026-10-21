@@ -14,6 +14,8 @@ import org.springframework.ai.document.MetadataMode;
 import org.springframework.ai.openai.*;
 import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.http.client.reactive.JdkClientHttpConnector;
+import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -70,10 +72,13 @@ public class AiModelClient {
   }
 
   public void stream(String system, String user, Consumer<String> consumer) {
+    var transport=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15)).build();
     try {
+      var streamApi=api().mutate().webClientBuilder(WebClient.builder()
+          .clientConnector(new JdkClientHttpConnector(transport))).build();
       var model =
           OpenAiChatModel.builder()
-              .openAiApi(api())
+              .openAiApi(streamApi)
               .defaultOptions(
                   OpenAiChatOptions.builder()
                       .model(settings.chatModel())
@@ -93,6 +98,9 @@ public class AiModelClient {
           .blockLast(Duration.ofMinutes(8));
     } catch (RuntimeException e) {
       throw modelError(e);
+    } finally {
+      // The framework caches the JDK response body; cancellation alone can leave it draining.
+      transport.shutdownNow();
     }
   }
 
