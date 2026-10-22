@@ -12,11 +12,12 @@ class TaskRuntimeRoleTest {
   @Test void webRoleDoesNotPublishRecoverOrConsumeTasks() throws Exception {
     var store=mock(TaskStore.class);var broker=mock(TaskBroker.class);
     var connections=mock(ConnectionFactory.class);var handler=mock(TaskHandler.class);var repository=mock(AiRepository.class);
-    var runtime=new TaskRuntime(store,new TaskSettings("pdf-workbench.test.web","web",30,128,3,900),broker,connections,handler,repository,new ObjectMapper());
+    var archive=mock(TaskDeadLetters.class);
+    var runtime=new TaskRuntime(store,new TaskSettings("pdf-workbench.test.web","web",30,128,3,900),broker,connections,handler,repository,new ObjectMapper(),archive);
     try {
       runtime.start();runtime.dispatch();Thread.sleep(300);
       assertTrue(runtime.isRunning());
-      verifyNoInteractions(store,broker,connections,handler,repository);
+      verifyNoInteractions(store,broker,connections,handler,repository,archive);
     } finally {runtime.stop();}
   }
 }

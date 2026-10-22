@@ -217,6 +217,27 @@ public class TaskStore {
     });
   }
 
+  public record Pruned(int events,int tasks,int deadLetters) {}
+
+  public Pruned pruneHistory(TaskRetentionSettings retention) {
+    int events=jdbc.update("WITH expired AS (SELECT e.id FROM task_outbox e JOIN work_tasks t ON t.id=e.task_id"
+        + " WHERE e.published_at<clock_timestamp()-make_interval(days=>?) AND (e.lease_until IS NULL OR e.lease_until<=clock_timestamp())"
+        + " AND NOT(t.state IN ('QUEUED','RUNNING','RETRY') AND t.dispatch_version=e.dispatch_version)"
+        + " ORDER BY e.published_at,e.id LIMIT 128 FOR UPDATE OF e SKIP LOCKED)"
+        + " DELETE FROM task_outbox WHERE id IN (SELECT id FROM expired)",retention.publishedOutboxDays());
+    int tasks=jdbc.update("WITH expired AS (SELECT t.id FROM work_tasks t WHERE t.state IN ('SUCCEEDED','FAILED','CANCELLED')"
+        + " AND t.updated_at<clock_timestamp()-make_interval(days=>?)"
+        + " AND NOT EXISTS(SELECT 1 FROM task_outbox e WHERE e.task_id=t.id)"
+        + " AND NOT EXISTS(SELECT 1 FROM ai_messages m WHERE m.workspace_id=t.workspace_id AND m.id=t.target_id AND m.payload->>'status'='RUNNING')"
+        + " AND NOT(t.kind='CLEAN' AND EXISTS(SELECT 1 FROM ai_documents d WHERE d.workspace_id=t.workspace_id AND d.id=t.document_id AND d.payload->>'status'='DELETING'))"
+        + " ORDER BY t.updated_at,t.id LIMIT 128 FOR UPDATE OF t SKIP LOCKED)"
+        + " DELETE FROM work_tasks WHERE id IN (SELECT id FROM expired)",retention.terminalTaskDays());
+    int dead=jdbc.update("WITH expired AS (SELECT namespace,fingerprint FROM task_dead_letters WHERE namespace=?"
+        + " AND last_seen<clock_timestamp()-make_interval(days=>?) ORDER BY last_seen,fingerprint LIMIT 128 FOR UPDATE SKIP LOCKED)"
+        + " DELETE FROM task_dead_letters d USING expired e WHERE d.namespace=e.namespace AND d.fingerprint=e.fingerprint",settings.namespace(),retention.deadLetterDays());
+    return new Pruned(events,tasks,dead);
+  }
+
   private void event(String task, long version, String route) {
     jdbc.update("INSERT INTO task_outbox(task_id,dispatch_version,route,available_at) SELECT id,?, ?,available_at FROM work_tasks WHERE id=?::uuid"
         + " ON CONFLICT DO NOTHING", version, route, task);

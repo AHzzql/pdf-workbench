@@ -55,6 +55,7 @@ class AiApiTest {
   @Autowired AiRuns runs;
   @Autowired ElasticsearchIndex searchIndex;
   @Autowired cn.edu.pdfworkbench.storage.DocumentStorage fileStorage;
+  @Autowired cn.edu.pdfworkbench.tasks.TaskStore taskStore;
   @MockitoBean AiModelClient models;
   final AtomicBoolean slow = new AtomicBoolean();
   final String base = "/api/v1/pdf/ai";
@@ -259,6 +260,25 @@ class AiApiTest {
     assertArrayEquals(
         source,
         http.getForObject(base + "/documents/" + d.id() + "/file", byte[].class));
+  }
+
+  @Test void expiredTaskHistoryPreservesMessagesIdempotencyAndSseSnapshot()throws Exception {
+    var c=conversation(upload(pdf("Alpha is 42.")));
+    var request=new Ask(UUID.randomUUID().toString(),"ASK","What is Alpha?",null,null);
+    var submitted=http.postForObject(base+"/conversations/"+c.id()+"/messages",request,Message.class);
+    var answer=await(submitted.id());assertEquals("COMPLETED",answer.status());
+    var task=taskStore.forMessage(repository.owner(),answer.id());assertNotNull(task);
+    SERVICES.jdbc().update("UPDATE work_tasks SET updated_at=clock_timestamp()-interval '31 days' WHERE id=?::uuid",task.id());
+    SERVICES.jdbc().update("UPDATE task_outbox SET published_at=clock_timestamp()-interval '8 days',lease_id=NULL,lease_until=NULL WHERE task_id=?::uuid",task.id());
+    var messages=repository.messages(c.id());
+    taskStore.pruneHistory(new cn.edu.pdfworkbench.tasks.TaskRetentionSettings(7,30,30));
+    assertNull(taskStore.forMessage(repository.owner(),answer.id()));
+    assertEquals(messages,repository.messages(c.id()));
+    var duplicate=http.postForObject(base+"/conversations/"+c.id()+"/messages",request,Message.class);
+    assertEquals(answer,duplicate);assertEquals(answer,runs.snapshot(answer.id()));
+    var events=http.getForObject(base+"/runs/"+answer.id()+"/events",String.class);
+    assertTrue(events.contains("event:snapshot"));assertTrue(events.contains("COMPLETED"));
+    verify(models,times(1)).stream(anyString(),anyString(),any());
   }
 
   @Test

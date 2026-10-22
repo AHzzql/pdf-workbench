@@ -105,4 +105,33 @@ class TaskBrokerTest {
     var resumed=store.nextEvent(); broker.publish(resumed); store.published(resumed);
     assertEquals(1,admin.getQueueInfo(settings.queue("index")).getMessageCount());
   }
+
+  @Test void deadLettersSurviveExplicitReturnsAndLostAckThenWorkerArchivesOnce() throws Exception {
+    String taskId=UUID.randomUUID().toString();
+    broker.publish(new TaskStore.Event(200,taskId,1,"dead",UUID.randomUUID().toString(),1));
+    var connection=context.getBean(org.springframework.amqp.rabbit.connection.ConnectionFactory.class).createConnection();
+    var channel=connection.createChannel(false);
+    var archive=org.mockito.Mockito.spy(new TaskDeadLetters(database.jdbc(),json,settings));
+    byte[] body=null;
+    try {
+      for(int i=0;i<32;i++) {
+        var delivery=channel.basicGet(settings.queue("dead"),false);assertNotNull(delivery,"Explicit return "+i);
+        body=delivery.getBody();channel.basicNack(delivery.getEnvelope().getDeliveryTag(),false,true);
+      }
+      var delivery=channel.basicGet(settings.queue("dead"),false);assertNotNull(delivery);
+      archive.archive(delivery.getBody());channel.abort();
+    } finally {connection.close();}
+    assertEquals(1,database.jdbc().queryForObject("SELECT COUNT(*) FROM task_dead_letters",Integer.class));
+    org.mockito.Mockito.clearInvocations(archive);
+    var workerSettings=new TaskSettings(settings.namespace(),"worker",30,2,3,900);
+    var handler=org.mockito.Mockito.mock(TaskHandler.class);
+    var runtime=new TaskRuntime(store,workerSettings,broker,context.getBean(org.springframework.amqp.rabbit.connection.ConnectionFactory.class),
+        handler,org.mockito.Mockito.mock(cn.edu.pdfworkbench.ai.AiRepository.class),json,archive);
+    try {
+      runtime.start();org.mockito.Mockito.verify(archive,org.mockito.Mockito.timeout(10000)).archive(org.mockito.AdditionalMatchers.aryEq(body));
+      assertEquals(1,database.jdbc().queryForObject("SELECT COUNT(*) FROM task_dead_letters WHERE task_id=?::uuid",Integer.class,taskId));
+      org.mockito.Mockito.verifyNoInteractions(handler);
+      assertEquals(0,admin.getQueueInfo(settings.queue("dead")).getMessageCount());
+    } finally {runtime.stop();}
+  }
 }

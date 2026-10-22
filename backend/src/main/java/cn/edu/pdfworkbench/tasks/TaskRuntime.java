@@ -24,6 +24,7 @@ public class TaskRuntime implements SmartLifecycle {
   private final TaskHandler handler;
   private final AiRepository repository;
   private final ObjectMapper json;
+  private final TaskDeadLetters deadLetters;
   private final ScheduledExecutorService timers = Executors.newScheduledThreadPool(2);
   private final Map<String,SimpleMessageListenerContainer> containers = new ConcurrentHashMap<>();
   private record Running(TaskStore.Task task, Thread thread) {}
@@ -33,9 +34,10 @@ public class TaskRuntime implements SmartLifecycle {
   private int publishFailures;
 
   public TaskRuntime(TaskStore store, TaskSettings settings, TaskBroker broker, ConnectionFactory connections,
-      TaskHandler handler, AiRepository repository, ObjectMapper json) {
+      TaskHandler handler, AiRepository repository, ObjectMapper json,TaskDeadLetters deadLetters) {
     this.store=store; this.settings=settings; this.broker=broker; this.connections=connections;
     this.handler=handler; this.repository=repository; this.json=json;
+    this.deadLetters=deadLetters;
   }
 
   @Override public boolean isRunning() { return started; }
@@ -78,13 +80,13 @@ public class TaskRuntime implements SmartLifecycle {
   private synchronized void startConsumers() {
     if (!started) return;
     broker.initialize();
-    for (String route : List.of("reading", "index", "cleanup")) {
+    for (String route : List.of("reading", "index", "cleanup", "dead")) {
       var existing=containers.get(route);
       if (existing!=null) { if(!existing.isRunning())existing.start(); continue; }
       var container = new SimpleMessageListenerContainer(connections);
       container.setQueueNames(settings.queue(route));
       container.setAcknowledgeMode(AcknowledgeMode.MANUAL);
-      container.setConcurrentConsumers(route.equals("cleanup") ? 1 : 2);
+      container.setConcurrentConsumers(Set.of("cleanup","dead").contains(route) ? 1 : 2);
       container.setPrefetchCount(1); container.setDefaultRequeueRejected(false);
       container.setMissingQueuesFatal(false); container.setRecoveryInterval(2000);
       container.setShutdownTimeout(2000); container.setForceStop(true);
@@ -95,6 +97,23 @@ public class TaskRuntime implements SmartLifecycle {
   }
 
   private void consume(String route, Message message, Channel channel) throws Exception {
+    if(route.equals("dead")) {
+      try {
+        try { deadLetters.archive(message.getBody()); }
+        catch(Exception e) {
+          if(started)log.warn("Dead letter archive pending");
+          // Explicit returns do not consume RabbitMQ 4.4's failure delivery budget.
+          try {Thread.sleep(5000);}catch(InterruptedException stopped){Thread.currentThread().interrupt();}
+          channel.basicNack(message.getMessageProperties().getDeliveryTag(),false,true);
+          return;
+        }
+        channel.basicAck(message.getMessageProperties().getDeliveryTag(),false);
+      } catch(Exception e) {
+        channel.abort();
+        throw e;
+      }
+      return;
+    }
     TaskBroker.Delivery delivery;
     try {
       if (message.getBody().length > 256) throw new IllegalArgumentException();

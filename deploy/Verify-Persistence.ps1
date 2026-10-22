@@ -279,6 +279,15 @@ try {
         Start-Sleep -Milliseconds 500
     }
     if($exhausted.state -ne 'FAILED' -or $exhausted.attempt -ne 3){throw 'S3 outage did not exhaust the bounded cleanup attempts.'}
+    $archived=$false
+    for($i=0;$i -lt 50;$i++) {
+        $receipts=& docker compose --env-file (Join-Path $PSScriptRoot '.env.local') -f (Join-Path $PSScriptRoot 'compose.yml') exec -T postgres psql -U pdf_workbench -d pdf_workbench -v ON_ERROR_STOP=1 -At -c "SELECT count(*) FROM $schema.task_dead_letters WHERE namespace='pdf-workbench.test.$run' AND task_id='$($exhausted.id)'::uuid AND dispatch_version=$($exhausted.version);"
+        if($LASTEXITCODE -ne 0){throw 'Dead letter archive probe failed.'}
+        if($receipts -eq '1'){$archived=$true;break}
+        Start-Sleep -Milliseconds 100
+    }
+    if(!$archived){throw 'Independent Worker did not archive the failed cleanup delivery.'}
+    Write-Output 'PASS independent Worker commits a safe dead-letter receipt before releasing the failed delivery'
     if((Request $account 8180 GET "/api/v1/pdf/ai/documents/$document").StatusCode -ne 200){throw 'Failed cleanup lost its document tombstone.'}
     Stop-Node $worker
     # Advance only the isolated fixture's cooldown, preserving the real failure state and delivery versions.
@@ -296,6 +305,21 @@ try {
     Object-Fixtures 'missing-objects'
     Write-Output 'PASS exhausted cleanup is reconciled by an independent Worker with a fresh delivery version and fencing token'
     Write-Output 'PASS RabbitMQ cleanup removes the tombstoned document and source after conversation deletion'
+    Stop-Node $worker
+    & docker compose --env-file (Join-Path $PSScriptRoot '.env.local') -f (Join-Path $PSScriptRoot 'compose.yml') exec -T postgres psql -U pdf_workbench -d pdf_workbench -v ON_ERROR_STOP=1 -c "BEGIN; UPDATE $schema.work_tasks SET updated_at=clock_timestamp()-interval '31 days' WHERE id='$($exhausted.id)'::uuid AND state='SUCCEEDED'; UPDATE $schema.task_outbox SET published_at=clock_timestamp()-interval '8 days' WHERE task_id='$($exhausted.id)'::uuid AND published_at IS NOT NULL; UPDATE $schema.task_dead_letters SET first_seen=clock_timestamp()-interval '31 days',last_seen=clock_timestamp()-interval '31 days' WHERE task_id='$($exhausted.id)'::uuid; COMMIT;" | Out-Null
+    if($LASTEXITCODE -ne 0){throw 'Task retention age fixture failed.'}
+    $worker=Start-Node 0 -Worker
+    $pruned=$false
+    for($i=0;$i -lt 60;$i++) {
+        if($worker.Process.HasExited){throw 'Retention Worker exited.'}
+        $remaining=& docker compose --env-file (Join-Path $PSScriptRoot '.env.local') -f (Join-Path $PSScriptRoot 'compose.yml') exec -T postgres psql -U pdf_workbench -d pdf_workbench -v ON_ERROR_STOP=1 -At -c "SELECT (SELECT count(*) FROM $schema.work_tasks WHERE id='$($exhausted.id)'::uuid)+(SELECT count(*) FROM $schema.task_outbox WHERE task_id='$($exhausted.id)'::uuid)+(SELECT count(*) FROM $schema.task_dead_letters WHERE task_id='$($exhausted.id)'::uuid);"
+        if($LASTEXITCODE -ne 0){throw 'Task retention probe failed.'}
+        if($remaining -eq '0'){$pruned=$true;break}
+        Start-Sleep -Milliseconds 500
+    }
+    if(!$pruned){throw 'Independent Worker did not expire task history and its archived dead letter.'}
+    if((Request $guest 8180 GET "/api/v1/pdf/ai/documents/$guestDocument").StatusCode -ne 200){throw 'Task history expiry removed an unrelated guest document.'}
+    Write-Output 'PASS independent Worker expires task, Outbox and dead-letter metadata without removing an unrelated guest document'
 
 } finally {
     foreach ($node in $processes) { Stop-Node $node; $node.Process.Dispose() }

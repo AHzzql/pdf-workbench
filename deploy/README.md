@@ -76,7 +76,11 @@ Worker 使用独立回收线程，初始每 60 秒处理最多 8 组清单，不
 
 清理任务单轮失败后保留文档墓碑和死信。Worker 在独立线程每 60 秒补偿最多 8 项失败满 15 分钟的 CLEAN，仅处理仍为 DELETING、无会话引用且无其他活动清理任务的文档；遵守待处理任务和 Outbox 容量。补偿复用原任务、重置尝试数与执行窗口、递增投递版本和 fencing token，并在同一事务写入 Outbox；旧版本不能重新领取。Web 不执行补偿，生成与索引失败不自动重开。`Verify-Persistence.ps1` 通过不可用 S3 使三次实际清理均失败，只推进随机测试任务的冷却时间，再启动正常 Worker，检查同一任务重新投递、业务删除及远端对象消失。
 
-停止进程保留数据库、Redis、ES 和队列数据。执行终态及已发布 Outbox 的保留期、游客过期回收与旧索引代次自动回收尚未接入调度。
+Worker 同时消费 dead 队列，数据库提交消息摘要后才 ACK。摘要仅保存 SHA-256、长度及通过校验的任务标识，不保存原始正文；重复消息幂等合并，不触发业务执行。数据库失败退避 5 秒后显式 NACK/requeue，避免主动关闭通道消耗 RabbitMQ 4.4 的失败投递次数。
+
+TaskMaintenance 每 60 秒分别清理最多 128 条已发布 Outbox、终态任务和当前命名空间死信摘要。初始保留期依次为 7、30、30 天，可使用 `--tasks.retention.published-outbox-days`、`--tasks.retention.terminal-task-days`、`--tasks.retention.dead-letter-days` 调整，范围 1–3650 天。待发布事件、活动发布租约、活动任务当前投递、仍有 Outbox 的任务、关联 RUNNING 消息的任务及仍有 DELETING 文档的 CLEAN 不删除。聊天消息与账户不按任务保留期清理；任务移除后请求去重和 SSE 仍读取消息记录。具体规则见 `docs/architecture/ADR-003-task-history.md`。
+
+停止进程保留数据库、Redis、ES 和队列数据。游客过期回收与旧索引代次自动回收尚未接入调度。
 
 ## 文档索引
 

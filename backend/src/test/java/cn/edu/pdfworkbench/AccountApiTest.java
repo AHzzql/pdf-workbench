@@ -461,12 +461,14 @@ class AccountApiTest {
                 "/api/v1/pdf/ai/conversations/" + aChat + "/messages",
                 Map.of("requestId", failed, "mode", "ASK", "question", "Second question"))
             .statusCode());
-    for (int i = 0; i < 200; i++) {
+    long failureDeadline=System.nanoTime()+java.time.Duration.ofSeconds(20).toNanos();
+    while(System.nanoTime()<failureDeadline) {
       result = a.node(a.send("GET", "/api/v1/pdf/ai/runs/" + failed, null));
       if (!result.get("status").asText().equals("RUNNING")) break;
       Thread.sleep(20);
     }
     assertEquals("FAILED", result.get("status").asText());
+    assertEquals(1,SERVICES.jdbc().queryForObject("SELECT COUNT(*) FROM work_tasks WHERE target_id=?::uuid AND kind='GENERATE' AND state='FAILED' AND attempt=3",Integer.class,failed));
     assertEquals(404, guest.send("GET", "/api/v1/pdf/ai/runs/" + failed, null).statusCode());
     assertEquals(204, a.send("POST", "/api/v1/account/logout", null).statusCode());
     a.login(emailA);
