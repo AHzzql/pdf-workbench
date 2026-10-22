@@ -141,4 +141,108 @@ class TaskStoreTest {
     assertEquals("CANCELLED", limited.get(task.id()).state());
     assertThrows(LeaseLost.class, () -> limited.succeed(claimed, () -> fail("cancelled result")));
   }
+
+  Task failedCleanup(String workspace, String doc, String status) {
+    DATABASE.jdbc().update("INSERT INTO ai_documents(workspace_id,id,payload) VALUES(?::uuid,?::uuid,jsonb_build_object('status',?::text))",
+        workspace,doc,status);
+    var task=store.enqueue(workspace,Kind.CLEAN,doc,doc,null);
+    var claim=store.claim(task.id(),task.version(),"cleanup");
+    store.fail(claim,"FIXTURE_UNAVAILABLE","dependency unavailable",false);
+    return claim;
+  }
+
+  void cooled(Task task) {
+    DATABASE.jdbc().update("UPDATE work_tasks SET updated_at=clock_timestamp()-interval '16 minutes' WHERE id=?::uuid",task.id());
+  }
+
+  @Test void failedCleanupRestartsAfterCooldownWithFreshVersionAndDeadline() {
+    var old=failedCleanup(owner,document,"DELETING");
+    assertEquals(0,store.reconcileCleanup());
+    cooled(old);
+    DATABASE.jdbc().update("UPDATE work_tasks SET deadline=clock_timestamp()-interval '1 hour' WHERE id=?::uuid",old.id());
+    assertEquals(1,store.reconcileCleanup());
+    var next=store.get(old.id());
+    assertEquals("QUEUED",next.state()); assertEquals(0,next.attempt());
+    assertEquals(old.version()+1,next.version()); assertTrue(next.fence()>old.fence());
+    assertNull(DATABASE.jdbc().queryForObject("SELECT deadline FROM work_tasks WHERE id=?::uuid",java.sql.Timestamp.class,old.id()));
+    assertEquals(0,store.reconcileCleanup());
+    assertNull(store.claim(old.id(),old.version(),"cleanup"));
+    assertThrows(LeaseLost.class,()->store.succeed(old,()->fail("stale cleanup")));
+    assertEquals(1,DATABASE.jdbc().queryForObject("SELECT COUNT(*) FROM task_outbox WHERE task_id=?::uuid AND route='dead'",Integer.class,old.id()));
+    assertEquals(1,DATABASE.jdbc().queryForObject("SELECT COUNT(*) FROM task_outbox WHERE task_id=?::uuid AND route='cleanup' AND dispatch_version=?",Integer.class,old.id(),next.version()));
+    var claim=store.claim(next.id(),next.version(),"cleanup");
+    assertNotNull(claim); assertEquals(1,claim.attempt()); assertTrue(claim.fence()>old.fence());
+    store.succeed(claim,()->DATABASE.jdbc().update("DELETE FROM ai_documents WHERE workspace_id=?::uuid AND id=?::uuid",owner,document));
+    assertEquals(0,store.reconcileCleanup());
+  }
+
+  @Test void cleanupReconciliationChecksReferencesStateAndWorkspace() {
+    var referenced=failedCleanup(owner,document,"DELETING"); cooled(referenced);
+    String chat=UUID.randomUUID().toString();
+    DATABASE.jdbc().update("INSERT INTO ai_conversations(workspace_id,id,doc_id,updated,payload) VALUES(?::uuid,?::uuid,?::uuid,1,'{}')",owner,chat,document);
+    var parsed=failedCleanup(owner,UUID.randomUUID().toString(),"PARSED"); cooled(parsed);
+    var absent=failedCleanup(owner,UUID.randomUUID().toString(),"DELETING"); cooled(absent);
+    DATABASE.jdbc().update("DELETE FROM ai_documents WHERE workspace_id=?::uuid AND id=?::uuid",owner,absent.document());
+    String otherOwner=UUID.randomUUID().toString();
+    var independent=failedCleanup(otherOwner,document,"DELETING"); cooled(independent);
+    assertEquals(1,store.reconcileCleanup());
+    assertEquals("QUEUED",store.get(independent.id()).state());
+    for(var task:java.util.List.of(referenced,parsed,absent)) assertEquals("FAILED",store.get(task.id()).state());
+  }
+
+  @Test void cleanupReconciliationRespectsActiveTaskCapacityAndRollsBackOutbox() {
+    var failed=failedCleanup(owner,document,"DELETING"); cooled(failed);
+    var replacement=store.enqueue(owner,Kind.CLEAN,document,document,null);
+    assertEquals(0,store.reconcileCleanup());
+    store.succeed(store.claim(replacement.id(),replacement.version(),"cleanup"),()->{});
+    assertThrows(IllegalStateException.class,()->store.submission(()->{
+      assertEquals(1,store.reconcileCleanup()); throw new IllegalStateException("rollback fixture");
+    }));
+    assertEquals("FAILED",store.get(failed.id()).state());
+    assertEquals(0,DATABASE.jdbc().queryForObject("SELECT COUNT(*) FROM task_outbox WHERE task_id=?::uuid AND dispatch_version=2",Integer.class,failed.id()));
+    var limited=new TaskStore(DATABASE.jdbc(),new TaskSettings("pdf-workbench.test","all",2,2,2,60));
+    for(int i=0;i<2;i++) {String id=UUID.randomUUID().toString();limited.enqueue(owner,Kind.CLEAN,id,id,null);}
+    assertEquals(0,limited.reconcileCleanup());
+    assertEquals("FAILED",store.get(failed.id()).state());
+  }
+
+  @Test void cleanupReconciliationIsBoundedAndIdempotentAcrossStores() throws Exception {
+    for(int i=0;i<10;i++) cooled(failedCleanup(owner,UUID.randomUUID().toString(),"DELETING"));
+    var second=new TaskStore(DATABASE.jdbc(),new TaskSettings("pdf-workbench.test","all",2,128,2,60));
+    try(var pool=java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+      var first=pool.submit(store::reconcileCleanup); var next=pool.submit(second::reconcileCleanup);
+      int a=first.get(10,java.util.concurrent.TimeUnit.SECONDS),b=next.get(10,java.util.concurrent.TimeUnit.SECONDS);
+      assertTrue(a<=8 && b<=8); assertEquals(10,a+b);
+    }
+    assertEquals(10,DATABASE.jdbc().queryForObject("SELECT COUNT(*) FROM work_tasks WHERE state='QUEUED' AND kind='CLEAN'",Integer.class));
+    assertEquals(0,store.reconcileCleanup());
+  }
+
+  @Test void cleanupReconciliationDoesNotOverfillPendingOutbox() {
+    var task=failedCleanup(owner,document,"DELETING");cooled(task);
+    for(int i=10;i<28;i++) DATABASE.jdbc().update("INSERT INTO task_outbox(task_id,dispatch_version,route) VALUES(?::uuid,?,'cleanup')",task.id(),i);
+    var limited=new TaskStore(DATABASE.jdbc(),new TaskSettings("pdf-workbench.test","all",2,2,2,60));
+    assertEquals(0,limited.reconcileCleanup());
+    assertEquals("FAILED",store.get(task.id()).state());
+  }
+
+  @Test void cleanupReconciliationSkipsDocumentsLockedByAnotherTransaction() throws Exception {
+    var task=failedCleanup(owner,document,"DELETING");cooled(task);
+    var locked=new java.util.concurrent.CountDownLatch(1);
+    var release=new java.util.concurrent.CountDownLatch(1);
+    try(var pool=java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+      var holder=pool.submit(()->new org.springframework.transaction.support.TransactionTemplate(
+          new org.springframework.jdbc.datasource.DataSourceTransactionManager(DATABASE.jdbc().getDataSource())).execute(status->{
+        DATABASE.jdbc().queryForObject("SELECT id FROM ai_documents WHERE workspace_id=?::uuid AND id=?::uuid FOR UPDATE",String.class,owner,document);
+        locked.countDown();
+        try {if(!release.await(10,java.util.concurrent.TimeUnit.SECONDS))throw new IllegalStateException("fixture timeout");}
+        catch(InterruptedException e){throw new RuntimeException(e);}
+        return true;
+      }));
+      try {assertTrue(locked.await(5,java.util.concurrent.TimeUnit.SECONDS));assertEquals(0,store.reconcileCleanup());}
+      finally {release.countDown();}
+      assertTrue(holder.get(5,java.util.concurrent.TimeUnit.SECONDS));
+    }
+    assertEquals(1,store.reconcileCleanup());
+  }
 }

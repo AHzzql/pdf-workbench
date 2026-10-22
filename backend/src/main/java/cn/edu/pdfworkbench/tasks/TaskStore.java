@@ -187,6 +187,36 @@ public class TaskStore {
         + " UPDATE task_outbox SET published_at=NULL,available_at=clock_timestamp() WHERE id IN (SELECT id FROM missing)");
   }
 
+  public int reconcileCleanup() {
+    return submission(() -> {
+      int pending=jdbc.queryForObject("SELECT COUNT(*) FROM work_tasks WHERE kind='CLEAN' AND state IN ('QUEUED','RUNNING','RETRY')",Integer.class);
+      int outbox=jdbc.queryForObject("SELECT COUNT(*) FROM task_outbox WHERE published_at IS NULL",Integer.class);
+      int limit=Math.min(8,Math.min(settings.maxPending()-pending,settings.maxPending()*3*(settings.maxAttempts()+1)-outbox));
+      if(limit<=0)return 0;
+      var candidates=jdbc.query("SELECT t.* FROM work_tasks t WHERE t.kind='CLEAN' AND t.state='FAILED'"
+          + " AND t.updated_at<clock_timestamp()-interval '15 minutes'"
+          + " AND EXISTS(SELECT 1 FROM ai_documents d WHERE d.workspace_id=t.workspace_id AND d.id=t.document_id AND d.payload->>'status'='DELETING')"
+          + " AND NOT EXISTS(SELECT 1 FROM ai_conversations c WHERE c.workspace_id=t.workspace_id AND c.doc_id=t.document_id)"
+          + " AND NOT EXISTS(SELECT 1 FROM work_tasks a WHERE a.workspace_id=t.workspace_id AND a.kind='CLEAN' AND a.document_id=t.document_id"
+          + " AND a.state IN ('QUEUED','RUNNING','RETRY')) ORDER BY t.updated_at,t.id LIMIT ? FOR UPDATE OF t SKIP LOCKED",this::row,limit);
+      int recovered=0;
+      for(var task:candidates) {
+        // Match execution's task-before-document lock order; a busy document waits for the next sweep.
+        var documents=jdbc.query("SELECT id FROM ai_documents WHERE workspace_id=?::uuid AND id=?::uuid AND payload->>'status'='DELETING'"
+            + " FOR UPDATE SKIP LOCKED",(r,n)->r.getString(1),task.workspace(),task.document());
+        if(documents.isEmpty() || jdbc.queryForObject("SELECT COUNT(*) FROM ai_conversations WHERE workspace_id=?::uuid AND doc_id=?::uuid",
+            Integer.class,task.workspace(),task.document())!=0)continue;
+        if(Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM work_tasks WHERE workspace_id=?::uuid AND kind='CLEAN'"
+            + " AND document_id=?::uuid AND state IN ('QUEUED','RUNNING','RETRY'))",Boolean.class,task.workspace(),task.document())))continue;
+        jdbc.update("UPDATE work_tasks SET state='QUEUED',attempt=0,fence=fence+1,dispatch_version=dispatch_version+1,deadline=NULL,lease_until=NULL,"
+            + " available_at=clock_timestamp(),updated_at=clock_timestamp(),stage='等待清理',error_code='' WHERE id=?::uuid",task.id());
+        event(task.id(),task.version()+1,Kind.CLEAN.route);
+        recovered++;
+      }
+      return recovered;
+    });
+  }
+
   private void event(String task, long version, String route) {
     jdbc.update("INSERT INTO task_outbox(task_id,dispatch_version,route,available_at) SELECT id,?, ?,available_at FROM work_tasks WHERE id=?::uuid"
         + " ON CONFLICT DO NOTHING", version, route, task);

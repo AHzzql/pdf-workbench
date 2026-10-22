@@ -266,15 +266,35 @@ try {
     $readingQueue=$queues|Where-Object{$_.name -eq "pdf-workbench.test.$run.reading"}
     if($readingQueue.consumers -ne 2){throw 'Reading consumer count fell after cancellation.'}
     Write-Output 'PASS another Web instance cancels the Worker, closes the provider stream and exposes the same SSE snapshot; consumers remain available'
+    Stop-Node $worker
     $removed=Request $account 8181 DELETE "/api/v1/pdf/ai/conversations/$($chat.id)" @{deleteDocument=$true}
     if($removed.StatusCode -ne 200){throw 'Cleanup submission failed.'}
+    $worker=Start-Node 0 -Worker -UnavailableObjects
+    $exhausted=$null
+    for($i=0;$i -lt 120;$i++) {
+        if($worker.Process.HasExited){throw 'Cleanup outage Worker exited.'}
+        $exhausted=(& docker compose --env-file (Join-Path $PSScriptRoot '.env.local') -f (Join-Path $PSScriptRoot 'compose.yml') exec -T postgres psql -U pdf_workbench -d pdf_workbench -v ON_ERROR_STOP=1 -At -c "SELECT json_build_object('id',id,'state',state,'attempt',attempt,'version',dispatch_version,'fence',fence) FROM $schema.work_tasks WHERE kind='CLEAN' AND document_id='$document'::uuid;")|ConvertFrom-Json
+        if($LASTEXITCODE -ne 0){throw 'Cleanup failure probe failed.'}
+        if($exhausted.state -eq 'FAILED'){break}
+        Start-Sleep -Milliseconds 500
+    }
+    if($exhausted.state -ne 'FAILED' -or $exhausted.attempt -ne 3){throw 'S3 outage did not exhaust the bounded cleanup attempts.'}
+    if((Request $account 8180 GET "/api/v1/pdf/ai/documents/$document").StatusCode -ne 200){throw 'Failed cleanup lost its document tombstone.'}
+    Stop-Node $worker
+    # Advance only the isolated fixture's cooldown, preserving the real failure state and delivery versions.
+    & docker compose --env-file (Join-Path $PSScriptRoot '.env.local') -f (Join-Path $PSScriptRoot 'compose.yml') exec -T postgres psql -U pdf_workbench -d pdf_workbench -v ON_ERROR_STOP=1 -c "UPDATE $schema.work_tasks SET updated_at=clock_timestamp()-interval '16 minutes' WHERE id='$($exhausted.id)'::uuid AND state='FAILED';" | Out-Null
+    if($LASTEXITCODE -ne 0){throw 'Cleanup cooldown fixture failed.'}
+    $worker=Start-Node 0 -Worker
     $gone=$false
     for($i=0;$i -lt 150;$i++) {
         if((Request $account 8180 GET "/api/v1/pdf/ai/documents/$document").StatusCode -eq 404){$gone=$true;break}
         Start-Sleep -Milliseconds 100
     }
     if(!$gone){throw 'Asynchronous cleanup did not remove the tombstoned document.'}
+    $cleanup=(& docker compose --env-file (Join-Path $PSScriptRoot '.env.local') -f (Join-Path $PSScriptRoot 'compose.yml') exec -T postgres psql -U pdf_workbench -d pdf_workbench -v ON_ERROR_STOP=1 -At -c "SELECT json_build_object('count',count(*),'state',min(state),'version',min(dispatch_version),'fence',min(fence),'attempt',min(attempt)) FROM $schema.work_tasks WHERE kind='CLEAN' AND document_id='$document'::uuid;")|ConvertFrom-Json
+    if($LASTEXITCODE -ne 0 -or $cleanup.count -ne 1 -or $cleanup.state -ne 'SUCCEEDED' -or $cleanup.attempt -ne 1 -or $cleanup.version -le $exhausted.version -or $cleanup.fence -le $exhausted.fence){throw 'Cleanup reconciliation did not reuse the task with fresh execution authority.'}
     Object-Fixtures 'missing-objects'
+    Write-Output 'PASS exhausted cleanup is reconciled by an independent Worker with a fresh delivery version and fencing token'
     Write-Output 'PASS RabbitMQ cleanup removes the tombstoned document and source after conversation deletion'
 
 } finally {
