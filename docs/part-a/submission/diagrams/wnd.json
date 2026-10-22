@@ -1,0 +1,509 @@
+{
+  "id": "wnd",
+  "title": "Window and panel navigation",
+  "nodes": [
+    {
+      "id": "W00",
+      "label": "W00 Select / open PDF",
+      "x": 700,
+      "y": 70,
+      "width": 460,
+      "height": 95,
+      "kind": "external"
+    },
+    {
+      "id": "W01",
+      "label": "W01 Preview and page navigation\nPDF loaded; page total displayed",
+      "x": 700,
+      "y": 260,
+      "width": 540,
+      "height": 130,
+      "kind": "process"
+    },
+    {
+      "id": "W02",
+      "label": "W02 Text and search",
+      "x": 405,
+      "y": 465,
+      "width": 470,
+      "height": 80,
+      "kind": "process"
+    },
+    {
+      "id": "W03",
+      "label": "W03 Tables and CSV",
+      "x": 405,
+      "y": 585,
+      "width": 470,
+      "height": 80,
+      "kind": "process"
+    },
+    {
+      "id": "W04",
+      "label": "W04 Images and ZIP",
+      "x": 405,
+      "y": 705,
+      "width": 470,
+      "height": 80,
+      "kind": "process"
+    },
+    {
+      "id": "W05",
+      "label": "W05 Document information",
+      "x": 405,
+      "y": 825,
+      "width": 470,
+      "height": 80,
+      "kind": "process"
+    },
+    {
+      "id": "W06",
+      "label": "W06 Encryption / permissions",
+      "x": 405,
+      "y": 945,
+      "width": 470,
+      "height": 80,
+      "kind": "process"
+    },
+    {
+      "id": "W07",
+      "label": "W07 Digital signatures",
+      "x": 405,
+      "y": 1065,
+      "width": 470,
+      "height": 80,
+      "kind": "process"
+    },
+    {
+      "id": "W08",
+      "label": "W08 Text / image watermark",
+      "x": 405,
+      "y": 1185,
+      "width": 470,
+      "height": 80,
+      "kind": "process"
+    },
+    {
+      "id": "W09",
+      "label": "W09 Inspect results\nSave supported output",
+      "x": 1060,
+      "y": 750,
+      "width": 460,
+      "height": 140,
+      "kind": "process"
+    },
+    {
+      "id": "W10",
+      "label": "W10 Read status / errors\nCorrect inputs and retry",
+      "x": 1060,
+      "y": 1110,
+      "width": 460,
+      "height": 140,
+      "kind": "process"
+    }
+  ],
+  "edges": [
+    {
+      "from": "W00",
+      "to": "W01",
+      "label": "Valid selected file",
+      "points": [
+        [
+          700,
+          118
+        ],
+        [
+          700,
+          195
+        ]
+      ]
+    },
+    {
+      "from": "W01",
+      "to": "W02",
+      "label": "",
+      "points": [
+        [
+          430,
+          260
+        ],
+        [
+          90,
+          260
+        ],
+        [
+          90,
+          465
+        ],
+        [
+          170,
+          465
+        ]
+      ]
+    },
+    {
+      "from": "W02",
+      "to": "W09",
+      "label": "",
+      "points": [
+        [
+          640,
+          465
+        ],
+        [
+          770,
+          465
+        ],
+        [
+          770,
+          750
+        ],
+        [
+          830,
+          750
+        ]
+      ]
+    },
+    {
+      "from": "W01",
+      "to": "W03",
+      "label": "",
+      "points": [
+        [
+          430,
+          260
+        ],
+        [
+          90,
+          260
+        ],
+        [
+          90,
+          585
+        ],
+        [
+          170,
+          585
+        ]
+      ]
+    },
+    {
+      "from": "W03",
+      "to": "W09",
+      "label": "",
+      "points": [
+        [
+          640,
+          585
+        ],
+        [
+          770,
+          585
+        ],
+        [
+          770,
+          750
+        ],
+        [
+          830,
+          750
+        ]
+      ]
+    },
+    {
+      "from": "W01",
+      "to": "W04",
+      "label": "",
+      "points": [
+        [
+          430,
+          260
+        ],
+        [
+          90,
+          260
+        ],
+        [
+          90,
+          705
+        ],
+        [
+          170,
+          705
+        ]
+      ]
+    },
+    {
+      "from": "W04",
+      "to": "W09",
+      "label": "",
+      "points": [
+        [
+          640,
+          705
+        ],
+        [
+          770,
+          705
+        ],
+        [
+          770,
+          750
+        ],
+        [
+          830,
+          750
+        ]
+      ]
+    },
+    {
+      "from": "W01",
+      "to": "W05",
+      "label": "",
+      "points": [
+        [
+          430,
+          260
+        ],
+        [
+          90,
+          260
+        ],
+        [
+          90,
+          825
+        ],
+        [
+          170,
+          825
+        ]
+      ]
+    },
+    {
+      "from": "W05",
+      "to": "W09",
+      "label": "",
+      "points": [
+        [
+          640,
+          825
+        ],
+        [
+          770,
+          825
+        ],
+        [
+          770,
+          750
+        ],
+        [
+          830,
+          750
+        ]
+      ]
+    },
+    {
+      "from": "W01",
+      "to": "W06",
+      "label": "",
+      "points": [
+        [
+          430,
+          260
+        ],
+        [
+          90,
+          260
+        ],
+        [
+          90,
+          945
+        ],
+        [
+          170,
+          945
+        ]
+      ]
+    },
+    {
+      "from": "W06",
+      "to": "W09",
+      "label": "",
+      "points": [
+        [
+          640,
+          945
+        ],
+        [
+          770,
+          945
+        ],
+        [
+          770,
+          750
+        ],
+        [
+          830,
+          750
+        ]
+      ]
+    },
+    {
+      "from": "W01",
+      "to": "W07",
+      "label": "",
+      "points": [
+        [
+          430,
+          260
+        ],
+        [
+          90,
+          260
+        ],
+        [
+          90,
+          1065
+        ],
+        [
+          170,
+          1065
+        ]
+      ]
+    },
+    {
+      "from": "W07",
+      "to": "W09",
+      "label": "",
+      "points": [
+        [
+          640,
+          1065
+        ],
+        [
+          770,
+          1065
+        ],
+        [
+          770,
+          750
+        ],
+        [
+          830,
+          750
+        ]
+      ]
+    },
+    {
+      "from": "W01",
+      "to": "W08",
+      "label": "",
+      "points": [
+        [
+          430,
+          260
+        ],
+        [
+          90,
+          260
+        ],
+        [
+          90,
+          1185
+        ],
+        [
+          170,
+          1185
+        ]
+      ]
+    },
+    {
+      "from": "W08",
+      "to": "W09",
+      "label": "",
+      "points": [
+        [
+          640,
+          1185
+        ],
+        [
+          770,
+          1185
+        ],
+        [
+          770,
+          750
+        ],
+        [
+          830,
+          750
+        ]
+      ]
+    },
+    {
+      "from": "W09",
+      "to": "W10",
+      "label": "Failure feedback",
+      "points": [
+        [
+          1060,
+          820
+        ],
+        [
+          1060,
+          1040
+        ]
+      ]
+    },
+    {
+      "from": "W10",
+      "to": "W01",
+      "label": "Correct and retry",
+      "points": [
+        [
+          1060,
+          1180
+        ],
+        [
+          1060,
+          1250
+        ],
+        [
+          40,
+          1250
+        ],
+        [
+          40,
+          260
+        ],
+        [
+          430,
+          260
+        ]
+      ]
+    },
+    {
+      "from": "W09",
+      "to": "W01",
+      "label": "",
+      "points": [
+        [
+          1290,
+          750
+        ],
+        [
+          1340,
+          750
+        ],
+        [
+          1340,
+          260
+        ],
+        [
+          970,
+          260
+        ]
+      ]
+    }
+  ]
+}

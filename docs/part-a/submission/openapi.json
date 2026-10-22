@@ -1,0 +1,2677 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PDF Extractor Core Interface Design",
+    "version": "1.0.0",
+    "description": "Page text, tables, images, document information, encryption, signatures and watermarks. Parameters link to Part A requirement IDs."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Current same-origin gateway"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Content extraction"
+    },
+    {
+      "name": "Document information"
+    },
+    {
+      "name": "Security and modification"
+    }
+  ],
+  "paths": {
+    "/api/v1/pdf/text": {
+      "post": {
+        "tags": [
+          "Content extraction"
+        ],
+        "operationId": "extractText",
+        "summary": "API01 Extract page text and attributes",
+        "description": "Supply all parameters in the multipart request body.",
+        "x-requirements": [
+          "FR1",
+          "FR2",
+          "FR3",
+          "FR5",
+          "ERR01"
+        ],
+        "x-wnd": "W02",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "PDF, at most 50 MiB and 200 pages."
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true,
+                    "description": "Opening password for this operation only."
+                  },
+                  "pages": {
+                    "type": "string",
+                    "description": "Empty selects all pages. Document page numbers start at 1, for example 1,3-5."
+                  },
+                  "preserveParagraphs": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TextResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pdf/text/search": {
+      "post": {
+        "tags": [
+          "Content extraction"
+        ],
+        "operationId": "searchText",
+        "summary": "API02 Search with a regular expression",
+        "description": "Supply all parameters in the multipart request body.",
+        "x-requirements": [
+          "FR1",
+          "FR4",
+          "ERR01"
+        ],
+        "x-wnd": "W02",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "PDF, at most 50 MiB and 200 pages."
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true,
+                    "description": "Opening password for this operation only."
+                  },
+                  "pages": {
+                    "type": "string",
+                    "description": "Empty selects all pages. Document page numbers start at 1, for example 1,3-5."
+                  },
+                  "pattern": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "A regular expression supported by RE2/J."
+                  },
+                  "flags": {
+                    "type": "integer",
+                    "default": 0,
+                    "enum": [
+                      0,
+                      1,
+                      2,
+                      4,
+                      3,
+                      5,
+                      6,
+                      7
+                    ],
+                    "description": "1: ignore case; 2: dot matches line breaks; 4: multiline. Combine flags bitwise."
+                  }
+                },
+                "required": [
+                  "file",
+                  "pattern"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchMatchList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pdf/info": {
+      "post": {
+        "tags": [
+          "Document information"
+        ],
+        "operationId": "readInfo",
+        "summary": "API03 Read information, pages, bookmarks and annotations",
+        "description": "Supply all parameters in the multipart request body.",
+        "x-requirements": [
+          "FR1",
+          "FR6",
+          "FR7",
+          "FR9",
+          "PAGE01",
+          "ERR01"
+        ],
+        "x-wnd": "W05",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "PDF, at most 50 MiB and 200 pages."
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true,
+                    "description": "Opening password for this operation only."
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pdf/tables": {
+      "post": {
+        "tags": [
+          "Content extraction"
+        ],
+        "operationId": "extractTables",
+        "summary": "API04 Extract ruled tables",
+        "description": "Supply all parameters in the multipart request body.",
+        "x-requirements": [
+          "FR1",
+          "FR10",
+          "FR11",
+          "ERR01"
+        ],
+        "x-wnd": "W03",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "PDF, at most 50 MiB and 200 pages."
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true,
+                    "description": "Opening password for this operation only."
+                  },
+                  "pages": {
+                    "type": "string",
+                    "description": "Empty selects all pages. Document page numbers start at 1, for example 1,3-5."
+                  },
+                  "x": {
+                    "type": "number",
+                    "format": "float",
+                    "description": "PDF default user space; supply all four values together."
+                  },
+                  "y": {
+                    "type": "number",
+                    "format": "float",
+                    "description": "PDF default user space; supply all four values together."
+                  },
+                  "width": {
+                    "type": "number",
+                    "format": "float",
+                    "description": "PDF default user space; supply all four values together."
+                  },
+                  "height": {
+                    "type": "number",
+                    "format": "float",
+                    "description": "PDF default user space; supply all four values together."
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pdf/tables/csv": {
+      "post": {
+        "tags": [
+          "Content extraction"
+        ],
+        "operationId": "exportTableCsv",
+        "summary": "API05 Export one table as CSV",
+        "description": "Supply all parameters in the multipart request body.",
+        "x-requirements": [
+          "FR1",
+          "FR11",
+          "ERR01"
+        ],
+        "x-wnd": "W03",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "PDF, at most 50 MiB and 200 pages."
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true,
+                    "description": "Opening password for this operation only."
+                  },
+                  "pages": {
+                    "type": "string",
+                    "description": "Empty selects all pages. Document page numbers start at 1, for example 1,3-5."
+                  },
+                  "tableIndex": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "x": {
+                    "type": "number",
+                    "format": "float",
+                    "description": "PDF default user space; supply all four values together."
+                  },
+                  "y": {
+                    "type": "number",
+                    "format": "float",
+                    "description": "PDF default user space; supply all four values together."
+                  },
+                  "width": {
+                    "type": "number",
+                    "format": "float",
+                    "description": "PDF default user space; supply all four values together."
+                  },
+                  "height": {
+                    "type": "number",
+                    "format": "float",
+                    "description": "PDF default user space; supply all four values together."
+                  }
+                },
+                "required": [
+                  "file",
+                  "tableIndex"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation succeeded.",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Content-Disposition": {
+                "description": "attachment and a safe output filename.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pdf/images": {
+      "post": {
+        "tags": [
+          "Content extraction"
+        ],
+        "operationId": "exportImages",
+        "summary": "API06 Export raw images and PNG/JPG",
+        "description": "Supply all parameters in the multipart request body.",
+        "x-requirements": [
+          "FR1",
+          "FR12",
+          "ERR01"
+        ],
+        "x-wnd": "W04",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "PDF, at most 50 MiB and 200 pages."
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true,
+                    "description": "Opening password for this operation only."
+                  },
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "PNG",
+                      "JPG"
+                    ],
+                    "default": "PNG"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ZIP containing manifest.json, original streams and available image conversions. See ImageManifest.",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Content-Disposition": {
+                "description": "attachment and a safe output filename.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Images-Total": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "description": "Number of image resources."
+              },
+              "X-Images-Exported": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "description": "Number of successfully converted image resources."
+              }
+            }
+          },
+          "400": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pdf/encrypt": {
+      "post": {
+        "tags": [
+          "Security and modification"
+        ],
+        "operationId": "encryptPdf",
+        "summary": "API07 Create an encrypted permission-controlled copy",
+        "description": "Supply all parameters in the multipart request body.",
+        "x-requirements": [
+          "FR1",
+          "FR13",
+          "FR14",
+          "FR15",
+          "FR16",
+          "ERR01"
+        ],
+        "x-wnd": "W06",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "PDF, at most 50 MiB and 200 pages."
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true,
+                    "description": "Opening password for this operation only."
+                  },
+                  "userPassword": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true,
+                    "description": "An empty value permits opening without a password."
+                  },
+                  "ownerPassword": {
+                    "type": "string",
+                    "format": "password",
+                    "minLength": 1,
+                    "writeOnly": true,
+                    "description": "Non-empty and different from the user password."
+                  },
+                  "keyLength": {
+                    "type": "integer",
+                    "enum": [
+                      128,
+                      256
+                    ],
+                    "default": 256
+                  },
+                  "allowPrint": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "allowCopy": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "allowModify": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "file",
+                  "ownerPassword"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation succeeded.",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Content-Disposition": {
+                "description": "attachment and a safe output filename.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pdf/signatures/sign": {
+      "post": {
+        "tags": [
+          "Security and modification"
+        ],
+        "operationId": "signPdf",
+        "summary": "API08 Sign with a certificate",
+        "description": "Supply all parameters in the multipart request body.",
+        "x-requirements": [
+          "FR1",
+          "FR17",
+          "ERR01"
+        ],
+        "x-wnd": "W07",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "PDF, at most 50 MiB and 200 pages."
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true,
+                    "description": "Opening password for this operation only."
+                  },
+                  "certificate": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "PKCS#12 container, at most 5 MiB."
+                  },
+                  "certificatePassword": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true
+                  },
+                  "alias": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "location": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file",
+                  "certificate",
+                  "certificatePassword"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation succeeded.",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Content-Disposition": {
+                "description": "attachment and a safe output filename.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pdf/signatures/verify": {
+      "post": {
+        "tags": [
+          "Security and modification"
+        ],
+        "operationId": "verifySignatures",
+        "summary": "API09 Verify digital signatures",
+        "description": "Supply all parameters in the multipart request body.",
+        "x-requirements": [
+          "FR1",
+          "FR18",
+          "ERR01"
+        ],
+        "x-wnd": "W07",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "PDF, at most 50 MiB and 200 pages."
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true,
+                    "description": "Opening password for this operation only."
+                  },
+                  "trustCertificates": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Optional X.509 PEM/DER trust certificates, at most 5 MiB."
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignatureList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pdf/signatures/remove": {
+      "post": {
+        "tags": [
+          "Security and modification"
+        ],
+        "operationId": "removeSignatures",
+        "summary": "API10 Remove all signatures",
+        "description": "Supply all parameters in the multipart request body.",
+        "x-requirements": [
+          "FR1",
+          "FR19",
+          "ERR01"
+        ],
+        "x-wnd": "W07",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "PDF, at most 50 MiB and 200 pages."
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true,
+                    "description": "Opening password for this operation only."
+                  },
+                  "confirmRemoval": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ],
+                    "description": "Explicit confirmation to remove all signatures from the copy."
+                  }
+                },
+                "required": [
+                  "file",
+                  "confirmRemoval"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation succeeded.",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Content-Disposition": {
+                "description": "attachment and a safe output filename.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pdf/watermark": {
+      "post": {
+        "tags": [
+          "Security and modification"
+        ],
+        "operationId": "addWatermark",
+        "summary": "API11 Apply a text or image watermark",
+        "description": "Supply all parameters in the multipart body. TEXT requires text; IMAGE requires image. Both use page selection, position, angle and opacity.",
+        "x-requirements": [
+          "FR1",
+          "WM01",
+          "WM02",
+          "ERR01"
+        ],
+        "x-wnd": "W08",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "PDF, at most 50 MiB and 200 pages."
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true,
+                    "description": "Opening password for this operation only."
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "TEXT",
+                      "IMAGE"
+                    ]
+                  },
+                  "pages": {
+                    "type": "string",
+                    "description": "Empty selects all pages. Document page numbers start at 1, for example 1,3-5."
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  },
+                  "image": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Required for type=IMAGE; PNG/JPG, at most 20 MiB and 40 million pixels."
+                  },
+                  "x": {
+                    "type": "number",
+                    "default": 60
+                  },
+                  "y": {
+                    "type": "number",
+                    "default": 60
+                  },
+                  "fontSize": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 500,
+                    "default": 28
+                  },
+                  "rgb": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 16777215,
+                    "default": 3355443
+                  },
+                  "width": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 10000,
+                    "default": 160
+                  },
+                  "height": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 10000,
+                    "default": 100
+                  },
+                  "angle": {
+                    "type": "number",
+                    "minimum": -360,
+                    "maximum": 360,
+                    "default": 30
+                  },
+                  "opacity": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "default": 0.3
+                  }
+                },
+                "required": [
+                  "file",
+                  "type"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation succeeded.",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Content-Disposition": {
+                "description": "attachment and a safe output filename.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Operation error; see code and message for the specific category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Rect": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "number",
+            "format": "float"
+          },
+          "y": {
+            "type": "number",
+            "format": "float"
+          },
+          "width": {
+            "type": "number",
+            "format": "float"
+          },
+          "height": {
+            "type": "number",
+            "format": "float"
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "width",
+          "height"
+        ]
+      },
+      "Color": {
+        "type": "object",
+        "properties": {
+          "colorSpace": {
+            "type": "string"
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "rgb": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$",
+            "nullable": true
+          }
+        },
+        "required": [
+          "colorSpace",
+          "components"
+        ]
+      },
+      "TextSpan": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "start": {
+            "type": "integer"
+          },
+          "end": {
+            "type": "integer"
+          },
+          "bounds": {
+            "$ref": "#/components/schemas/Rect"
+          },
+          "font": {
+            "type": "string"
+          },
+          "fontSize": {
+            "type": "number"
+          },
+          "fillColor": {
+            "$ref": "#/components/schemas/Color"
+          },
+          "baselineY": {
+            "type": "number"
+          },
+          "strokeColor": {
+            "$ref": "#/components/schemas/Color"
+          },
+          "renderingMode": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "text",
+          "start",
+          "end",
+          "bounds",
+          "font",
+          "fontSize"
+        ]
+      },
+      "TextBlock": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "start": {
+            "type": "integer"
+          },
+          "end": {
+            "type": "integer"
+          },
+          "bounds": {
+            "$ref": "#/components/schemas/Rect"
+          },
+          "font": {
+            "type": "string"
+          },
+          "fontSize": {
+            "type": "number"
+          },
+          "fillColor": {
+            "$ref": "#/components/schemas/Color"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "page",
+          "text",
+          "start",
+          "end",
+          "bounds",
+          "font",
+          "fontSize",
+          "fillColor"
+        ]
+      },
+      "Paragraph": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "start": {
+            "type": "integer"
+          },
+          "end": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "text",
+          "start",
+          "end"
+        ]
+      },
+      "PageText": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "cropBox": {
+            "$ref": "#/components/schemas/Rect"
+          },
+          "rotation": {
+            "type": "integer"
+          },
+          "userUnit": {
+            "type": "number"
+          },
+          "text": {
+            "type": "string"
+          },
+          "spans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TextSpan"
+            }
+          },
+          "blocks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TextBlock"
+            }
+          },
+          "paragraphs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Paragraph"
+            }
+          },
+          "diagnostics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "page",
+          "text",
+          "spans",
+          "blocks",
+          "paragraphs",
+          "diagnostics"
+        ]
+      },
+      "TextResult": {
+        "type": "object",
+        "properties": {
+          "pages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PageText"
+            }
+          }
+        },
+        "required": [
+          "pages"
+        ]
+      },
+      "SearchMatch": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "text": {
+            "type": "string"
+          },
+          "start": {
+            "type": "integer"
+          },
+          "end": {
+            "type": "integer"
+          },
+          "bounds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Rect"
+            }
+          }
+        },
+        "required": [
+          "page",
+          "text",
+          "start",
+          "end",
+          "bounds"
+        ]
+      },
+      "SearchMatchList": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SearchMatch"
+        }
+      },
+      "Bookmark": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "page": {
+            "type": "integer",
+            "nullable": true
+          },
+          "externalUri": {
+            "type": "string",
+            "nullable": true
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Bookmark"
+            }
+          }
+        },
+        "required": [
+          "title",
+          "page",
+          "children"
+        ]
+      },
+      "Annotation": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "type": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string",
+            "nullable": true
+          },
+          "contents": {
+            "type": "string",
+            "nullable": true
+          },
+          "bounds": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number",
+                "format": "float"
+              },
+              "y": {
+                "type": "number",
+                "format": "float"
+              },
+              "width": {
+                "type": "number",
+                "format": "float"
+              },
+              "height": {
+                "type": "number",
+                "format": "float"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "width",
+              "height"
+            ],
+            "nullable": true
+          },
+          "quadPoints": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "page",
+          "type",
+          "contents",
+          "bounds"
+        ]
+      },
+      "DocumentInfo": {
+        "type": "object",
+        "properties": {
+          "pageCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "standardMetadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "customMetadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "xmp": {
+            "type": "string",
+            "nullable": true
+          },
+          "bookmarks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Bookmark"
+            }
+          },
+          "annotations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Annotation"
+            }
+          },
+          "diagnostics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "pageCount",
+          "standardMetadata",
+          "customMetadata",
+          "bookmarks",
+          "annotations",
+          "diagnostics"
+        ]
+      },
+      "TableData": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "bounds": {
+            "$ref": "#/components/schemas/Rect"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "page",
+          "bounds",
+          "rows"
+        ]
+      },
+      "TableList": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/TableData"
+        }
+      },
+      "CertificateSummary": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string"
+          },
+          "issuer": {
+            "type": "string"
+          },
+          "serialNumber": {
+            "type": "string"
+          },
+          "notBefore": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "notAfter": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "subject",
+          "issuer",
+          "serialNumber",
+          "notBefore",
+          "notAfter"
+        ]
+      },
+      "SignatureResult": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "signer": {
+            "type": "string",
+            "nullable": true
+          },
+          "algorithm": {
+            "type": "string",
+            "nullable": true
+          },
+          "integrity": {
+            "type": "string",
+            "enum": [
+              "VALID",
+              "INVALID",
+              "UNKNOWN"
+            ],
+            "description": "VALID: verified integrity; INVALID: invalid integrity; UNKNOWN: indeterminate verification."
+          },
+          "hasLaterRevision": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Null when the result cannot be determined."
+          },
+          "certificateValidity": {
+            "type": "string",
+            "enum": [
+              "VALID",
+              "EXPIRED",
+              "NOT_YET_VALID",
+              "UNKNOWN"
+            ]
+          },
+          "trustStatus": {
+            "type": "string",
+            "enum": [
+              "TRUSTED",
+              "UNTRUSTED",
+              "NOT_EVALUATED"
+            ]
+          },
+          "revocationChecked": {
+            "type": "boolean"
+          },
+          "certificate": {
+            "type": "object",
+            "properties": {
+              "subject": {
+                "type": "string"
+              },
+              "issuer": {
+                "type": "string"
+              },
+              "serialNumber": {
+                "type": "string"
+              },
+              "notBefore": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "notAfter": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "subject",
+              "issuer",
+              "serialNumber",
+              "notBefore",
+              "notAfter"
+            ],
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "integrity",
+          "hasLaterRevision",
+          "certificateValidity",
+          "trustStatus",
+          "revocationChecked",
+          "reason"
+        ]
+      },
+      "SignatureList": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SignatureResult"
+        }
+      },
+      "ImageOccurrence": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "bounds": {
+            "$ref": "#/components/schemas/Rect"
+          }
+        },
+        "required": [
+          "page",
+          "bounds"
+        ]
+      },
+      "ImageManifestItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "width": {
+            "type": "integer"
+          },
+          "height": {
+            "type": "integer"
+          },
+          "filters": {
+            "type": "string"
+          },
+          "occurrences": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImageOccurrence"
+            }
+          },
+          "rawFile": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "EXPORTED",
+              "RAW_ONLY"
+            ]
+          },
+          "diagnostic": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "width",
+          "height",
+          "occurrences",
+          "rawFile",
+          "status"
+        ]
+      },
+      "ImageManifest": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ImageManifestItem"
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "code",
+          "message"
+        ]
+      }
+    }
+  }
+}

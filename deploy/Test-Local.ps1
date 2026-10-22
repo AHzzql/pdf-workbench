@@ -103,4 +103,11 @@ $document = Get-Item -LiteralPath (Join-Path $PSScriptRoot '../docs/part-a/PartA
 $download = Invoke-WebRequest -Uri ('http://127.0.0.1:5173/part-a/' + [Uri]::EscapeDataString($document.Name)) -TimeoutSec 10
 $downloadHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($download.RawContentStream.ToArray()))
 if ($downloadHash -ne (Get-FileHash -LiteralPath $document.FullName -Algorithm SHA256).Hash) { throw 'Part A document download differs from the generated artifact.' }
+$english = Invoke-WebRequest -Uri 'http://127.0.0.1:5173/part-a/submission/' -TimeoutSec 10
+$englishContract = Invoke-RestMethod -Uri 'http://127.0.0.1:5173/part-a/submission/openapi.json' -TimeoutSec 10
+if ($english.Content -notmatch 'English submission document' -or $englishContract.servers[0].url -ne '/' -or @($englishContract.paths.psobject.Properties).Count -ne 11) { throw 'English submission prototype probe failed.' }
+$englishDoc = Get-Item -LiteralPath (Join-Path $PSScriptRoot '../docs/part-a/submission/PartA_Submission.docx')
+$englishDownload = Invoke-WebRequest -Uri 'http://127.0.0.1:5173/part-a/submission/PartA_Submission.docx' -TimeoutSec 10
+$englishHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($englishDownload.RawContentStream.ToArray()))
+if ($englishHash -ne (Get-FileHash -LiteralPath $englishDoc.FullName -Algorithm SHA256).Hash) { throw 'English submission download differs from the verified document.' }
 Write-Output 'PASS Nginx Part A same-origin prototype and artifact boundaries'

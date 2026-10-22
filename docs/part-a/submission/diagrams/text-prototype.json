@@ -1,0 +1,61 @@
+{
+  "id": "text-prototype",
+  "title": "Text tool wireframe",
+  "nodes": [
+    {
+      "id": "file",
+      "label": "Selected PDF: sample.pdf     Page 1 / 3     Choose PDF",
+      "x": 700,
+      "y": 140,
+      "width": 1300,
+      "height": 90,
+      "kind": "external"
+    },
+    {
+      "id": "tools",
+      "label": "Text | Tables | Images | Info | Security | Signatures | Watermark",
+      "x": 700,
+      "y": 245,
+      "width": 1300,
+      "height": 85,
+      "kind": "external"
+    },
+    {
+      "id": "preview",
+      "label": "PDF page preview\n\nAlpha is 42.\n\nSource page coordinates\nremain available for results.",
+      "x": 370,
+      "y": 600,
+      "width": 600,
+      "height": 570,
+      "kind": "external"
+    },
+    {
+      "id": "params",
+      "label": "Text extraction\nPages: 1,3\nPreserve paragraphs: yes",
+      "x": 1035,
+      "y": 410,
+      "width": 600,
+      "height": 190,
+      "kind": "external"
+    },
+    {
+      "id": "action",
+      "label": "Extract text     Search pattern",
+      "x": 1035,
+      "y": 570,
+      "width": 600,
+      "height": 85,
+      "kind": "external"
+    },
+    {
+      "id": "result",
+      "label": "Page 1: Alpha is 42.\nBlocks / bounds / style\nStatus: extraction completed",
+      "x": 1035,
+      "y": 745,
+      "width": 600,
+      "height": 225,
+      "kind": "external"
+    }
+  ],
+  "edges": []
+}

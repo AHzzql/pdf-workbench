@@ -1,0 +1,224 @@
+{
+  "id": "encryption",
+  "title": "PDF Encryption FR13 through to FR16 DFD",
+  "nodes": [
+    {
+      "id": "E1",
+      "label": "E1 Document user",
+      "x": 700,
+      "y": 75,
+      "width": 430,
+      "height": 100,
+      "kind": "external"
+    },
+    {
+      "id": "P1",
+      "label": "P1 Validate input\nFR1 and common constraints",
+      "x": 700,
+      "y": 270,
+      "width": 430,
+      "height": 120,
+      "kind": "process"
+    },
+    {
+      "id": "P9",
+      "label": "P9 Explain errors\nCommon package",
+      "x": 1140,
+      "y": 270,
+      "width": 360,
+      "height": 120,
+      "kind": "process"
+    },
+    {
+      "id": "P5.1",
+      "label": "P5.1 Validate passwords\nFR13 / FR14",
+      "x": 250,
+      "y": 525,
+      "width": 400,
+      "height": 125,
+      "kind": "process"
+    },
+    {
+      "id": "P5.2",
+      "label": "P5.2 Set permissions\nFR15",
+      "x": 700,
+      "y": 525,
+      "width": 400,
+      "height": 125,
+      "kind": "process"
+    },
+    {
+      "id": "P5.3",
+      "label": "P5.3 Encrypt new copy\nFR16",
+      "x": 1150,
+      "y": 525,
+      "width": 400,
+      "height": 125,
+      "kind": "process"
+    },
+    {
+      "id": "P8",
+      "label": "P8 Assemble result\nand download metadata",
+      "x": 700,
+      "y": 800,
+      "width": 440,
+      "height": 120,
+      "kind": "process"
+    },
+    {
+      "id": "E1b",
+      "label": "E1 Inspect and save results",
+      "x": 700,
+      "y": 1020,
+      "width": 470,
+      "height": 100,
+      "kind": "external"
+    }
+  ],
+  "edges": [
+    {
+      "from": "E1",
+      "to": "P1",
+      "label": "PDF and operation inputs",
+      "points": [
+        [
+          700,
+          125
+        ],
+        [
+          700,
+          210
+        ]
+      ]
+    },
+    {
+      "from": "P1",
+      "to": "P9",
+      "label": "Invalid input",
+      "points": [
+        [
+          915,
+          270
+        ],
+        [
+          960,
+          270
+        ]
+      ]
+    },
+    {
+      "from": "P1",
+      "to": "P5.1",
+      "label": "PDF and parameters",
+      "points": [
+        [
+          700,
+          330
+        ],
+        [
+          700,
+          400
+        ],
+        [
+          250,
+          400
+        ],
+        [
+          250,
+          462
+        ]
+      ]
+    },
+    {
+      "from": "P5.1",
+      "to": "P5.2",
+      "label": "Passwords",
+      "points": [
+        [
+          450,
+          525
+        ],
+        [
+          500,
+          525
+        ]
+      ]
+    },
+    {
+      "from": "P5.2",
+      "to": "P5.3",
+      "label": "Permissions",
+      "points": [
+        [
+          900,
+          525
+        ],
+        [
+          950,
+          525
+        ]
+      ]
+    },
+    {
+      "from": "P5.3",
+      "to": "P8",
+      "label": "Encrypted copy",
+      "points": [
+        [
+          1150,
+          588
+        ],
+        [
+          1150,
+          675
+        ],
+        [
+          700,
+          675
+        ],
+        [
+          700,
+          740
+        ]
+      ]
+    },
+    {
+      "from": "P8",
+      "to": "E1b",
+      "label": "Result and status",
+      "points": [
+        [
+          700,
+          860
+        ],
+        [
+          700,
+          970
+        ]
+      ]
+    },
+    {
+      "from": "P9",
+      "to": "E1b",
+      "label": "Error details",
+      "points": [
+        [
+          1320,
+          270
+        ],
+        [
+          1365,
+          270
+        ],
+        [
+          1365,
+          1020
+        ],
+        [
+          935,
+          1020
+        ]
+      ]
+    }
+  ]
+}

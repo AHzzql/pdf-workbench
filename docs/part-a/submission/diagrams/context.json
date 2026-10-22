@@ -1,0 +1,56 @@
+{
+  "id": "context",
+  "title": "PDF Extractor context",
+  "nodes": [
+    {
+      "id": "E1",
+      "label": "E1 Document user",
+      "x": 230,
+      "y": 290,
+      "width": 370,
+      "height": 150,
+      "kind": "external"
+    },
+    {
+      "id": "P0",
+      "label": "P0 PDF Extractor",
+      "x": 1010,
+      "y": 290,
+      "width": 560,
+      "height": 200,
+      "kind": "process"
+    }
+  ],
+  "edges": [
+    {
+      "from": "E1",
+      "to": "P0",
+      "label": "PDF, credentials and parameters",
+      "points": [
+        [
+          415,
+          240
+        ],
+        [
+          730,
+          240
+        ]
+      ]
+    },
+    {
+      "from": "P0",
+      "to": "E1",
+      "label": "Results, new files and feedback",
+      "points": [
+        [
+          730,
+          340
+        ],
+        [
+          415,
+          340
+        ]
+      ]
+    }
+  ]
+}

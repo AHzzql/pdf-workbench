@@ -1,0 +1,56 @@
+[
+  {
+    "id": "context",
+    "title": "PDF Extractor context",
+    "width": 1400,
+    "height": 620
+  },
+  {
+    "id": "text",
+    "title": "Text Extraction FR1 through to FR9 DFD",
+    "width": 1400,
+    "height": 1120
+  },
+  {
+    "id": "tables",
+    "title": "Table Extraction FR10 and FR11 DFD",
+    "width": 1400,
+    "height": 1120
+  },
+  {
+    "id": "images",
+    "title": "Image Extract FR12 DFD",
+    "width": 1400,
+    "height": 1120
+  },
+  {
+    "id": "encryption",
+    "title": "PDF Encryption FR13 through to FR16 DFD",
+    "width": 1400,
+    "height": 1120
+  },
+  {
+    "id": "signatures",
+    "title": "Digital Signature FR17 through to FR19 DFD",
+    "width": 1400,
+    "height": 1120
+  },
+  {
+    "id": "watermark",
+    "title": "Watermarking DFD",
+    "width": 1400,
+    "height": 1120
+  },
+  {
+    "id": "wnd",
+    "title": "Window and panel navigation",
+    "width": 1400,
+    "height": 1390
+  },
+  {
+    "id": "text-prototype",
+    "title": "Text tool wireframe",
+    "width": 1400,
+    "height": 1000
+  }
+]
