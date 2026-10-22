@@ -1,0 +1,113 @@
+{
+  "id": "architecture",
+  "title": "基础 PDF 请求与本机部署",
+  "nodes": [
+    {
+      "id": "browser",
+      "label": "浏览器工作台\nVue 3 / TypeScript / PDF.js",
+      "x": 700,
+      "y": 95,
+      "width": 1080,
+      "height": 130,
+      "kind": "external"
+    },
+    {
+      "id": "nginx",
+      "label": "Nginx 同源入口\n静态构建文件 / API 反向代理",
+      "x": 700,
+      "y": 310,
+      "width": 1080,
+      "height": 130,
+      "kind": "process"
+    },
+    {
+      "id": "web",
+      "label": "Windows 原生 Java Web\n控制器 → PdfService → PDF 工具库",
+      "x": 700,
+      "y": 555,
+      "width": 1080,
+      "height": 160,
+      "kind": "process"
+    },
+    {
+      "id": "temp",
+      "label": "每请求临时目录\n输入副本及处理结果",
+      "x": 360,
+      "y": 815,
+      "width": 550,
+      "height": 140,
+      "kind": "store"
+    },
+    {
+      "id": "return",
+      "label": "JSON / CSV / ZIP / PDF\n浏览器查看与另存",
+      "x": 1040,
+      "y": 815,
+      "width": 550,
+      "height": 140,
+      "kind": "external"
+    }
+  ],
+  "edges": [
+    {
+      "from": "browser",
+      "to": "nginx",
+      "label": "选择文件及提交参数",
+      "points": [
+        [
+          700,
+          160
+        ],
+        [
+          700,
+          245
+        ]
+      ]
+    },
+    {
+      "from": "nginx",
+      "to": "web",
+      "label": "/api/v1/pdf/*",
+      "points": [
+        [
+          700,
+          375
+        ],
+        [
+          700,
+          475
+        ]
+      ]
+    },
+    {
+      "from": "web",
+      "to": "temp",
+      "label": "校验后处理",
+      "points": [
+        [
+          360,
+          635
+        ],
+        [
+          360,
+          745
+        ]
+      ]
+    },
+    {
+      "from": "web",
+      "to": "return",
+      "label": "响应交付",
+      "points": [
+        [
+          1040,
+          635
+        ],
+        [
+          1040,
+          745
+        ]
+      ]
+    }
+  ]
+}

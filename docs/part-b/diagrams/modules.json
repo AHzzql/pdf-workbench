@@ -1,0 +1,144 @@
+{
+  "id": "modules",
+  "title": "控制器 服务与工具模块",
+  "nodes": [
+    {
+      "id": "controller",
+      "label": "ExtractionController / ModificationController\nSignatureController",
+      "x": 700,
+      "y": 90,
+      "width": 1220,
+      "height": 130,
+      "kind": "process"
+    },
+    {
+      "id": "service",
+      "label": "PdfService\n配额 · 输入检查 · 临时目录 · 输出交付",
+      "x": 700,
+      "y": 330,
+      "width": 920,
+      "height": 140,
+      "kind": "process"
+    },
+    {
+      "id": "extract",
+      "label": "PdfTextUtils / PdfInfoUtils\nPdfTableUtils / PdfImageUtils\n文本 网格和图片收集器",
+      "x": 360,
+      "y": 610,
+      "width": 620,
+      "height": 170,
+      "kind": "process"
+    },
+    {
+      "id": "modify",
+      "label": "PdfEncryptionUtils\nPdfWatermarkUtils / PdfSignatureUtils\n签名验证与材料加载",
+      "x": 1040,
+      "y": 610,
+      "width": 620,
+      "height": 170,
+      "kind": "process"
+    },
+    {
+      "id": "shared",
+      "label": "PageSelection / Rect / 选项与结果模型 / PdfFiles",
+      "x": 700,
+      "y": 875,
+      "width": 1250,
+      "height": 100,
+      "kind": "process"
+    }
+  ],
+  "edges": [
+    {
+      "from": "controller",
+      "to": "service",
+      "label": "选项对象与请求文件",
+      "points": [
+        [
+          700,
+          155
+        ],
+        [
+          700,
+          260
+        ]
+      ]
+    },
+    {
+      "from": "service",
+      "to": "extract",
+      "label": "协调处理",
+      "points": [
+        [
+          700,
+          400
+        ],
+        [
+          700,
+          460
+        ],
+        [
+          360,
+          460
+        ],
+        [
+          360,
+          525
+        ]
+      ]
+    },
+    {
+      "from": "extract",
+      "to": "shared",
+      "label": "模型及文件操作",
+      "points": [
+        [
+          360,
+          695
+        ],
+        [
+          360,
+          825
+        ]
+      ]
+    },
+    {
+      "from": "service",
+      "to": "modify",
+      "label": "协调处理",
+      "points": [
+        [
+          700,
+          400
+        ],
+        [
+          700,
+          460
+        ],
+        [
+          1040,
+          460
+        ],
+        [
+          1040,
+          525
+        ]
+      ]
+    },
+    {
+      "from": "modify",
+      "to": "shared",
+      "label": "模型及文件操作",
+      "points": [
+        [
+          1040,
+          695
+        ],
+        [
+          1040,
+          825
+        ]
+      ]
+    }
+  ]
+}

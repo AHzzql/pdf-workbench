@@ -1,0 +1,20 @@
+[
+  {
+    "id": "architecture",
+    "title": "基础 PDF 请求与本机部署",
+    "width": 1400,
+    "height": 1040
+  },
+  {
+    "id": "modules",
+    "title": "控制器 服务与工具模块",
+    "width": 1400,
+    "height": 1050
+  },
+  {
+    "id": "wnd",
+    "title": "工作台页面导航",
+    "width": 1400,
+    "height": 1180
+  }
+]

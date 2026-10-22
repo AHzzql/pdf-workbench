@@ -1,0 +1,19 @@
+
+> pdf-workbench@1.1.0 test:gateway
+> playwright test --config playwright.gateway.config.ts workbench.spec.ts
+
+
+Running 8 tests using 1 worker
+
+(node:51228) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 tests\e2e\workbench.spec.ts:7:1 › 证书签署页面生成可验证的签名 (1.8s)
+  ok 2 tests\e2e\workbench.spec.ts:64:1 › 上传、文本、搜索、表格、图片、元数据与下载闭环 (1.2s)
+  ok 3 tests\e2e\workbench.spec.ts:104:1 › 加密、水印、验签与移除页面 (1.8s)
+  ok 4 tests\e2e\workbench.spec.ts:139:3 › 布局与键盘焦点 960px (283ms)
+  ok 5 tests\e2e\workbench.spec.ts:139:3 › 布局与键盘焦点 1440px (308ms)
+  ok 6 tests\e2e\workbench.spec.ts:139:3 › 布局与键盘焦点 1920px (322ms)
+  ok 7 tests\e2e\workbench.spec.ts:155:1 › 图片空结果和部分转换反馈 (507ms)
+  ok 8 tests\e2e\workbench.spec.ts:180:1 › 未知验签类型与非法范围的展示 (461ms)
+
+  8 passed (7.8s)

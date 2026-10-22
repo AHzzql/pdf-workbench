@@ -1,0 +1,811 @@
+{
+  "collected_at": "2026-10-22T06:22:31.443657+00:00",
+  "junit_command": "mvn.cmd -B -o -Dtest=PdfApiTest,PdfTextUtilsTest,PdfTableUtilsTest,PdfImageUtilsTest,PdfInfoUtilsTest,PdfEncryptionUtilsTest,PdfSignatureUtilsTest,PdfWatermarkUtilsTest,PageSelectionTest,PdfServiceLimitsTest,PdfOutputFailureTest test",
+  "junit_tests": 93,
+  "junit_failures": 0,
+  "junit_errors": 0,
+  "junit_skipped": 0,
+  "browser_tests": 8,
+  "environment": {
+    "os.name": "Windows 11",
+    "java.version": "25",
+    "os.arch": "amd64",
+    "java.vendor": "Oracle Corporation"
+  },
+  "suite_sources": [
+    {
+      "suite": "PdfApiTest",
+      "source_report_sha256": "39ff755f583ba40f93d2035939690e707d1b2c5f5707260fe8e35d4040a7018a",
+      "timestamp": null,
+      "tests": 8
+    },
+    {
+      "suite": "PdfTextUtilsTest",
+      "source_report_sha256": "485bd4ffec10320d7b68f8327794803bf49f3d568af2518e88dc227d7179f421",
+      "timestamp": null,
+      "tests": 11
+    },
+    {
+      "suite": "PdfTableUtilsTest",
+      "source_report_sha256": "0f2619644c416eae1098235b4e3d09fa3c6a1dcaf5bc3e4ebcf2022040407814",
+      "timestamp": null,
+      "tests": 6
+    },
+    {
+      "suite": "PdfImageUtilsTest",
+      "source_report_sha256": "91a6c575495da0cff72a7b769665788ab0e22fcea3534343fdc9ca5d30ccd1dc",
+      "timestamp": null,
+      "tests": 6
+    },
+    {
+      "suite": "PdfInfoUtilsTest",
+      "source_report_sha256": "29b206103acca17f24ba80a800c4a72bdfa7eb5d58e9c66ef03ce1a8fbc21bdf",
+      "timestamp": null,
+      "tests": 5
+    },
+    {
+      "suite": "PdfEncryptionUtilsTest",
+      "source_report_sha256": "80e7e230d050cb94ab5db2ee9de8dd7d082666d9b7413d2b058ff5b448d3ef1a",
+      "timestamp": null,
+      "tests": 20
+    },
+    {
+      "suite": "PdfSignatureUtilsTest",
+      "source_report_sha256": "110e98c61781d11ef70727232e218c889825a587d7cdedbb4487f6eac532118e",
+      "timestamp": null,
+      "tests": 11
+    },
+    {
+      "suite": "PdfWatermarkUtilsTest",
+      "source_report_sha256": "bf1576f75d35044fb98474a6fd708ba90316e6a5ce699d9f17eaa2713b9593a2",
+      "timestamp": null,
+      "tests": 8
+    },
+    {
+      "suite": "PageSelectionTest",
+      "source_report_sha256": "e4b1d1aba7e02b52dd9d59f4d8e619a3fbd4ea459773fc26a20856fd00b3bf11",
+      "timestamp": null,
+      "tests": 12
+    },
+    {
+      "suite": "PdfServiceLimitsTest",
+      "source_report_sha256": "0ddcb3356d0338d3f1ec24fd292ad5b7aa103a0054be4ccc3ff0b6da8de74e8e",
+      "timestamp": null,
+      "tests": 4
+    },
+    {
+      "suite": "PdfOutputFailureTest",
+      "source_report_sha256": "8d1dff427deb0c2dbbdc972a26c1783c06b97c5c8270c65d41a3f1461add91ea",
+      "timestamp": null,
+      "tests": 2
+    }
+  ],
+  "files": [
+    {
+      "path": "02-text.png",
+      "sha256": "ef9d1947aae942622816f24d6e192aa1b87fdf21e3c1294269d6b4e0a59ead37",
+      "bytes": 71135
+    },
+    {
+      "path": "03-table.png",
+      "sha256": "66c7dd6285ad262bfa982affb03fb8d468cfc8f8e381fdff1441560307f427f2",
+      "bytes": 71905
+    },
+    {
+      "path": "04-signature.png",
+      "sha256": "31d2442792c028c07f8fefb520187fe103bec0d3d848da37446842dce45a7568",
+      "bytes": 84314
+    },
+    {
+      "path": "api-sample.pdf",
+      "sha256": "4a02b3952d451ef6f75602c96cb4ac46edfb5eac2f84881ee6da740caefbf24c",
+      "bytes": 1279
+    },
+    {
+      "path": "browser-summary.txt",
+      "sha256": "4ade861efcd9c119cff7c08e76bf218bb6cde7127bf306807683037554f443cd",
+      "bytes": 1083
+    },
+    {
+      "path": "core-junit.xml",
+      "sha256": "56de88cc98e8112382e51c7ebb7c8d3a5dd9872e47e974b17dd7cb068dd3797c",
+      "bytes": 14043
+    },
+    {
+      "path": "core-partial-images.png",
+      "sha256": "dfe84d85a114ebe5c69e17ab9bed5a660d3f1ece51bfc330bfa44bf18175f589",
+      "bytes": 71631
+    },
+    {
+      "path": "core-unknown-revision.png",
+      "sha256": "eea86df7a2401e8dd69a569628f68b17c57ead19c40eb175af6ceba46c989bb6",
+      "bytes": 82254
+    },
+    {
+      "path": "junit-summary.txt",
+      "sha256": "58546c6cccd816300b1c6714114aadbbdef3a1eb95cc3df0c0bd1f3f0d5d1958",
+      "bytes": 1535
+    },
+    {
+      "path": "no-images.pdf",
+      "sha256": "11727b8c6e81b9ae284f71ff05d7bc751d16eef4e7dde9cbe9c0badff999de96",
+      "bytes": 594
+    },
+    {
+      "path": "removed.pdf",
+      "sha256": "432e9d0eeb1836cc94794f52ce6cb80fd59616de53c4c5993d71fcb50641ca19",
+      "bytes": 882
+    },
+    {
+      "path": "signed.pdf",
+      "sha256": "929ab9d3f2eb4d3c48d837ba3011fd3937d49aa3356b398f863c4c11d3ecc607",
+      "bytes": 67487
+    }
+  ],
+  "source_files": [
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/ai/AiChunker.java",
+      "sha256": "c808485762044afcc0bad37ee6b6349d935e7bef898bffc06aa5deeab20b32ba"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/ai/AiController.java",
+      "sha256": "9a6a3ed8559d53136ef463ab7e6676a8bc34b90c2f0d522a7fa602f1268ded5c"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/ai/AiDocuments.java",
+      "sha256": "2dc5cf7343caa66acf90fc1b4b228ff18d95c6535c63e4e5ce934b07bde0be65"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/ai/AiIntent.java",
+      "sha256": "529610b42a773283a5c72d9324328493adb31e4103e2933d862cf5445832662e"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/ai/AiModelClient.java",
+      "sha256": "83ce1d0ab47dc7d2246cb652163c808cf609ef6fdce2974f122d6a28d6c717b3"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/ai/AiReading.java",
+      "sha256": "b50d9977d6e41bbeb87515138b5151fe3bb6300d5a84da24c4f3a0df228e8d5e"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/ai/AiRepository.java",
+      "sha256": "1d4f2a7cfa27db45e65cf603e3a719a65c5c4b8d7141edde7acd17496e45deda"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/ai/AiRetrieval.java",
+      "sha256": "4cba086fc53d1d96434a1445e1b3e7918cec391b5aa22ebbb2e985e53a8108f1"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/ai/AiRuns.java",
+      "sha256": "deee5b5310651b225869d9bd92429f0d8521be793600f03bb3fea2c907d29bd0"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/ai/AiSettings.java",
+      "sha256": "2cc0f400dbc934170a4fcc7fc52f619d60372bf19d4e649a483c2865eb746466"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/ai/AiTaskHandler.java",
+      "sha256": "93c60b713fba21cafa470cba4a2cb9c969cef1a5243176c0d829fd2300349507"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/ai/AiTypes.java",
+      "sha256": "36c9359d19b9173b2b3aee70d3315f11dc01f195fba27aa1eb25ae20b07a948a"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/ai/ElasticsearchIndex.java",
+      "sha256": "71b8e7b1f404f71c6d127003b6930682d20eae8dae6ab36b8e8dfc0cb68da9c5"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/ai/ElasticsearchSettings.java",
+      "sha256": "a71d5e5685dcd3de5b4ea2c2f7e1c40ce763fd274688d276d01d7140c0b63c6d"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/auth/AccountAttemptLimiter.java",
+      "sha256": "b05456e7f1efa7ccc3d0ea2680bba9ee6f40ccdd4662dcf944beaa68f81fc14b"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/auth/AccountController.java",
+      "sha256": "af6e2f46bef8da6c84fd855327558da5f94834a300aeb3137264da73fc3bbfce"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/auth/AccountRepository.java",
+      "sha256": "51cdee205a379dfe41e07adce8baa519f433fdda76e6b399921903e8a543303b"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/auth/AccountService.java",
+      "sha256": "21eec666be725371c35b7f836384f247365ee07796db74f40b216584f62edbd3"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/auth/AccountSessionFilter.java",
+      "sha256": "b648fe8cc269225fc5250dec268000103887c26ed5fd660caae85780571f00c5"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/auth/AccountTypes.java",
+      "sha256": "e3468fd51e39ab0b259320c15fe4cb4f5ee3d03764ac2a95ff625f17aa832420"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/auth/ChatWorkspace.java",
+      "sha256": "1d1a43ec3644f258a84164f367a2432f36b6c673e092b678ab5b01a9ea4603df"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/auth/SessionAccess.java",
+      "sha256": "dfd94aea801a83de17e8b55e52f8815abf1c86c80ce806611949d08fca361cf3"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/config/AccountSecurityConfig.java",
+      "sha256": "cb9ccfd231f417d4055a12a1689f93ee5ec0ede1d53181f38e63b79a379f912d"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/config/OpenApiConfig.java",
+      "sha256": "53e6a4985d9f6939dae6485c70ddd8996d64303b88bf535d62aadd5998b33038"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/config/RequestPolicyFilter.java",
+      "sha256": "2ffe33d368aa8197f48c1aa68d27273c4c99a43e9535623571ac0f3640bde983"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/config/SessionBoundaryConfig.java",
+      "sha256": "ed861cead42f6f15a2c3c66224353e51dcaa13de1ede94ae0180968a890a7b3e"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/config/SessionStorageFailureFilter.java",
+      "sha256": "919a42579d7741498ff957cbe14263b6bcd0b2560f3d84adc7dbf4a7463d2274"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/controller/ExtractionController.java",
+      "sha256": "15a8f0476654b0cdea6ed09e2b3025c91bf2b73541875c3ec9b3dc4caa880440"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/controller/ModificationController.java",
+      "sha256": "dc876b701f3832593e77657b65ec5292c651df90f84d030936514b841b62cf3d"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/controller/SignatureController.java",
+      "sha256": "af7da7dc526aaf9d9d566acd63a7435518f04693602df9d3edd8e4c3373cd902"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/example/EncryptionExample.java",
+      "sha256": "a759c8c180e06959ebe099163ed595b262e569918af87b719f6b370bf65bb815"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/example/ExampleInput.java",
+      "sha256": "64624b0a4114a29e59c80e1c8aa2bd09ea9fd158a5c0cc407fcbbe93f799d7d0"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/example/ImageExample.java",
+      "sha256": "2da065ecfaf883cfa9b1489b4ffb39fe0d258e7ddee1f274d7383e69572bd4dd"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/example/InfoExample.java",
+      "sha256": "edbb26d4df592fc6924f06e2b5261ccac0c517f073a4f9a11e9e2a2f7c3ccdb0"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/example/SignatureExample.java",
+      "sha256": "944a0eff446b8337de838b1ba7ba35e5a07dba6a909ce04f5ab839a108725e00"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/example/TableExample.java",
+      "sha256": "2ed6c4d91205719df2dc3f2e5ce0d3679863ea501f1c39ecf6d2e8609a8a223c"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/example/TextExample.java",
+      "sha256": "e39727e9dd55d2d6d840e2b36e63c70be66da9e51298a342f71c981b0a4af046"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/example/WatermarkExample.java",
+      "sha256": "2724eab7786cbdedfc6e87c99d88ff2ba409d3b34883e1cad4bacbece9be1f81"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/exception/ApiException.java",
+      "sha256": "260c4f9162d6ec08812d5d24b1c07f92f2a2a6e105cd6060204fa2c0291ad324"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/exception/ApiExceptionHandler.java",
+      "sha256": "895712f9b0604ad6ebe03408ba38e302aab79b7917545b8ae695b371274889a7"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/exception/PdfParameterException.java",
+      "sha256": "d24af125aaf7feb4c99cb5bb80f95dd050ca2198347b8e7a97d8392cb29a72ec"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/exception/PdfProcessingException.java",
+      "sha256": "8b9048f93b7f450ddebb865153037844f1f183cec886390e06f24e5e0a42a74f"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/model/DocumentInfo.java",
+      "sha256": "1ce4dc448a04fdf84300e51de1489c913728584c4bb0f402bea9b417e268341d"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/model/EncryptionOptions.java",
+      "sha256": "a1e050d73647fd072f46a520f2acab4d93612706466459634778ec115ddbb63c"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/model/ImageData.java",
+      "sha256": "1d10785aedd4284798530dfd978bb8ea8223f316426ce0156b1f17e012c189a9"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/model/ImageExport.java",
+      "sha256": "89c2e7b28a33ee438ba4df0103b5770b8b263c2222f40a3852057db4fb9e9d02"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/model/ImageFormat.java",
+      "sha256": "b6ab14e88cda7f197ce02cfc42235c7818468b5be5ca0d30c25fd384b4db103c"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/model/ImageWatermark.java",
+      "sha256": "ce9a5f3014861e11b6efe5f6d95ed3598bbcdb74dade772937ad55c09abb2088"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/model/PageSelection.java",
+      "sha256": "7e61399896b44d26fcf6c98b1b9efca533fcca07a3ac58268542fe920fa890b1"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/model/Rect.java",
+      "sha256": "5917d938d93c3e2e56e62111e075d9d5e2d83cdfda28f86b85231a0094d9f284"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/model/SearchMatch.java",
+      "sha256": "c997146a3419b6c658f072eb4a6bc1cc8cea735048a584689b1d6ae3a4ac1bc5"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/model/SearchOptions.java",
+      "sha256": "372577b67806155d636b314bd4cd149fcb9476291075f1f019522a74420daf62"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/model/SignatureResult.java",
+      "sha256": "e68022c43c368996985a294303629a101757b50f198a2046a469e4192d91e904"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/model/SigningOptions.java",
+      "sha256": "6e1e1165206527274800403184d4b9273700fd338f1fd60c2080b43feba71c08"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/model/TableData.java",
+      "sha256": "a7bff542e3b90064118d8e4b955c480044325fa71bbab4f989f53aa20ee03d13"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/model/TableOptions.java",
+      "sha256": "ab3705b2823ff14b30b109a5bf8d3b5717129204ed5dd2613ae1e588b1e963cc"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/model/TextOptions.java",
+      "sha256": "ee6d11c54878d235ad26507da979b0c736b24709344e21d3ddd5720318dfffd1"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/model/TextResult.java",
+      "sha256": "8f96e0fc9ac284a0b7497dd79608520f1c79ee471a17c97a6d2444abe10caee0"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/model/TextWatermark.java",
+      "sha256": "82755d8a530cb7241f6fad69aa05419eda564f571f32aaddb99a67fef72e4ea4"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/PdfWorkbenchApplication.java",
+      "sha256": "02c6531949de9d5716da08add7b83f70ffe9751453961fb3f2fca97384d563e9"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/service/PdfService.java",
+      "sha256": "c05a35304fa639b852e487eec5bbabaf69592790721f80aa356b86057dfc9b85"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/storage/DocumentStorage.java",
+      "sha256": "1350aebf77b57cc4a2811ea1770b04f5edbc4d75aba25c2165e99f2a1c4bf7fd"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/storage/LegacyDataImport.java",
+      "sha256": "5e33244e7cd1a1499a0701b9e84103ebe77c908f5ba06bf2c3265f0517877f54"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/storage/MigrateDocumentFiles.java",
+      "sha256": "9da88e4638a8cd2cc4c29a899ca143020f7e45aa1ce50f55e8261a9d3ec978d2"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/storage/ObjectStoreProbe.java",
+      "sha256": "b48befe7dece8b4bf7424ca8afb53f1691fa745eebce65e92441d2769308719b"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/storage/S3ObjectStore.java",
+      "sha256": "8b50da8545155185ea5a43a490b10db561f3af5e344600f2883d32c4d3c74fc4"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/storage/S3Settings.java",
+      "sha256": "d9dcd955b6e5db6404629b2eeec7e13fe1cb7b114b3497d7a0bbc4aae742b317"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/storage/StorageConfiguration.java",
+      "sha256": "dbba8d1ddddc837fb6d2fd370390aced0b584ecaba249ebb07b487e9c7377efd"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/storage/StorageMaintenance.java",
+      "sha256": "af3ff4cef0ac2cef1368118950cbd0ac14c60a756418307c09f39360ada18222"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/tasks/TaskBroker.java",
+      "sha256": "414e34ea5dd901f7c558d6d0633d1c9db49114ce140b8b142c7205e344a74e2f"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/tasks/TaskDeadLetters.java",
+      "sha256": "0d6f775168cfa99f8f27835eae5f1d71df7a324c2cf1e7730defaa0ebdf2827e"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/tasks/TaskHandler.java",
+      "sha256": "8225e02da7372127d18657269aaece880a4d7dae325cd65d4a0e0c054a866a52"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/tasks/TaskMaintenance.java",
+      "sha256": "d4b8514d860318432cb92120e90a575d4f4073ea358132d57b94453e19c10de2"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/tasks/TaskRetentionSettings.java",
+      "sha256": "a3ab6939f67a6fc781b124703bae1a23be1a3eb627a38faa3ffdacc0d65cd9a3"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/tasks/TaskRuntime.java",
+      "sha256": "fb1f6fc54a9890bf2f4882c92a2dfdaa5b528e91f80c5e4eb8f488a2dee075cf"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/tasks/TaskSettings.java",
+      "sha256": "627da482dac5a31b931fd620216477d6a4d3f98e39b0279c538385e353c4b053"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/tasks/TaskStore.java",
+      "sha256": "23b7f9671919d9b6cd0513495b7ae2782687967a223a29f03419696b67a8a5e4"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/util/GridCollector.java",
+      "sha256": "52021296e784e07010d3e8cd67749cab962b0b485c071324c3cba87de9c1a0d2"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/util/ImageCollector.java",
+      "sha256": "002b6c661389f67b2eecf00b002e9623d8df7b630c2e5cae4301b28b6f1916e3"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/util/PdfEncryptionUtils.java",
+      "sha256": "47580cae055ae8cb2a989504f0fffc530329a815673171f045d063273341ea7a"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/util/PdfFiles.java",
+      "sha256": "9165b840910fb4e52113928e5a86819b40c869b9f2fc0cec7f429d8ea29267f0"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/util/PdfImageUtils.java",
+      "sha256": "6ef045b0d587614b3c43a8310bd2c1072fb9140fc6d31ae73a19ce083dd13744"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/util/PdfInfoUtils.java",
+      "sha256": "af5bfe0bec4db2cd2c2177d60ca4ecd0eb42f94f93fb76c4436be02bd4a0d620"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/util/PdfSignatureUtils.java",
+      "sha256": "64fab0d4d113fd935ae2781c631fdaaac9183eea9975d24bf3754af2c75ca55d"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/util/PdfTableUtils.java",
+      "sha256": "5c7d758692e603ee960bea05b063cd561c5e8f50f96bdbd4fd0377955d47a0e4"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/util/PdfTextUtils.java",
+      "sha256": "d13eb877022b71c6afb4925a5467a4703760bb1e001d257882f14f5dcbad46cc"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/util/PdfWatermarkUtils.java",
+      "sha256": "7e3c38ce126f344f453fd7ee1f649b2060431113b62c51102220032c0710c0c4"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/util/SignatureVerifier.java",
+      "sha256": "b8eaae8e29fc1c0e5bc4fa0a262585c744667bb257a4ffd4432857e2c6a240be"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/util/SigningMaterial.java",
+      "sha256": "960896e5d86bfbaf74dc5d08096068ccee2b413ff7d1a7630670dc54c4a86c61"
+    },
+    {
+      "path": "backend/src/main/java/cn/edu/pdfworkbench/util/TextCollector.java",
+      "sha256": "ccb935c1c6fbbae8bd90adc6b8a4c1ed0822f088d5aaded846e4da36a34f70c0"
+    },
+    {
+      "path": "backend/src/main/resources/application.yml",
+      "sha256": "e34086ba2940d9d5d01254263e6d33e8f693a6130c04fb4a39ba77ff05c6a593"
+    },
+    {
+      "path": "backend/src/main/resources/db/migration/V1__accounts_and_chat.sql",
+      "sha256": "ec64dbf36ea694703e427dfe76b8e33b83aebfaf19e696ed44560d7620a7b032"
+    },
+    {
+      "path": "backend/src/main/resources/db/migration/V2__document_index_generations.sql",
+      "sha256": "0531f0ee244122a4643db6e617d0c39edf5e460433e300c67ff75cd0b0a0114b"
+    },
+    {
+      "path": "backend/src/main/resources/db/migration/V3__durable_tasks_and_outbox.sql",
+      "sha256": "8b8f33dd076c914039d66a6847b16df347aa8f61e0e0a25e48fa0bab3850bfd0"
+    },
+    {
+      "path": "backend/src/main/resources/db/migration/V4__document_object_manifests.sql",
+      "sha256": "caaa8a5d0dd989c54878efe5cb0192402943be97a4f84a703210c2fbc838196d"
+    },
+    {
+      "path": "backend/src/main/resources/db/migration/V5__cleanup_reconciliation.sql",
+      "sha256": "44f1140f753a3576dcb6a41600446bdd39ee6597ff04468f1739e8b368de241d"
+    },
+    {
+      "path": "backend/src/main/resources/db/migration/V6__task_history_retention.sql",
+      "sha256": "409b7b8c4dda2849e83dce33b66caa958c76c95520f60925acf6537c1041561c"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/AccountApiTest.java",
+      "sha256": "f407ce50e410a1220a92d344ab17fbd20c42d03ffac363bfae7ee6c8d67689b8"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/AccountRepositoryTest.java",
+      "sha256": "6892d9cf4c8887da197e162f292328dbc239919e4954d7f1c983dc025e55f948"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/AiApiTest.java",
+      "sha256": "e4efa760a68be360ac1ccef33edc332d94cacd3986a6d952ce35a776e55cffb9"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/AiChunkerTest.java",
+      "sha256": "c650f7bfdd5bde09fa15dddbe0f9733f9398d73d926d287ac1817c2e7d60814b"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/AiIntentTest.java",
+      "sha256": "0bb6d45ff555fcbeee87dd03dd6e0899c1e5c24196ce8f7a4e2451f72727f108"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/AiModelLiveIT.java",
+      "sha256": "e64042356879fb2ba3716d6484318a82fe3aa9e1df553a597f24d5a8b72b9395"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/AiModelProtocolTest.java",
+      "sha256": "8a81bab9307280aabc07a2f6c23598410c477916aa1df0badc6296bd91856389"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/AiReadingTest.java",
+      "sha256": "e437597ea061f994bdf2593c050139f081f60037819da944835095e1d1f47704"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/AiTaskHandlerProtocolTest.java",
+      "sha256": "0635296db2715d24ce3399585559e891becd36641ad21ee7b7f9a3ad0e6a3868"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/AiWorkspaceTest.java",
+      "sha256": "34d977db4f154a3a961d106fd21fcd432542801183e75340886e888737baa757"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/ApplicationTest.java",
+      "sha256": "25122d664b8d6413f8c104ba7a924b8311e7daf30430d356db0687b0e2f59cb0"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/auth/AccountAttemptLimiterTest.java",
+      "sha256": "278a377bd3dcadfd6513cbd9a495885e32494bf54bb1d8728228b5439f5262d9"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/DocumentStorageTest.java",
+      "sha256": "7997ef06802a0440f5e40bce8548ab66177d957b9a7b65331330f1205c330411"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/ElasticsearchIndexProtocolTest.java",
+      "sha256": "1b6b73c7db0409a89051f11f5dbcb6110f1c081bd3791750f7c5363223932fa9"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/ElasticsearchRetrievalTest.java",
+      "sha256": "203dc8df2c97220fb3c9a6fb9d48b3c41dcb24b9ece01b6c9ac419ff892f5092"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/ExamplesTest.java",
+      "sha256": "b54cf5681b6c68c2564f9bf1578fd9eb2b6b975b716cebfe068545310a05ad3a"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/LegacyDataImportTest.java",
+      "sha256": "7e49ac90feb32fe5c82185fade5600b5c26cea6e2294cb99c59c3b542324fd76"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/PageSelectionTest.java",
+      "sha256": "f45aaa996e6eb48617ead536084a06f6d0b5f52bce6e4df9b94d9390dccd48a6"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/PdfApiTest.java",
+      "sha256": "52132a3f97d2e581043c277dc13b4a1e6c5c0fec651caa016fade3c7175c599a"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/PdfEncryptionUtilsTest.java",
+      "sha256": "748de61b57970fe2bd031d5c00493514e414c36fcccbed69c73dff72a8dea7b9"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/PdfImageUtilsTest.java",
+      "sha256": "a3e83c7161d7071b736f955866392ebfcb827d8d055257d32024f294e63a1183"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/PdfInfoUtilsTest.java",
+      "sha256": "bd4e3afed4e6e7d5f8352d8f3a101f249de4afd616cae4fb455a5032b759e12f"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/PdfOutputFailureTest.java",
+      "sha256": "454e35ea691560b9d4460b930c890a61dcbe6c15091b41c37eb45208a7d3255e"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/PdfServiceLimitsTest.java",
+      "sha256": "5ad4985ce466f6a0bfead3f8926845e23d8de571fe49d5b8cdeaecc08228ec59"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/PdfSignatureUtilsTest.java",
+      "sha256": "62e766bac2009a07e1fcea1548dcfe13069c61406cfc811265818888637054de"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/PdfTableUtilsTest.java",
+      "sha256": "6198b9cd6d08bea585a010080d187beef02f7757e77ec0b60e339ed62f8b14ac"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/PdfTextUtilsTest.java",
+      "sha256": "7f302f2e844accb6675cd7d0278b5b9eef32edaa94b50d78e5928814ee9c7287"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/PdfWatermarkUtilsTest.java",
+      "sha256": "80d9c26dbeb32bd216ebff44a9fb678f0c7f24be930840bfe6530479024f439b"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/RedisUnavailableApiTest.java",
+      "sha256": "68b4734b95bc275fac8677b3323b2c3bd9a694bb7064ddf6bd90d56fdc15a9a1"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/SessionStorageFailureFilterTest.java",
+      "sha256": "3c8b860383bd289af769a729eeba7b38bbaf823cfe50f6589305f78780118efe"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/storage/S3ObjectStoreTest.java",
+      "sha256": "da9b00cdd3922f04668b85eb9d7ac1e7dbc16303605e2595aee1b237349e4f7a"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/StorageMaintenanceTest.java",
+      "sha256": "da2a51668c8f6de09ae73989cae5e4a99f8aa8bb1d2763a00ce694f0831b8ab5"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/TaskBrokerTest.java",
+      "sha256": "1f0469eaaa899f1a95fabed1a170bdd5516021e50c0dd687ed5e77b3c7fdc690"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/TaskDeadLettersTest.java",
+      "sha256": "02ae2945f2b2e891d2121e4ae1b1e1b8552a49810d44472bd391403c2e1c481b"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/TaskMaintenanceTest.java",
+      "sha256": "0a2d8a0f00ce89234f0b9e78884ef22f4008dc97d18e68b52a265098408993b7"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/TaskNativeFixture.java",
+      "sha256": "6148ed66ed265eb7b80d1a9b95120eec6ea64b2a1a9ec6f7f4ce05ef94314cef"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/TaskRetentionTest.java",
+      "sha256": "7a28ad78a545bc1276f129b28b1f1706223a8b719d93ff37e147fac5bcc24e4e"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/TaskRuntimeRoleTest.java",
+      "sha256": "beeb564045e1b844782f280b31498a4264a6e3feb00bb9369e2d07be1d6dd1e1"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/TaskStoreTest.java",
+      "sha256": "5a5e7bb8e84a05a307f6f506e368bbf577d3f2029998d2dd42b28c36b1dbba49"
+    },
+    {
+      "path": "backend/src/test/java/cn/edu/pdfworkbench/TestServices.java",
+      "sha256": "d543973f3cb6d8d6cef3c1ea185f7af370267fa08c1a7464f6057961d8b23ac8"
+    },
+    {
+      "path": "frontend/src/api/account.ts",
+      "sha256": "5d0645426d6ffa6f794b16767ab37b97ef5d9ee4730c0a72d9cb12a15114994b"
+    },
+    {
+      "path": "frontend/src/api/ai.ts",
+      "sha256": "0d058100001e65422da16369aaff5be3becfa599db5dc75fd219288202a162b8"
+    },
+    {
+      "path": "frontend/src/api/pdf.ts",
+      "sha256": "49c13479a5b3b72233f8d93728c27f3366eb0a3f02b21fc2b59fdedb9e74883a"
+    },
+    {
+      "path": "frontend/src/App.vue",
+      "sha256": "6354b78b4006b5f062c4f7a91b6644daa2aedbd2d1c9eb6dd399a7ceb1957026"
+    },
+    {
+      "path": "frontend/src/assets/account.css",
+      "sha256": "7da51dd22391f0470eb3845db03c45372db8d28d4d148b89c2e76dc9eecd8c73"
+    },
+    {
+      "path": "frontend/src/assets/ai.css",
+      "sha256": "d421c9642a2c1f9a1abae870aae283c85be7f9810e0fd5b686a34077833b7e06"
+    },
+    {
+      "path": "frontend/src/assets/main.css",
+      "sha256": "d88c22148b311ba81f2447f0b6c8ef3b9865c23c29e5b60c8313f5b09d9750de"
+    },
+    {
+      "path": "frontend/src/components/AccountDialog.vue",
+      "sha256": "a0994c491af1986409d079fd14d588f12d1931cce2ddcee3cc7149b985b290bf"
+    },
+    {
+      "path": "frontend/src/components/AiAnswer.vue",
+      "sha256": "1832daaa05f4cd319adc1244c3fac74ab2cc04871270357cb680fa2e4063f072"
+    },
+    {
+      "path": "frontend/src/components/AiAssistant.vue",
+      "sha256": "055265a9043d7fe002f1868a46f86bfd86c1682379f44592cddd7fe716fc8345"
+    },
+    {
+      "path": "frontend/src/components/AiSuggestions.vue",
+      "sha256": "cb04949b289c5ab1479c07ca333582b329ccbd8c23504bbd7ca42710d26cff47"
+    },
+    {
+      "path": "frontend/src/components/AppIcon.vue",
+      "sha256": "9f1806bd2babea1ca158813e9754ed35d63929d9aef897ee5c6602d8338b9ca5"
+    },
+    {
+      "path": "frontend/src/components/BookmarkTree.vue",
+      "sha256": "78ae02a9f38206ff8df903b44f81046ae9a0f21a9669b3cc991e498806af2571"
+    },
+    {
+      "path": "frontend/src/components/FilePicker.vue",
+      "sha256": "ab6f7fa7b65971b2ac52f768cbc962e8f736b1e383e1fc9ff42d0f0a652d1367"
+    },
+    {
+      "path": "frontend/src/components/PdfPreview.vue",
+      "sha256": "80012685d83a050052af899489cc890db37a8398f6383f6806bb4d390163a691"
+    },
+    {
+      "path": "frontend/src/components/ResultPanel.vue",
+      "sha256": "4d2e8ad01326a795c793bb3b736b2cc195484279a4a96c146444397012cd1bdc"
+    },
+    {
+      "path": "frontend/src/composables/useAccount.ts",
+      "sha256": "61e3952fa8abfe5b5a09bc798a7b643487a336047cb28ae05821c5bca9566479"
+    },
+    {
+      "path": "frontend/src/composables/useAiAssistant.ts",
+      "sha256": "41183cd9c4fc3dd1f4006613f7b04bf4b3ab4c70ecab4280b685f3541d9bf0df"
+    },
+    {
+      "path": "frontend/src/composables/useDocument.ts",
+      "sha256": "d4f3c2d285dc4ed9d9483215288e15113ff3482f732b9e1f0430d0c6af713468"
+    },
+    {
+      "path": "frontend/src/main.ts",
+      "sha256": "f6613e1b2bb9ba34319abfb9c9fb174365b9d7945e848b0198f4c32472f31d82"
+    },
+    {
+      "path": "frontend/src/router/index.ts",
+      "sha256": "12ee6d426c94e5dafd3a9b722d94b07c1168626648111d4fcd299f01d68df375"
+    },
+    {
+      "path": "frontend/src/types/account.ts",
+      "sha256": "158438f8058fd40042e1914aad6bb84513d39c740adb28a4faf288d6f2b9f4f3"
+    },
+    {
+      "path": "frontend/src/types/ai.ts",
+      "sha256": "91e94ba688d8baa6560c921b3bedab1fda7b1686ac11ebcb02fb6a20933b4cec"
+    },
+    {
+      "path": "frontend/src/types/pdf.ts",
+      "sha256": "fe55f11d618417673a0d5bdf34230d436fbe9b6a7d8a2c4dca1a263356580dec"
+    },
+    {
+      "path": "frontend/src/views/WorkbenchView.vue",
+      "sha256": "2babd0638b49492bd644292216c652588a74116e12b0e57d4cb313cd00b665d2"
+    },
+    {
+      "path": "backend/pom.xml",
+      "sha256": "2fa83a8a80787ea41a70c9dbcac184289d07c7706fa5124d4284ed4adda6211e"
+    },
+    {
+      "path": "frontend/package.json",
+      "sha256": "4fde4b69d616794b67e5c834ce8ba6d69acf28b7e1e67df2fd43bf5c6cfa841b"
+    },
+    {
+      "path": "frontend/package-lock.json",
+      "sha256": "84c8a977b2230fbb3dd8244f9e20ec472af1bb3feb4938c889e1d731f4d7b27e"
+    },
+    {
+      "path": "frontend/tests/e2e/workbench.spec.ts",
+      "sha256": "c0663250ffb4eb5bfc79328db4c79a00a0485156fcfa04bdb5d7e0b3d56fdc2e"
+    }
+  ]
+}

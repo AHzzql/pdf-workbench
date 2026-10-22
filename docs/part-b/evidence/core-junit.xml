@@ -1,0 +1,118 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites>
+  <testsuite name="cn.edu.pdfworkbench.PdfApiTest" time="9.472" tests="8" errors="0" skipped="0" failures="0">
+    <testcase name="exposesAllBusinessOperationsInSwagger" classname="cn.edu.pdfworkbench.PdfApiTest" time="1.497" />
+    <testcase name="extractsTextSearchMetadataTablesCsvAndImages" classname="cn.edu.pdfworkbench.PdfApiTest" time="0.287" />
+    <testcase name="signsVerifiesAndRemovesThroughHttp" classname="cn.edu.pdfworkbench.PdfApiTest" time="0.537" />
+    <testcase name="distinguishesBusinessErrorsAndReturnsCoreProperties" classname="cn.edu.pdfworkbench.PdfApiTest" time="0.208" />
+    <testcase name="modifiesAndReopensDownloads" classname="cn.edu.pdfworkbench.PdfApiTest" time="0.254" />
+    <testcase name="reportsPartialImageExportsWithRawFilesAndDiagnostics" classname="cn.edu.pdfworkbench.PdfApiTest" time="0.044" />
+    <testcase name="rejectsWrongProtocolAndOversizedUpload" classname="cn.edu.pdfworkbench.PdfApiTest" time="0.142" />
+    <testcase name="rejectsInvalidInputWithoutSensitiveDetails" classname="cn.edu.pdfworkbench.PdfApiTest" time="0.12" />
+  </testsuite>
+  <testsuite name="cn.edu.pdfworkbench.PdfTextUtilsTest" time="0.178" tests="11" errors="0" skipped="0" failures="0">
+    <testcase name="extractsChineseWithEmbeddedFontAndCrossLineMatches" classname="cn.edu.pdfworkbench.PdfTextUtilsTest" time="0.054" />
+    <testcase name="readsColumnsRatherThanInterleavingLines" classname="cn.edu.pdfworkbench.PdfTextUtilsTest" time="0.011" />
+    <testcase name="preservesCoordinatesAcrossPageRotation(int)[1]" classname="cn.edu.pdfworkbench.PdfTextUtilsTest" time="0.01" />
+    <testcase name="preservesCoordinatesAcrossPageRotation(int)[2]" classname="cn.edu.pdfworkbench.PdfTextUtilsTest" time="0.011" />
+    <testcase name="preservesCoordinatesAcrossPageRotation(int)[3]" classname="cn.edu.pdfworkbench.PdfTextUtilsTest" time="0.012" />
+    <testcase name="preservesCoordinatesAcrossPageRotation(int)[4]" classname="cn.edu.pdfworkbench.PdfTextUtilsTest" time="0.01" />
+    <testcase name="extractsPagesStylesAndDefaultUserCoordinates" classname="cn.edu.pdfworkbench.PdfTextUtilsTest" time="0.009" />
+    <testcase name="groupsContiguousStyledGlyphsIntoBlocks" classname="cn.edu.pdfworkbench.PdfTextUtilsTest" time="0.013" />
+    <testcase name="verifiesPasswordAndExtractionPermission" classname="cn.edu.pdfworkbench.PdfTextUtilsTest" time="0.013" />
+    <testcase name="searchesWithOffsetsAndRejectsInvalidPatterns" classname="cn.edu.pdfworkbench.PdfTextUtilsTest" time="0.013" />
+    <testcase name="validatesInputAndReleasesSource" classname="cn.edu.pdfworkbench.PdfTextUtilsTest" time="0.016" />
+  </testsuite>
+  <testsuite name="cn.edu.pdfworkbench.PdfTableUtilsTest" time="0.12" tests="6" errors="0" skipped="0" failures="0">
+    <testcase name="extractsGridAndKeepsEmptyCells" classname="cn.edu.pdfworkbench.PdfTableUtilsTest" time="0.014" />
+    <testcase name="handlesEmptyPagesAndMalformedFiles" classname="cn.edu.pdfworkbench.PdfTableUtilsTest" time="0.013" />
+    <testcase name="separatesDisconnectedTables" classname="cn.edu.pdfworkbench.PdfTableUtilsTest" time="0.012" />
+    <testcase name="extractsChineseMultilineCellsFromRectangleBorders" classname="cn.edu.pdfworkbench.PdfTableUtilsTest" time="0.042" />
+    <testcase name="rejectsInvalidSelectionsAndDoesNotInferBorderlessTables" classname="cn.edu.pdfworkbench.PdfTableUtilsTest" time="0.021" />
+    <testcase name="writesQuotedCsvWithFormulaProtection" classname="cn.edu.pdfworkbench.PdfTableUtilsTest" time="0.014" />
+  </testsuite>
+  <testsuite name="cn.edu.pdfworkbench.PdfImageUtilsTest" time="0.187" tests="6" errors="0" skipped="0" failures="0">
+    <testcase name="includesNestedAndUnusedResourcesWithoutDuplicateStreams" classname="cn.edu.pdfworkbench.PdfImageUtilsTest" time="0.015" />
+    <testcase name="readsInlineImagesInsideUnusedForms" classname="cn.edu.pdfworkbench.PdfImageUtilsTest" time="0.015" />
+    <testcase name="rejectsDamagedFilesAndInvalidOutputDirectories" classname="cn.edu.pdfworkbench.PdfImageUtilsTest" time="0.013" />
+    <testcase name="extractsRawStreamsDeduplicatesAndExportsPixels" classname="cn.edu.pdfworkbench.PdfImageUtilsTest" time="0.027" />
+    <testcase name="exportsTransparencyAndWhiteJpegBackground" classname="cn.edu.pdfworkbench.PdfImageUtilsTest" time="0.097" />
+    <testcase name="readsInlineImagesAndHandlesNoImages" classname="cn.edu.pdfworkbench.PdfImageUtilsTest" time="0.02" />
+  </testsuite>
+  <testsuite name="cn.edu.pdfworkbench.PdfInfoUtilsTest" time="0.124" tests="5" errors="0" skipped="0" failures="0">
+    <testcase name="rejectsExternalEntitiesAndTerminatesBookmarkCycles" classname="cn.edu.pdfworkbench.PdfInfoUtilsTest" time="0.056" />
+    <testcase name="handlesMissingInformationAndBadInput" classname="cn.edu.pdfworkbench.PdfInfoUtilsTest" time="0.011" />
+    <testcase name="obliqueHighlightDoesNotSelectTextOnlyInsideItsBoundingBox" classname="cn.edu.pdfworkbench.PdfInfoUtilsTest" time="0.019" />
+    <testcase name="extractsChineseMetadataNestedBookmarksAndAnnotations" classname="cn.edu.pdfworkbench.PdfInfoUtilsTest" time="0.013" />
+    <testcase name="reportsZeroPagesAndRecoversHighlightTextWithoutContents" classname="cn.edu.pdfworkbench.PdfInfoUtilsTest" time="0.021" />
+  </testsuite>
+  <testsuite name="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.608" tests="20" errors="0" skipped="0" failures="0">
+    <testcase name="encryptsWithIndependentPermissions(int, int)[1]" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.04" />
+    <testcase name="encryptsWithIndependentPermissions(int, int)[2]" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.027" />
+    <testcase name="encryptsWithIndependentPermissions(int, int)[3]" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.025" />
+    <testcase name="encryptsWithIndependentPermissions(int, int)[4]" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.025" />
+    <testcase name="encryptsWithIndependentPermissions(int, int)[5]" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.023" />
+    <testcase name="encryptsWithIndependentPermissions(int, int)[6]" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.024" />
+    <testcase name="encryptsWithIndependentPermissions(int, int)[7]" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.023" />
+    <testcase name="encryptsWithIndependentPermissions(int, int)[8]" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.023" />
+    <testcase name="encryptsWithIndependentPermissions(int, int)[9]" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.034" />
+    <testcase name="encryptsWithIndependentPermissions(int, int)[10]" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.035" />
+    <testcase name="encryptsWithIndependentPermissions(int, int)[11]" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.031" />
+    <testcase name="encryptsWithIndependentPermissions(int, int)[12]" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.033" />
+    <testcase name="encryptsWithIndependentPermissions(int, int)[13]" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.036" />
+    <testcase name="encryptsWithIndependentPermissions(int, int)[14]" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.031" />
+    <testcase name="encryptsWithIndependentPermissions(int, int)[15]" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.034" />
+    <testcase name="encryptsWithIndependentPermissions(int, int)[16]" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.033" />
+    <testcase name="rejectsInvalidParametersAndPreservesExistingFiles" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.012" />
+    <testcase name="requiresOwnerPermissionToReplaceEncryption" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.043" />
+    <testcase name="refusesSignedFilesAndCleansFailedOutput" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.023" />
+    <testcase name="validatesPasswordEncodingAndSupportsEmptyUserPassword" classname="cn.edu.pdfworkbench.PdfEncryptionUtilsTest" time="0.036" />
+  </testsuite>
+  <testsuite name="cn.edu.pdfworkbench.PdfSignatureUtilsTest" time="1.535" tests="11" errors="0" skipped="0" failures="0">
+    <testcase name="retainsOrdinaryFieldsAndAnnotationsWhenRemovingMultipleSignatures" classname="cn.edu.pdfworkbench.PdfSignatureUtilsTest" time="0.152" />
+    <testcase name="malformedByteRangeDoesNotReportAnUnmodifiedRevision" classname="cn.edu.pdfworkbench.PdfSignatureUtilsTest" time="0.013" />
+    <testcase name="expiredCertificateDoesNotChangeCryptographicIntegrity" classname="cn.edu.pdfworkbench.PdfSignatureUtilsTest" time="0.221" />
+    <testcase name="buildsPkixChainToSuppliedRoot" classname="cn.edu.pdfworkbench.PdfSignatureUtilsTest" time="0.24" />
+    <testcase name="rejectsBadCertificatePasswordsAndAcceptsUnsignedBoundaries" classname="cn.edu.pdfworkbench.PdfSignatureUtilsTest" time="0.095" />
+    <testcase name="enforcesEncryptedDocumentPermissions" classname="cn.edu.pdfworkbench.PdfSignatureUtilsTest" time="0.154" />
+    <testcase name="rejectsMalformedRangesAndDoesNotTrustUnrelatedCertificates" classname="cn.edu.pdfworkbench.PdfSignatureUtilsTest" time="0.133" />
+    <testcase name="detectsTamperingAndDistinguishesLaterRevisions" classname="cn.edu.pdfworkbench.PdfSignatureUtilsTest" time="0.086" />
+    <testcase name="rejectsExpiredCertificatesAndUnknownAliasesWithoutReplacingOutput" classname="cn.edu.pdfworkbench.PdfSignatureUtilsTest" time="0.164" />
+    <testcase name="distinguishesUnsupportedAndMissingCertificateFromInvalidSignatures" classname="cn.edu.pdfworkbench.PdfSignatureUtilsTest" time="0.149" />
+    <testcase name="signsVerifiesAndRemovesWithoutChangingSource" classname="cn.edu.pdfworkbench.PdfSignatureUtilsTest" time="0.123" />
+  </testsuite>
+  <testsuite name="cn.edu.pdfworkbench.PdfWatermarkUtilsTest" time="0.312" tests="8" errors="0" skipped="0" failures="0">
+    <testcase name="supportsJpegRotationAndPreservesEncryption" classname="cn.edu.pdfworkbench.PdfWatermarkUtilsTest" time="0.057" />
+    <testcase name="rejectsSignedInputAndLeavesExistingOutputUntouched" classname="cn.edu.pdfworkbench.PdfWatermarkUtilsTest" time="0.019" />
+    <testcase name="imagePlacementUsesDefaultUserSpaceAcrossPageRotations(int)[1]" classname="cn.edu.pdfworkbench.PdfWatermarkUtilsTest" time="0.028" />
+    <testcase name="imagePlacementUsesDefaultUserSpaceAcrossPageRotations(int)[2]" classname="cn.edu.pdfworkbench.PdfWatermarkUtilsTest" time="0.021" />
+    <testcase name="imagePlacementUsesDefaultUserSpaceAcrossPageRotations(int)[3]" classname="cn.edu.pdfworkbench.PdfWatermarkUtilsTest" time="0.023" />
+    <testcase name="imagePlacementUsesDefaultUserSpaceAcrossPageRotations(int)[4]" classname="cn.edu.pdfworkbench.PdfWatermarkUtilsTest" time="0.022" />
+    <testcase name="rejectsInvalidParametersImagesAndMissingGlyphs" classname="cn.edu.pdfworkbench.PdfWatermarkUtilsTest" time="0.053" />
+    <testcase name="writesChineseOnSelectedPageAndPreservesOtherPage" classname="cn.edu.pdfworkbench.PdfWatermarkUtilsTest" time="0.083" />
+  </testsuite>
+  <testsuite name="cn.edu.pdfworkbench.PageSelectionTest" time="0.091" tests="12" errors="0" skipped="0" failures="0">
+    <testcase name="handlesWhitespaceAndEmptyDocuments" classname="cn.edu.pdfworkbench.PageSelectionTest" time="0.037" />
+    <testcase name="defaultsToAllPages" classname="cn.edu.pdfworkbench.PageSelectionTest" time="0.0" />
+    <testcase name="parsesRangesInSortedOrder" classname="cn.edu.pdfworkbench.PageSelectionTest" time="0.0" />
+    <testcase name="rejectsOverflowAndExposesImmutablePages" classname="cn.edu.pdfworkbench.PageSelectionTest" time="0.0" />
+    <testcase name="rejectsInvalidSelection(String)[1]" classname="cn.edu.pdfworkbench.PageSelectionTest" time="0.006" />
+    <testcase name="rejectsInvalidSelection(String)[2]" classname="cn.edu.pdfworkbench.PageSelectionTest" time="0.002" />
+    <testcase name="rejectsInvalidSelection(String)[3]" classname="cn.edu.pdfworkbench.PageSelectionTest" time="0.001" />
+    <testcase name="rejectsInvalidSelection(String)[4]" classname="cn.edu.pdfworkbench.PageSelectionTest" time="0.001" />
+    <testcase name="rejectsInvalidSelection(String)[5]" classname="cn.edu.pdfworkbench.PageSelectionTest" time="0.0" />
+    <testcase name="rejectsInvalidSelection(String)[6]" classname="cn.edu.pdfworkbench.PageSelectionTest" time="0.0" />
+    <testcase name="rejectsInvalidSelection(String)[7]" classname="cn.edu.pdfworkbench.PageSelectionTest" time="0.001" />
+    <testcase name="rejectsInvalidSelection(String)[8]" classname="cn.edu.pdfworkbench.PageSelectionTest" time="0.001" />
+  </testsuite>
+  <testsuite name="cn.edu.pdfworkbench.PdfServiceLimitsTest" time="0.08" tests="4" errors="0" skipped="0" failures="0">
+    <testcase name="pageAndOutputLimitsCleanUp" classname="cn.edu.pdfworkbench.PdfServiceLimitsTest" time="0.018" />
+    <testcase name="interruptedResponseCleansUp" classname="cn.edu.pdfworkbench.PdfServiceLimitsTest" time="0.017" />
+    <testcase name="missingWorkDirectoryHasAnOutputFailureCodeAndReleasesSlot" classname="cn.edu.pdfworkbench.PdfServiceLimitsTest" time="0.019" />
+    <testcase name="concurrencyLimitIsReleasedAfterRequest" classname="cn.edu.pdfworkbench.PdfServiceLimitsTest" time="0.025" />
+  </testsuite>
+  <testsuite name="cn.edu.pdfworkbench.PdfOutputFailureTest" time="0.092" tests="2" errors="0" skipped="0" failures="0">
+    <testcase name="storageFailureReturns500WithoutLocalPaths" classname="cn.edu.pdfworkbench.PdfOutputFailureTest" time="0.077" />
+    <testcase name="missingOutputParentIsNotReportedAsInvalidPdf" classname="cn.edu.pdfworkbench.PdfOutputFailureTest" time="0.012" />
+  </testsuite>
+</testsuites>
