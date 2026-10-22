@@ -51,6 +51,22 @@ class DeliveryTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,"Unsafe"):
                     m.verify(p)
 
+    def test_added_compiled_class_requires_repackaging(self):
+        import zipfile
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            main = "cn/edu/pdfworkbench/PdfWorkbenchApplication.class"
+            classes = root / "backend/target/classes"
+            (classes / main).parent.mkdir(parents=True)
+            (classes / main).write_bytes(b"fixture-class")
+            jar = root / "backend/target/pdf-workbench-1.1.0.jar"
+            with zipfile.ZipFile(jar, "w") as z:
+                z.writestr("BOOT-INF/classes/" + main, b"fixture-class")
+            self.assertEqual(1, m.application_jar(root, [])[1])
+            (classes / "Added.class").write_bytes(b"new-class")
+            with self.assertRaisesRegex(ValueError, "class/resource set differs"):
+                m.application_jar(root, [])
+
     def test_safe_paths(self):
         self.assertTrue(m.safe_name("PDF_Extractor_PartB/frontend/dist/index.html"))
         for p in ["/root", "../root", "a/../b", "a//b", "a\\b", "C:/root", ""]:

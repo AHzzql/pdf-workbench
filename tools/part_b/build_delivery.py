@@ -70,10 +70,12 @@ def application_jar(root, secrets):
     data = path.read_bytes()
     check_payload(path.name, data, secrets)
     count = 0
+    packaged = set()
     with zipfile.ZipFile(path) as z:
         for n in z.namelist():
             if n.startswith("BOOT-INF/classes/") and not n.endswith("/"):
                 relative = n.removeprefix("BOOT-INF/classes/")
+                packaged.add(relative)
                 if "application-local" in relative:
                     raise ValueError("Local configuration embedded in executable")
                 payload = z.read(n)
@@ -84,6 +86,10 @@ def application_jar(root, secrets):
                 count += 1
         if not count or "BOOT-INF/classes/cn/edu/pdfworkbench/PdfWorkbenchApplication.class" not in z.namelist():
             raise ValueError("Not the expected Spring Boot executable")
+    compiled = {p.relative_to(root / "backend/target/classes").as_posix()
+                for p in (root / "backend/target/classes").rglob("*") if p.is_file()}
+    if compiled != packaged:
+        raise ValueError("Executable class/resource set differs from compiled output")
     return data, count
 
 def verify(path):
