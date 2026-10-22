@@ -346,7 +346,7 @@ class DocumentStorageTest {
     var source=source("task-cleanup"); var manifest=uploaded(source);
     files.publish(manifest,()->business(source)); tombstone(source);
     var settings=new cn.edu.pdfworkbench.ai.AiSettings(root.toString(),"","http://127.0.0.1:9","http://127.0.0.1:9","chat","embed","rank");
-    var repository=new cn.edu.pdfworkbench.ai.AiRepository(settings,new ObjectMapper(),database.jdbc());
+    var repository=new cn.edu.pdfworkbench.ai.AiRepository(settings,new ObjectMapper(),database.jdbc(),database.files());
     var documents=org.mockito.Mockito.mock(cn.edu.pdfworkbench.ai.AiDocuments.class);
     var tasks=new cn.edu.pdfworkbench.tasks.TaskStore(database.jdbc(),new cn.edu.pdfworkbench.tasks.TaskSettings("pdf-workbench.unit","worker",30,128,3,900));
     var task=new cn.edu.pdfworkbench.tasks.TaskStore.Task(UUID.randomUUID().toString(),source.workspace,cn.edu.pdfworkbench.tasks.TaskStore.Kind.CLEAN,

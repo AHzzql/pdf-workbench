@@ -7,7 +7,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.nio.file.Files;
 import java.util.*;
-import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -23,6 +22,7 @@ public class AiController {
   private final AiRuns runs;
   private final AiSettings settings;
   private final AiModelClient models;
+  private final java.util.concurrent.Semaphore downloads = new java.util.concurrent.Semaphore(4);
 
   public AiController(
       AiRepository repository,
@@ -67,14 +67,38 @@ public class AiController {
 
   @GetMapping("/documents/{id}/file")
   @Operation(summary = "读取历史会话关联的原始 PDF")
-  public ResponseEntity<FileSystemResource> file(@PathVariable String id) {
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode="200",content=@io.swagger.v3.oas.annotations.media.Content(
+      mediaType="application/pdf",schema=@io.swagger.v3.oas.annotations.media.Schema(type="string",format="binary")))
+  public void file(@PathVariable String id, jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
     readable(id);
-    var p = repository.documentPath(id);
-    if (!Files.exists(p)) throw new ApiException(404, "PDF_MISSING", "关联的 PDF 文件已不存在");
-    return ResponseEntity.ok()
-        .contentType(MediaType.APPLICATION_PDF)
-        .header("Content-Disposition", "attachment; filename=\"document.pdf\"")
-        .body(new FileSystemResource(p));
+    if (!downloads.tryAcquire()) throw new ApiException(503,"DOWNLOAD_CAPACITY","文件下载繁忙，请稍后重试");
+    java.nio.file.Path directory = null;
+    try {
+      try {
+        Files.createDirectories(repository.root());
+        directory = Files.createTempDirectory(repository.root(),"download-");
+      } catch (java.io.IOException e) { throw new ApiException(503,"DOWNLOAD_STORAGE_UNAVAILABLE","下载临时存储暂不可用"); }
+      var pdf = directory.resolve("document.pdf");
+      try { repository.pdf(id,pdf); }
+      catch (java.io.IOException e) { throw new ApiException(503,"DOWNLOAD_STORAGE_UNAVAILABLE","下载临时存储暂不可用"); }
+      readable(id); repository.requireAccess();
+      response.setContentType(MediaType.APPLICATION_PDF_VALUE);
+      response.setHeader("Content-Disposition","attachment; filename=\"document.pdf\"");
+      response.setContentLengthLong(Files.size(pdf));
+      try (var input = Files.newInputStream(pdf)) {
+        byte[] buffer = new byte[65536]; long checked = System.nanoTime();
+        for (int n; (n=input.read(buffer))!=-1;) {
+          if (System.nanoTime()-checked>=java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(250)) {
+            repository.requireAccess(); readable(id); checked=System.nanoTime();
+          }
+          response.getOutputStream().write(buffer,0,n);
+        }
+      }
+    } finally {
+      try {
+        if (directory!=null) { Files.deleteIfExists(directory.resolve("document.pdf")); Files.deleteIfExists(directory); }
+      } finally { downloads.release(); }
+    }
   }
 
   private void readable(String id) {
@@ -95,7 +119,7 @@ public class AiController {
   }
 
   @PostMapping("/conversations/search")
-  @Operation(summary = "查询本机历史会话")
+  @Operation(summary = "查询当前空间的历史会话")
   public List<Conversation> history(@RequestBody HistoryQuery request) {
     String query = Objects.toString(request.query(), "").strip().toLowerCase(Locale.ROOT);
     if (query.length() > 100) throw new ApiException(400, "INVALID_QUERY", "搜索词不超过 100 字符");

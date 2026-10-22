@@ -38,10 +38,18 @@ public class AiRuns {
   }
 
   public Message start(String conversationId, Ask ask, boolean retry) {
-    return tasks.submission(() -> submit(conversationId, ask, retry));
+    validateAsk(ask);
+    var conversation = repository.conversation(conversationId);
+    var previous = existingRequest(conversationId,ask);
+    if (previous!=null) return previous;
+    if (busy(conversationId)) throw new ApiException(429,"AI_BUSY","生成任务已满，或当前会话正在生成");
+    var document = repository.document(conversation.documentId());
+    try { AiReading.select(repository.content(document.id()),ask.pages(),ask.chapterId(),document.pages()); }
+    catch (IOException e) { throw new ApiException(502,"CONTENT_INVALID","持久文档内容无法读取"); }
+    return tasks.submission(() -> submit(conversationId, ask, retry,document));
   }
 
-  private Message submit(String conversationId, Ask ask, boolean retry) {
+  private void validateAsk(Ask ask) {
     models.requireConfigured();
     AiRepository.validateId(ask.requestId());
     if (ask.mode() == null
@@ -54,26 +62,25 @@ public class AiRuns {
         && (ask.pages() == null || ask.pages().isBlank())
         && (ask.chapterId() == null || ask.chapterId().isBlank()))
       throw new ApiException(400, "SCOPE_REQUIRED", "章节摘要需要章节或页码范围");
-    var conversation = repository.conversation(conversationId);
+  }
+
+  private Message existingRequest(String conversationId, Ask ask) {
     try {
-      var previous = repository.message(ask.requestId());
-      if (!previous.conversationId().equals(conversationId))
-        throw new ApiException(409, "REQUEST_CONFLICT", "请求标识已被其他会话使用");
-    } catch (ApiException e) {
-      if (e.status() != 404) throw e;
-    }
+      var previous=repository.message(ask.requestId());
+      if (!previous.conversationId().equals(conversationId) || !previous.role().equals("assistant")
+          || !previous.mode().equals(ask.mode()) || !previous.question().equals(ask.question())
+          || !Objects.equals(previous.pages(),ask.pages()) || !Objects.equals(previous.chapterId(),ask.chapterId()))
+        throw new ApiException(409,"REQUEST_CONFLICT","重复请求的内容不一致");
+      return previous;
+    } catch (ApiException e) { if (e.status()==404) return null; throw e; }
+  }
+
+  private Message submit(String conversationId, Ask ask, boolean retry, Document prepared) {
+    repository.requireAccess();
+    var conversation = repository.conversation(conversationId);
+    var previous=existingRequest(conversationId,ask);
+    if (previous!=null) return previous;
     var all = repository.messages(conversationId);
-    var existing = all.stream().filter(m -> m.id().equals(ask.requestId())).findFirst();
-    if (existing.isPresent()) {
-      var m = existing.get();
-      if (!m.role().equals("assistant")
-          || !m.mode().equals(ask.mode())
-          || !m.question().equals(ask.question())
-          || !Objects.equals(m.pages(), ask.pages())
-          || !Objects.equals(m.chapterId(), ask.chapterId()))
-        throw new ApiException(409, "REQUEST_CONFLICT", "重复请求的内容不一致");
-      return m;
-    }
     if (ask.mode().equals("WELCOME")) {
       if (!ask.question().isBlank() || ask.pages() != null || ask.chapterId() != null)
         throw new ApiException(400, "INVALID_WELCOME", "文档概览不接受问题或阅读范围");
@@ -84,11 +91,9 @@ public class AiRuns {
     if (busy(conversationId))
       throw new ApiException(429, "AI_BUSY", "生成任务已满，或当前会话正在生成");
     var doc = repository.document(conversation.documentId());
-    try {
-      AiReading.select(repository.content(doc.id()), ask.pages(), ask.chapterId(), doc.pages());
-    } catch (IOException e) {
-      throw new ApiException(500, "AI_STORAGE_ERROR", "文档索引数据无法读取");
-    }
+    if (doc.status().equals("DELETING")) throw new ApiException(409,"DOCUMENT_DELETING","文档正在清理");
+    if (!doc.id().equals(prepared.id()) || !doc.hash().equals(prepared.hash()) || doc.pages()!=prepared.pages())
+      throw new ApiException(409,"DOCUMENT_CHANGED","文档文件已变更，请重新读取");
     long now = System.currentTimeMillis();
     if (!retry && !ask.mode().equals("WELCOME"))
       repository.save(

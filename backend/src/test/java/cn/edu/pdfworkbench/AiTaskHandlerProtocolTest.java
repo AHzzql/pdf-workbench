@@ -19,7 +19,7 @@ class AiTaskHandlerProtocolTest {
     try(var database=new TestServices(); var objects=new cn.edu.pdfworkbench.storage.S3ObjectStore(database.objectSettings())) {
       String base="http://127.0.0.1:"+server.getAddress().getPort();
       var settings=new AiSettings(directory.toString(),"fixture",base,base+"/rerank","chat","embed","rank");
-      var json=new ObjectMapper(); var repository=new AiRepository(settings,json,database.jdbc());
+      var json=new ObjectMapper(); var repository=new AiRepository(settings,json,database.jdbc(),database.files());
       var models=new AiModelClient(settings,json);
       var documents=mock(AiDocuments.class); var retrieval=mock(AiRetrieval.class);
       var chunk=new Chunk("p1-0",1,0,12,"Alpha is 42.",List.of());

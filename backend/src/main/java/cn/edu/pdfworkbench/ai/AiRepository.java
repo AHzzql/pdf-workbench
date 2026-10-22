@@ -16,6 +16,7 @@ public class AiRepository {
   private final AiSettings settings;
   private final ObjectMapper json;
   private final JdbcTemplate database;
+  private final cn.edu.pdfworkbench.storage.DocumentStorage files;
   private final org.springframework.transaction.support.TransactionTemplate transactions;
   private final ThreadLocal<String> owner = new ThreadLocal<>();
   private final ThreadLocal<java.util.function.BooleanSupplier> access =
@@ -63,25 +64,27 @@ public class AiRepository {
     }
   }
 
-  public AiRepository(AiSettings settings, ObjectMapper json, JdbcTemplate database) {
+  public AiRepository(AiSettings settings, ObjectMapper json, JdbcTemplate database,
+      cn.edu.pdfworkbench.storage.DocumentStorage files) {
     this.settings = settings;
     this.json = json;
     this.database = database;
+    this.files = files;
     this.transactions = new org.springframework.transaction.support.TransactionTemplate(
         new org.springframework.jdbc.datasource.DataSourceTransactionManager(java.util.Objects.requireNonNull(database.getDataSource())));
   }
 
-  public Path documentPath(String id) {
+  public Path legacyDocumentPath(String id) {
     validateId(id);
     return root().resolve(id + ".pdf");
   }
 
-  public Path contentPath(String id) {
+  public Path legacyContentPath(String id) {
     validateId(id);
     return root().resolve(id + ".json");
   }
 
-  public Path indexPath(String id) {
+  public Path legacyIndexPath(String id) {
     validateId(id);
     return root().resolve("indexes").resolve(id);
   }
@@ -107,14 +110,14 @@ public class AiRepository {
     }
   }
 
-  public synchronized void save(Document value) {
+  public void save(Document value) {
     database.update(
         "INSERT INTO ai_documents(workspace_id,id,payload) VALUES(?::uuid,?::uuid,?::jsonb)"
             + " ON CONFLICT(workspace_id,id) DO UPDATE SET payload=excluded.payload",
         owner(), value.id(), write(value));
   }
 
-  public synchronized void save(Conversation value) {
+  public void save(Conversation value) {
     database.update(
             "INSERT INTO ai_conversations(workspace_id,id,doc_id,updated,payload)"
                 + " VALUES(?::uuid,?::uuid,?::uuid,?,?::jsonb) ON CONFLICT(workspace_id,id)"
@@ -125,7 +128,7 @@ public class AiRepository {
             write(value));
   }
 
-  public synchronized void save(Message value) {
+  public void save(Message value) {
     database.update(
             "INSERT INTO ai_messages(workspace_id,id,conversation_id,created,payload)"
                 + " VALUES(?::uuid,?::uuid,?::uuid,?,?::jsonb) ON CONFLICT(workspace_id,id)"
@@ -189,23 +192,62 @@ public class AiRepository {
             owner(), id);
   }
 
-  public void content(String id, Content value) throws IOException {
+  public void publishDocument(Document document, Path pdf, Content value) throws IOException {
+    requireAccess();
     Files.createDirectories(root());
-    var target = contentPath(id);
     var temp = Files.createTempFile(root(), "content-", ".tmp");
+    cn.edu.pdfworkbench.storage.DocumentStorage.Manifest manifest = null;
     try {
       json.writeValue(temp.toFile(), value);
-      Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
-    } finally {
-      Files.deleteIfExists(temp);
-    }
+      manifest = files.stage(owner(),document.id(),document.hash(),pdf,temp);
+      files.upload(manifest,pdf,temp);
+      requireAccess();
+      files.publish(manifest,()->{ requireAccess(); save(document); });
+    } catch (IOException | RuntimeException e) {
+      if (manifest!=null) {
+        try { files.abandon(manifest); }
+        catch (RuntimeException cleanup) { e.addSuppressed(cleanup); }
+      }
+      throw e;
+    } finally { Files.deleteIfExists(temp); }
   }
 
   public Content content(String id) throws IOException {
-    return json.readValue(contentPath(id).toFile(), Content.class);
+    requireAccess();
+    byte[] bytes = files.content(owner(),id);
+    requireAccess();
+    try {
+      var value=json.readValue(bytes, Content.class);
+      if (value==null || value.chunks()==null || value.chapters()==null)
+        throw new ApiException(502,"CONTENT_INVALID","持久文档内容无法读取");
+      return value;
+    }
+    catch (JsonProcessingException e) { throw new ApiException(502,"CONTENT_INVALID","持久文档内容无法读取"); }
   }
 
-  public synchronized void deleteConversation(String id) {
+  public void pdf(String id, Path destination) throws IOException {
+    requireAccess();
+    files.pdf(owner(),id,destination);
+    try { requireAccess(); }
+    catch (RuntimeException e) { Files.deleteIfExists(destination); throw e; }
+  }
+
+  public boolean filesReady(String id) {
+    requireAccess();
+    try { files.ready(owner(),id); return true; }
+    catch (ApiException e) {
+      if (e.status()==404 || e.code().equals("FILES_NOT_PUBLISHED") || e.code().equals("DOCUMENT_DELETING")) return false;
+      throw e;
+    }
+  }
+
+  public void requireAccess() {
+    owner();
+    if (Thread.currentThread().isInterrupted()) throw new java.util.concurrent.CancellationException();
+    if (!access().getAsBoolean()) throw new ApiException(403,"CHAT_ACCESS_REVOKED","聊天空间访问已失效");
+  }
+
+  public void deleteConversation(String id) {
     conversation(id);
     database.update("DELETE FROM ai_conversations WHERE workspace_id=?::uuid AND id=?::uuid", owner(), id);
   }

@@ -54,12 +54,13 @@ class LegacyDataImportTest {
       assertEquals("encoded-password-fixture", row.hash());
       assertEquals(2, row.version());
       var settings = new AiSettings(root.resolve("target").toString(),"","https://example.invalid","https://example.invalid","chat","embed","rank");
-      var reading = new AiRepository(settings,json,services.jdbc());
+      var reading = new AiRepository(settings,json,services.jdbc(),services.files());
       try (var scope = reading.scope(account, () -> true)) {
         assertEquals("STOPPED", reading.message(id).status());
         assertEquals(4, reading.message(id).sequence());
         assertEquals("partial", reading.messages(id).getFirst().text());
-        assertEquals("synthetic PDF fixture", Files.readString(reading.documentPath(id)));
+        assertEquals("synthetic PDF fixture", Files.readString(reading.legacyDocumentPath(id)));
+        assertEquals("FILES_NOT_PUBLISHED",assertThrows(cn.edu.pdfworkbench.exception.ApiException.class,()->reading.content(id)).code());
       }
       assertTrue(accounts.password(row,"updated-encoded-fixture"));
       assertEquals(new LegacyDataImport.Counts(0,0,0,0), migration.importData(root.resolve("accounts"),root.resolve("reading"),root.resolve("target")));

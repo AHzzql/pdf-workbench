@@ -86,7 +86,7 @@ class TaskStoreTest {
   @Test
   void indexPublicationAndTombstoneUseTheSameTaskBeforeDocumentLockOrder() throws Exception {
     var settings=new cn.edu.pdfworkbench.ai.AiSettings(System.getProperty("java.io.tmpdir"),"","http://127.0.0.1:9","http://127.0.0.1:9","chat","embed","rank");
-    var repository=new cn.edu.pdfworkbench.ai.AiRepository(settings,new com.fasterxml.jackson.databind.ObjectMapper(),DATABASE.jdbc());
+    var repository=new cn.edu.pdfworkbench.ai.AiRepository(settings,new com.fasterxml.jackson.databind.ObjectMapper(),DATABASE.jdbc(),DATABASE.files());
     var retrieval=org.mockito.Mockito.mock(cn.edu.pdfworkbench.ai.AiRetrieval.class);
     var documents=new cn.edu.pdfworkbench.ai.AiDocuments(repository,settings,retrieval,store);
     String token=UUID.randomUUID().toString();

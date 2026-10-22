@@ -31,7 +31,7 @@ class ElasticsearchRetrievalTest {
   @BeforeEach
   void setup() {
     settings = new AiSettings(directory.toString(), "", "http://127.0.0.1:9", "http://127.0.0.1:9", "chat", "embed", "rank");
-    repository = new AiRepository(settings, new ObjectMapper(), DATABASE.jdbc());
+    repository = new AiRepository(settings, new ObjectMapper(), DATABASE.jdbc(),DATABASE.files());
     tasks = new cn.edu.pdfworkbench.tasks.TaskStore(DATABASE.jdbc(), new cn.edu.pdfworkbench.tasks.TaskSettings("pdf-workbench.unit", "all", 30, 128, 3, 900));
     models = mock(AiModelClient.class);
     index = new ElasticsearchIndex(DATABASE.searchSettings(), new ObjectMapper());
@@ -200,19 +200,23 @@ class ElasticsearchRetrievalTest {
   void deletionFailureKeepsTombstoneAndRetryCompletesCleanup() throws Exception {
     try (var scope = repository.scope(owner, () -> true)) {
       document(id);
-      repository.content(id, new Content(List.of(chunk("p1-0", "source")), List.of()));
-      java.nio.file.Files.write(repository.documentPath(id), new byte[] {1,2,3});
+      var source=java.nio.file.Files.write(directory.resolve("source.pdf"),new byte[]{1,2,3});
+      String hash=java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(java.nio.file.Files.readAllBytes(source)));
+      repository.publishDocument(new Document(id,"fixture.pdf",hash,settings.indexVersion(),2,false,"PARSED","",1),source,new Content(List.of(chunk("p1-0","source")),List.of()));
+      var manifest=DATABASE.files().ready(owner,id);
       var unavailable = mock(AiRetrieval.class);
       doThrow(new ApiException(503, "SEARCH_UNAVAILABLE", "fixture")).when(unavailable).delete(id);
       var documents = new AiDocuments(repository, settings, unavailable, tasks);
       assertEquals(503, assertThrows(ApiException.class, () -> { documents.delete(id); documents.cleanFiles(id); }).status());
       assertEquals("DELETING", repository.document(id).status());
-      assertTrue(java.nio.file.Files.exists(repository.documentPath(id)));
+      assertNotNull(DATABASE.objects().getContent(manifest.content()));
       assertEquals("DOCUMENT_DELETING", assertThrows(ApiException.class, () -> documents.createConversation(id)).code());
       new AiDocuments(repository, settings, retrieval, tasks).delete(id);
       new AiDocuments(repository, settings, retrieval, tasks).cleanFiles(id);
+      DATABASE.files().retire(owner,id);
+      DATABASE.files().cleanDocument(owner,id);
       repository.deleteDocumentRecord(id);
-      assertFalse(java.nio.file.Files.exists(repository.documentPath(id)));
+      assertEquals(404,assertThrows(ApiException.class,()->DATABASE.objects().getContent(manifest.content())).status());
       assertEquals(404, assertThrows(ApiException.class, () -> repository.document(id)).status());
     }
   }

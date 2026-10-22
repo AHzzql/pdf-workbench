@@ -15,6 +15,7 @@ final class TestServices implements AutoCloseable {
   private final Map<String, String> credentials;
   private final HikariDataSource source;
   private boolean closed;
+  private cn.edu.pdfworkbench.storage.S3ObjectStore objects;
 
   TestServices() {
     try {
@@ -65,6 +66,13 @@ final class TestServices implements AutoCloseable {
     return factory;
   }
   JdbcTemplate jdbc() { return new JdbcTemplate(source); }
+  synchronized cn.edu.pdfworkbench.storage.S3ObjectStore objects() {
+    if (objects==null) objects=new cn.edu.pdfworkbench.storage.S3ObjectStore(objectSettings());
+    return objects;
+  }
+  cn.edu.pdfworkbench.storage.DocumentStorage files() {
+    return new cn.edu.pdfworkbench.storage.DocumentStorage(jdbc(),objects());
+  }
 
   void register(DynamicPropertyRegistry properties) {
     properties.add("spring.datasource.url", this::url);
@@ -92,6 +100,12 @@ final class TestServices implements AutoCloseable {
   public void close() {
     if (closed) return;
     closed = true;
+    if (!schema.matches("wb_test_[a-f0-9]{32}")) throw new IllegalStateException("Invalid test schema");
+    try {
+      var rows=jdbc().query("SELECT workspace_id::text,document_id::text,generation::text FROM document_files",(r,n)->new String[]{r.getString(1),r.getString(2),r.getString(3)});
+      for (var row : rows) for (var kind : cn.edu.pdfworkbench.storage.S3ObjectStore.Kind.values())
+        objects().delete(new cn.edu.pdfworkbench.storage.S3ObjectStore.Key(row[0],row[1],row[2],kind));
+    } finally { if (objects!=null) objects.close(); }
     source.close();
     var rabbit = rabbit();
     try {

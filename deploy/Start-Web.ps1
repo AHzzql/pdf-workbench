@@ -15,7 +15,7 @@ $jar = Join-Path $root 'backend/target/pdf-workbench-1.1.0.jar'
 if (!$env:JAVA_HOME) { throw 'JAVA_HOME must point to JDK 21 or later.' }
 $java = Join-Path $env:JAVA_HOME 'bin/java.exe'
 if (!(Test-Path $java) -or !(Test-Path $jar)) { throw 'JDK and packaged application are required.' }
-if (!$DataDirectory) { $DataDirectory = Join-Path $PSScriptRoot 'runtime/data' }
+if (!$DataDirectory) { $DataDirectory = Join-Path $PSScriptRoot "runtime/$Role-files" }
 $DataDirectory = [IO.Path]::GetFullPath($DataDirectory)
 $names = @('DATABASE_PASSWORD','POSTGRES_PASSWORD','REDIS_PASSWORD','ELASTIC_PASSWORD','RABBITMQ_PASSWORD','DATABASE_URL','S3_ACCESS_KEY','S3_SECRET_KEY')
 $previous = @{}

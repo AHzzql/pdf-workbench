@@ -54,6 +54,7 @@ class AiApiTest {
   @Autowired AiRepository repository;
   @Autowired AiRuns runs;
   @Autowired ElasticsearchIndex searchIndex;
+  @Autowired cn.edu.pdfworkbench.storage.DocumentStorage fileStorage;
   @MockitoBean AiModelClient models;
   final AtomicBoolean slow = new AtomicBoolean();
   final String base = "/api/v1/pdf/ai";
@@ -241,7 +242,8 @@ class AiApiTest {
 
   @Test
   void completeFlowUsesRealIndexAndValidatedCitation() throws Exception {
-    var d = upload(pdf("Alpha is 42."));
+    byte[] source=pdf("Alpha is 42.");
+    var d = upload(source);
     var c = conversation(d);
     var m = await(ask(c, "ASK", null).id());
     assertEquals("COMPLETED", m.status());
@@ -255,7 +257,7 @@ class AiApiTest {
     assertTrue(events.contains("event:snapshot"));
     assertTrue(events.contains("COMPLETED"));
     assertArrayEquals(
-        Files.readAllBytes(repository.documentPath(d.id())),
+        source,
         http.getForObject(base + "/documents/" + d.id() + "/file", byte[].class));
   }
 
@@ -269,9 +271,24 @@ class AiApiTest {
     assertNotEquals(a.id(), c.id());
   }
 
+  @Test void headAndGetDownloadsLeaveNoPersistentLocalCopy() throws Exception {
+    byte[] source=pdf("download cleanup"); var document=upload(source);
+    var head=http.headForHeaders(base+"/documents/"+document.id()+"/file");
+    assertEquals(source.length,head.getContentLength());
+    assertEquals(MediaType.APPLICATION_PDF,head.getContentType());
+    assertArrayEquals(source,http.getForObject(base+"/documents/"+document.id()+"/file",byte[].class));
+    var schema=http.getForObject("/v3/api-docs",com.fasterxml.jackson.databind.JsonNode.class);
+    assertEquals("binary",schema.path("paths").path(base+"/documents/{id}/file").path("get").path("responses").path("200")
+        .path("content").path("application/pdf").path("schema").path("format").asText());
+    assertFalse(Files.exists(repository.legacyDocumentPath(document.id())));
+    assertFalse(Files.exists(repository.legacyContentPath(document.id())));
+    try (var paths=Files.list(repository.root())) { assertTrue(paths.findAny().isEmpty()); }
+  }
+
   @Test
   void historyRenameAndDeletionCleanAssociatedFiles() throws Exception {
     var d = upload(pdf("Delete sample"));
+    var manifest=fileStorage.ready(repository.owner(),d.id());
     var c = conversation(d);
     await(ask(c, "BRIEF", null).id());
     String generation = repository.indexGeneration(d.id());
@@ -294,8 +311,8 @@ class AiApiTest {
         new HttpEntity<>(new DeleteConversation(true)),
         Void.class);
     awaitDeleted(d.id());
-    assertFalse(Files.exists(repository.documentPath(d.id())));
-    assertFalse(Files.exists(repository.indexPath(d.id())));
+    assertEquals(404,assertThrows(cn.edu.pdfworkbench.exception.ApiException.class,()->SERVICES.objects().getContent(manifest.content())).status());
+    assertFalse(Files.exists(repository.legacyIndexPath(d.id())));
     assertFalse(searchIndex.ready(repository.owner(), d.id(), generation, d.version(), 1));
     assertEquals(
         HttpStatus.NOT_FOUND,
@@ -313,7 +330,8 @@ class AiApiTest {
         HttpMethod.DELETE,
         new HttpEntity<>(new DeleteConversation(true)),
         Void.class);
-    assertTrue(Files.exists(repository.documentPath(d.id())));
+    assertTrue(repository.filesReady(d.id()));
+    assertEquals(200,http.getForEntity(base+"/documents/"+d.id()+"/file",byte[].class).getStatusCode().value());
     assertEquals(
         HttpStatus.CONFLICT,
         http.exchange(
@@ -491,7 +509,7 @@ class AiApiTest {
     assertEquals(HttpStatus.OK, accepted.getStatusCode());
     assertTrue(accepted.getBody().encrypted());
     assertFalse(
-        Files.readString(repository.contentPath(accepted.getBody().id())).contains("owner-secret"));
+        new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(repository.content(accepted.getBody().id())).contains("owner-secret"));
     body.set("password", "wrong");
     assertEquals(
         HttpStatus.FORBIDDEN,

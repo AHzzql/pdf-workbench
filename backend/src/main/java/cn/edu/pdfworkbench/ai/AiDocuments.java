@@ -40,9 +40,10 @@ public class AiDocuments {
     Files.createDirectories(repository.root());
     Path temp = Files.createTempFile(repository.root(), "upload-", ".tmp");
     String id = UUID.randomUUID().toString();
-    boolean saved = false;
     try {
       file.transferTo(temp);
+      if (Files.size(temp)<1 || Files.size(temp)>50L*1024*1024)
+        throw new ApiException(413,"FILE_TOO_LARGE","PDF 文件必须为 1 字节至 50 MiB");
       String hash;
       try (var input = Files.newInputStream(temp)) {
         var digest = MessageDigest.getInstance("SHA-256");
@@ -65,8 +66,7 @@ public class AiDocuments {
         if (d.hash().equals(hash)
             && d.version().equals(settings.indexVersion())
             && !d.status().equals("DELETING")
-            && Files.exists(repository.documentPath(d.id()))
-            && Files.exists(repository.contentPath(d.id()))) return d;
+            && repository.filesReady(d.id())) return d;
       var content = AiChunker.split(text, PdfInfoUtils.read(temp, password).bookmarks());
       if (content.chunks().isEmpty())
         throw new ApiException(422, "NO_TEXT", "文档没有可提取文字，当前不支持扫描件 OCR");
@@ -86,17 +86,10 @@ public class AiDocuments {
               "PARSED",
               "",
               System.currentTimeMillis());
-      Files.move(temp, repository.documentPath(id));
-      repository.content(id, content);
-      repository.save(document);
-      saved = true;
+      repository.publishDocument(document,temp,content);
       return document;
     } finally {
       Files.deleteIfExists(temp);
-      if (!saved) {
-        Files.deleteIfExists(repository.documentPath(id));
-        Files.deleteIfExists(repository.contentPath(id));
-      }
     }
   }
 
@@ -147,13 +140,13 @@ public class AiDocuments {
       if (!repository.document(id).status().equals("DELETING")) throw new ApiException(409, "DOCUMENT_NOT_DELETING", "文档尚未进入清理状态");
     } catch (ApiException e) { if (e.status() == 404) return; throw e; }
     retrieval.delete(id);
-    Path index = repository.indexPath(id);
+    Path index = repository.legacyIndexPath(id);
     if (Files.exists(index))
       try (var walk = Files.walk(index)) {
         for (var path : walk.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);
       }
-    Files.deleteIfExists(repository.documentPath(id));
-    Files.deleteIfExists(repository.contentPath(id));
+    Files.deleteIfExists(repository.legacyDocumentPath(id));
+    Files.deleteIfExists(repository.legacyContentPath(id));
   }
 
   public void deleteConversation(String id, boolean cleanDocument) throws IOException {

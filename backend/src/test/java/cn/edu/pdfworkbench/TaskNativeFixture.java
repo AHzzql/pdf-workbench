@@ -27,6 +27,9 @@ public final class TaskNativeFixture {
   }
   public static void main(String[] args) throws Exception {
     if(args.length!=2) throw new IllegalArgumentException("Fixture mode and target required");
+    if(args[0].equals("objects") || args[0].equals("missing-objects")) {
+      objectFixtures(args[1],args[0].equals("missing-objects")); return;
+    }
     if(args[0].equals("cleanup")) {
       if(!args[1].matches("pdf-workbench\\.test\\.[a-f0-9]{32}"))throw new IllegalArgumentException("Invalid test namespace");
       var connection=new org.springframework.amqp.rabbit.connection.CachingConnectionFactory("127.0.0.1",5672);
@@ -39,6 +42,37 @@ public final class TaskNativeFixture {
     }
     if(!args[0].equals("model"))throw new IllegalArgumentException("Invalid fixture mode");
     startModel(Integer.parseInt(args[1]));
+  }
+
+  private static void objectFixtures(String schema, boolean missing) throws Exception {
+    if(!schema.matches("wb_native_[a-f0-9]{32}"))throw new IllegalArgumentException("Invalid object fixture schema");
+    var env=System.getenv();
+    var jdbc=new org.springframework.jdbc.core.JdbcTemplate(new org.springframework.jdbc.datasource.DriverManagerDataSource(
+        "jdbc:postgresql://127.0.0.1:15432/pdf_workbench","pdf_workbench",env.get("POSTGRES_PASSWORD")));
+    if(jdbc.queryForObject("SELECT to_regclass(?)::text",String.class,schema+".document_files")==null) {
+      if(missing)throw new IllegalStateException("Fixture manifests missing"); return;
+    }
+    var rows=jdbc.queryForList("SELECT * FROM "+schema+".document_files"+(missing?" WHERE state='GARBAGE'":""));
+    if(missing && rows.isEmpty())throw new IllegalStateException("Fixture cleanup tombstone missing");
+    var settings=new cn.edu.pdfworkbench.storage.S3Settings("http://127.0.0.1:18333","us-east-1","pdf-workbench-private",env.get("S3_ACCESS_KEY"),env.get("S3_SECRET_KEY"));
+    try(var objects=new cn.edu.pdfworkbench.storage.S3ObjectStore(settings)) {
+      for(var row:rows) {
+        if(!settings.bucket().equals(row.get("bucket")))throw new IllegalStateException("Fixture bucket mismatch");
+        for(var kind:cn.edu.pdfworkbench.storage.S3ObjectStore.Kind.values()) {
+          var key=new cn.edu.pdfworkbench.storage.S3ObjectStore.Key(row.get("workspace_id").toString(),row.get("document_id").toString(),row.get("generation").toString(),kind);
+          if(!missing){objects.delete(key);continue;}
+          String prefix=kind==cn.edu.pdfworkbench.storage.S3ObjectStore.Kind.PDF?"pdf":"content";
+          var ref=new cn.edu.pdfworkbench.storage.S3ObjectStore.ObjectRef(key,((Number)row.get(prefix+"_bytes")).longValue(),row.get(prefix+"_sha256").toString());
+          var directory=java.nio.file.Files.createTempDirectory("native-object-check-");
+          var copy=directory.resolve("copy");
+          try {
+            try { objects.get(ref,copy); throw new IllegalStateException("Deleted fixture object remains readable"); }
+            catch(cn.edu.pdfworkbench.exception.ApiException e){if(e.status()!=404)throw e;}
+          } finally {java.nio.file.Files.deleteIfExists(copy);java.nio.file.Files.deleteIfExists(directory);}
+        }
+      }
+    }
+    System.out.println(missing?"PASS retired PDF/content objects are absent from S3":"PASS test-schema S3 objects cleared");
   }
   public static HttpServer startModel(int port) throws IOException {
     var server=HttpServer.create(new InetSocketAddress("127.0.0.1",port),16);

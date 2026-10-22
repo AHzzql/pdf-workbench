@@ -103,7 +103,7 @@ class AiReadingTest {
             "embed",
             "rank");
     var json = new ObjectMapper();
-    var first = new AiRepository(settings, json, database.jdbc());
+    var first = new AiRepository(settings, json, database.jdbc(),database.files());
     String owner = UUID.randomUUID().toString();
     try (var scope = first.scope(owner, () -> true)) {
     String d = UUID.randomUUID().toString(),
@@ -126,13 +126,13 @@ class AiReadingTest {
             List.of(),
             1,
             3));
-    var reopened = new AiRepository(settings, json, database.jdbc());
+    var reopened = new AiRepository(settings, json, database.jdbc(),database.files());
     try (var otherScope = reopened.scope(owner, () -> true)) {
     assertEquals("RUNNING", reopened.message(m).status());
     assertEquals("partial", reopened.messages(c).getFirst().text());
     assertEquals(3, reopened.message(m).sequence());
     assertEquals("History", reopened.conversations().getFirst().title());
-    assertThrows(ApiException.class, () -> reopened.documentPath("../../secrets"));
+    assertThrows(ApiException.class, () -> reopened.pdf("../../secrets",root.resolve("invalid.pdf")));
     }
     }
     }

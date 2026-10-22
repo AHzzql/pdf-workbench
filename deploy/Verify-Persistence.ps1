@@ -15,7 +15,7 @@ Get-Content -LiteralPath (Join-Path $PSScriptRoot '.env.local') | ForEach-Object
     if ($pair.Count -eq 2) { $credentials[$pair[0]] = $pair[1] }
 }
 $processes = [Collections.Generic.List[object]]::new()
-function Start-Node([int] $Port, [int] $RedisPort = 16379, [switch] $Worker) {
+function Start-Node([int] $Port, [int] $RedisPort = 16379, [switch] $Worker, [switch] $UnavailableObjects) {
     if (!$Worker) {
         $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, $Port)
         try { $listener.Start() } finally { $listener.Stop() }
@@ -26,9 +26,10 @@ function Start-Node([int] $Port, [int] $RedisPort = 16379, [switch] $Worker) {
     $info.CreateNoWindow = $true
     $info.RedirectStandardOutput = $true
     $info.RedirectStandardError = $true
+    $nodeFiles=if($Worker){"$directory/worker-files"}else{"$directory/web-$Port-files"}
     foreach ($argument in @('-Xmx256m','-jar',$jar,"--server.port=$Port","--spring.data.redis.port=$RedisPort",'--spring.config.import=optional:classpath:native-probe.yml',
         "--spring.flyway.schemas=$schema","--spring.flyway.default-schema=$schema",'--spring.datasource.hikari.maximum-pool-size=3',
-        "--spring.session.redis.namespace=pdf-workbench:test:$run","--tasks.namespace=pdf-workbench.test.$run",'--tasks.max-attempts=3','--tasks.lease-seconds=5','--tasks.timeout-seconds=120',"--search.alias=pdf-workbench-test-$run","--ai.data-directory=$directory/files",
+        "--spring.session.redis.namespace=pdf-workbench:test:$run","--tasks.namespace=pdf-workbench.test.$run",'--tasks.max-attempts=3','--tasks.lease-seconds=5','--tasks.timeout-seconds=120',"--search.alias=pdf-workbench-test-$run","--ai.data-directory=$nodeFiles",
         "--workbench.temporary-root=$directory/tmp",'--ai.api-key=fixture','--ai.base-url=http://127.0.0.1:8189','--ai.rerank-url=http://127.0.0.1:8189/rerank')) { $info.ArgumentList.Add($argument) }
     if (!$Worker) { $info.ArgumentList.Add('--spring.rabbitmq.port=9') }
     if ($Worker) { $info.ArgumentList.Add('--spring.main.web-application-type=none'); $info.ArgumentList.Add('--spring.main.keep-alive=true'); $info.ArgumentList.Add('--tasks.role=worker') }
@@ -36,6 +37,7 @@ function Start-Node([int] $Port, [int] $RedisPort = 16379, [switch] $Worker) {
         $info.ArgumentList.Add('--search.url=http://127.0.0.1:9')
         $info.ArgumentList.Add('--storage.endpoint=http://127.0.0.1:9')
     }
+    if ($UnavailableObjects) { $info.ArgumentList.Add('--storage.endpoint=http://127.0.0.1:9') }
     $info.Environment['DATABASE_URL'] = "jdbc:postgresql://127.0.0.1:15432/pdf_workbench?currentSchema=$schema"
     $info.Environment['DATABASE_PASSWORD'] = $credentials.POSTGRES_PASSWORD
     $info.Environment['REDIS_PASSWORD'] = $credentials.REDIS_PASSWORD
@@ -114,6 +116,22 @@ function Upload($Session, [int] $Port) {
     $response = Invoke-WebRequest "http://127.0.0.1:$Port/api/v1/pdf/ai/documents" -Method Post -WebSession $Session -Headers @{ $token.headerName = $token.token } -Form @{file = Get-Item -LiteralPath $fixture} -TimeoutSec 20
     return ($response.Content | ConvertFrom-Json).id
 }
+function Object-Fixtures([string]$Mode) {
+    $previous=@{}
+    foreach($name in @('POSTGRES_PASSWORD','S3_ACCESS_KEY','S3_SECRET_KEY')) {
+        $previous[$name]=[Environment]::GetEnvironmentVariable($name,'Process')
+        [Environment]::SetEnvironmentVariable($name,$credentials[$name],'Process')
+    }
+    try {
+        & $java ("-Dloader.path="+(Join-Path $root 'backend/target/test-classes')) '-Dloader.main=cn.edu.pdfworkbench.TaskNativeFixture' -cp $jar org.springframework.boot.loader.launch.PropertiesLauncher $Mode $schema
+        if($LASTEXITCODE -ne 0){throw 'Verification S3 fixture check failed.'}
+    } finally {
+        foreach($name in $previous.Keys) {
+            if($null -eq $previous[$name]){Remove-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue}
+            else{[Environment]::SetEnvironmentVariable($name,$previous[$name],'Process')}
+        }
+    }
+}
 try {
     $model = Start-Fixture
     $a = Start-Node 8180
@@ -123,7 +141,11 @@ try {
     $same = (Request $guest 8181 GET '/api/v1/account/session').Content | ConvertFrom-Json
     if ($same.workspaceId -ne $guestSpace.workspaceId) { throw 'Guest workspace differs across nodes.' }
     $guestDocument = Upload $guest 8180
-    if ((Request $guest 8181 GET "/api/v1/pdf/ai/documents/$guestDocument/file").StatusCode -ne 200) { throw 'Guest file not shared across nodes.' }
+    $download=Request $guest 8181 GET "/api/v1/pdf/ai/documents/$guestDocument/file"
+    $hash=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($download.RawContentStream.ToArray()))
+    if ($download.StatusCode -ne 200 -or $hash -ne (Get-FileHash -LiteralPath $fixture).Hash) { throw 'Guest file differs across independent node directories.' }
+    $head=Request $guest 8181 HEAD "/api/v1/pdf/ai/documents/$guestDocument/file"
+    if([long]($head.Headers['Content-Length'] -join '') -ne (Get-Item -LiteralPath $fixture).Length){throw 'Private file HEAD length differs.'}
     $other = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
     if ((Request $other 8181 GET "/api/v1/pdf/ai/documents/$guestDocument/file").StatusCode -ne 404) { throw 'Guest ownership isolation failed.' }
     Write-Output 'PASS independent native nodes share only the same guest session data'
@@ -144,6 +166,8 @@ try {
     $worker=Start-Node 0 -Worker
     $finished=Await-Message $account 8181 $messageId
     if($finished.status -ne 'COMPLETED' -or $finished.citations.Count -ne 1){throw ("Independent worker pipeline: status=$($finished.status), citations=$($finished.citations.Count), error=$($finished.error)")}
+    $localCopies=@(Get-ChildItem -LiteralPath $directory -Recurse -File | Where-Object {$_.Extension -in @('.pdf','.json')})
+    if($localCopies.Count){throw 'Business PDF/content remained in a node file directory.'}
     $a=Start-Node 8180
     Write-Output 'PASS committed task survives submitting Web process termination and broker-unreachable Web nodes'
     if ((Request $guest 8181 GET "/api/v1/pdf/ai/documents/$document").StatusCode -ne 404) { throw 'Account ownership isolation failed.' }
@@ -190,6 +214,17 @@ try {
     }
     Write-Output 'PASS unavailable Redis/Elasticsearch/S3 leave PDF operations available with an existing cookie; stateful routes fail closed'
     Stop-Node $unavailable
+    $s3Unavailable=Start-Node 8181 -UnavailableObjects
+    if((Request $account 8181 GET "/api/v1/pdf/ai/documents/$document").StatusCode -ne 200){throw 'S3 outage blocked document metadata.'}
+    foreach($path in @("/api/v1/pdf/ai/documents/$document/file","/api/v1/pdf/ai/documents/$document/chapters")) {
+        if((Request $account 8181 GET $path).StatusCode -ne 503){throw 'S3 outage did not fail file reads explicitly.'}
+    }
+    $before=@((Request $account 8180 GET "/api/v1/pdf/ai/conversations/$($chat.id)/messages").Content|ConvertFrom-Json).Count
+    $failed=Request $account 8181 POST "/api/v1/pdf/ai/conversations/$($chat.id)/messages" @{requestId=[Guid]::NewGuid().ToString();mode='ASK';question='Storage outage probe'}
+    $after=@((Request $account 8180 GET "/api/v1/pdf/ai/conversations/$($chat.id)/messages").Content|ConvertFrom-Json).Count
+    if($failed.StatusCode -ne 503 -or $before -ne $after){throw 'Failed content read persisted a partial conversation message.'}
+    Stop-Node $s3Unavailable
+    Write-Output 'PASS S3 outage preserves metadata access, rejects file/content reads and leaves no partial message'
     Hold-Model $true
     $crashId=[Guid]::NewGuid().ToString()
     $null=Request $account 8180 POST "/api/v1/pdf/ai/conversations/$($chat.id)/messages" @{requestId=$crashId;mode='ASK';question='Crash recovery probe'}
@@ -238,12 +273,16 @@ try {
         if((Request $account 8180 GET "/api/v1/pdf/ai/documents/$document").StatusCode -eq 404){$gone=$true;break}
         Start-Sleep -Milliseconds 100
     }
-    if(!$gone -or (Test-Path -LiteralPath (Join-Path $directory "files/users/$($identity.id)/$document.pdf"))){throw 'Asynchronous cleanup did not remove the tombstoned source.'}
+    if(!$gone){throw 'Asynchronous cleanup did not remove the tombstoned document.'}
+    Object-Fixtures 'missing-objects'
     Write-Output 'PASS RabbitMQ cleanup removes the tombstoned document and source after conversation deletion'
 
 } finally {
     foreach ($node in $processes) { Stop-Node $node; $node.Process.Dispose() }
+    $objectsCleaned=$false
     try {
+        Object-Fixtures 'objects'
+        $objectsCleaned=$true
         $previousRabbit = $env:RABBITMQ_PASSWORD
         try {
             $env:RABBITMQ_PASSWORD = $credentials.RABBITMQ_PASSWORD
@@ -255,7 +294,9 @@ try {
         if ($removed.StatusCode -notin @(200,404)) { throw 'Verification index cleanup failed.' }
     } finally {
         if ($schema -notmatch '^wb_native_[a-f0-9]{32}$') { throw 'Invalid verification schema.' }
-        & docker compose --env-file (Join-Path $PSScriptRoot '.env.local') -f (Join-Path $PSScriptRoot 'compose.yml') exec -T postgres psql -U pdf_workbench -d pdf_workbench -v ON_ERROR_STOP=1 -c "DROP SCHEMA IF EXISTS $schema CASCADE;" | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw 'Verification schema cleanup failed.' }
+        if($objectsCleaned) {
+            & docker compose --env-file (Join-Path $PSScriptRoot '.env.local') -f (Join-Path $PSScriptRoot 'compose.yml') exec -T postgres psql -U pdf_workbench -d pdf_workbench -v ON_ERROR_STOP=1 -c "DROP SCHEMA IF EXISTS $schema CASCADE;" | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'Verification schema cleanup failed.' }
+        }
     }
 }
