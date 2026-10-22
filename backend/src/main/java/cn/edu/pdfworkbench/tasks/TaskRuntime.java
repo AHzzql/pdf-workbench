@@ -1,6 +1,6 @@
 package cn.edu.pdfworkbench.tasks;
 
-import cn.edu.pdfworkbench.ai.AiRepository;
+import cn.edu.pdfworkbench.util.Identifiers;
 import cn.edu.pdfworkbench.exception.ApiException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
@@ -22,7 +22,6 @@ public class TaskRuntime implements SmartLifecycle {
   private final TaskBroker broker;
   private final ConnectionFactory connections;
   private final TaskHandler handler;
-  private final AiRepository repository;
   private final ObjectMapper json;
   private final TaskDeadLetters deadLetters;
   private final ScheduledExecutorService timers = Executors.newScheduledThreadPool(2);
@@ -34,9 +33,9 @@ public class TaskRuntime implements SmartLifecycle {
   private int publishFailures;
 
   public TaskRuntime(TaskStore store, TaskSettings settings, TaskBroker broker, ConnectionFactory connections,
-      TaskHandler handler, AiRepository repository, ObjectMapper json,TaskDeadLetters deadLetters) {
+      TaskHandler handler, ObjectMapper json,TaskDeadLetters deadLetters) {
     this.store=store; this.settings=settings; this.broker=broker; this.connections=connections;
-    this.handler=handler; this.repository=repository; this.json=json;
+    this.handler=handler; this.json=json;
     this.deadLetters=deadLetters;
   }
 
@@ -118,23 +117,21 @@ public class TaskRuntime implements SmartLifecycle {
     try {
       if (message.getBody().length > 256) throw new IllegalArgumentException();
       delivery = json.readValue(message.getBody(), TaskBroker.Delivery.class);
-      AiRepository.validateId(delivery.taskId());
+      Identifiers.requireUuid(delivery.taskId());
       if (delivery.version() < 1) throw new IllegalArgumentException();
     } catch (Exception e) { channel.basicReject(message.getMessageProperties().getDeliveryTag(), false); return; }
     try {
       var task = store.claim(delivery.taskId(), delivery.version(), route);
       if (task != null) {
         var work = new FutureTask<Void>(() -> {
-          try (var scope = repository.scope(task.workspace(), () -> store.active(task))) {
-            try { var result = handler.execute(task); store.succeed(task, result); }
-            catch (TaskStore.LeaseLost e) { /* 新租约或终态负责后续处理。 */ }
-            catch (Exception e) {
-              boolean interrupted=Thread.interrupted();
-              if (started && !interrupted && store.active(task)) {
-                var api=e instanceof ApiException value ? value : null;
-                store.fail(task,api==null ? "TASK_FAILED" : api.code(),
-                    api==null ? "处理未完成，请稍后重试" : api.getMessage(),api==null || api.status()>=500);
-              }
+          try { var result = handler.execute(task); store.succeed(task, result); }
+          catch (TaskStore.LeaseLost e) { /* 新租约或终态负责后续处理。 */ }
+          catch (Exception e) {
+            boolean interrupted=Thread.interrupted();
+            if (started && !interrupted && store.active(task)) {
+              var api=e instanceof ApiException value ? value : null;
+              store.fail(task,api==null ? "TASK_FAILED" : api.code(),
+                  api==null ? "处理未完成，请稍后重试" : api.getMessage(),api==null || api.status()>=500);
             }
           } finally { Thread.interrupted(); }
           return null;

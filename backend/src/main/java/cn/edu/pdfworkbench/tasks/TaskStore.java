@@ -1,6 +1,6 @@
 package cn.edu.pdfworkbench.tasks;
 
-import cn.edu.pdfworkbench.ai.AiRepository;
+import cn.edu.pdfworkbench.util.Identifiers;
 import cn.edu.pdfworkbench.exception.ApiException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -49,8 +49,8 @@ public class TaskStore {
   }
 
   public Task enqueue(String workspace, Kind kind, String target, String document, String conversation) {
-    AiRepository.validateId(workspace); AiRepository.validateId(target); AiRepository.validateId(document);
-    if (conversation != null) AiRepository.validateId(conversation);
+    Identifiers.requireUuid(workspace); Identifiers.requireUuid(target); Identifiers.requireUuid(document);
+    if (conversation != null) Identifiers.requireUuid(conversation);
     return submission(() -> {
       var previous = jdbc.query("SELECT * FROM work_tasks WHERE workspace_id=?::uuid AND kind=? AND target_id=?::uuid"
           + (kind == Kind.GENERATE ? "" : " AND state IN ('QUEUED','RUNNING','RETRY')"), this::row, workspace, kind.name(), target);

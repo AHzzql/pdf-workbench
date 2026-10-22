@@ -35,15 +35,46 @@ class AiTaskHandlerProtocolTest {
         repository.save(new Message(message,conversation,"assistant","","RUNNING","","ASK","What is Alpha?",null,null,List.of(),2,0));
         var task=tasks.enqueue(workspace,TaskStore.Kind.GENERATE,message,document,conversation);
         var claim=tasks.claim(task.id(),1,"reading");
-        var result=handler.execute(claim);tasks.succeed(claim,result);
+        String caller=UUID.randomUUID().toString();
+        try(var callerScope=repository.scope(caller,()->false)) {
+          var result=handler.execute(claim);
+          assertEquals(caller,repository.owner());
+          tasks.succeed(claim,result);
+          assertEquals(caller,repository.owner());
+          assertEquals(404,assertThrows(cn.edu.pdfworkbench.exception.ApiException.class,
+              ()->repository.message(message)).status());
+        }
         assertEquals("COMPLETED",repository.message(message).status());
         assertEquals("Alpha is 42. [p1-0]",repository.message(message).text());
         assertTrue(repository.message(message).sequence()>=2);
         assertEquals(1,repository.message(message).citations().size());
       }
+      assertEquals(503,assertThrows(cn.edu.pdfworkbench.exception.ApiException.class,repository::owner).status());
       try(var scope=repository.scope(UUID.randomUUID().toString(),()->true)) {
         assertEquals(404,assertThrows(cn.edu.pdfworkbench.exception.ApiException.class,()->repository.message(message)).status());
       }
     } finally {server.stop(0);}
   }
+
+  @Test void failingExecutionRestoresAbsentAndExistingCallerScopes() throws Exception {
+    try(var database=new TestServices()) {
+      var settings=new AiSettings(directory.toString(),"","http://127.0.0.1:9","http://127.0.0.1:9","chat","embed","rank");
+      var repository=new AiRepository(settings,new ObjectMapper(),database.jdbc(),database.files());
+      var tasks=mock(TaskStore.class);
+      when(tasks.active(any())).thenReturn(true);
+      var handler=new AiTaskHandler(repository,null,null,null,settings,tasks,database.files());
+      var task=new TaskStore.Task(UUID.randomUUID().toString(),UUID.randomUUID().toString(),TaskStore.Kind.INDEX,
+          UUID.randomUUID().toString(),UUID.randomUUID().toString(),null,"RUNNING",1,1,1,"");
+      assertEquals(404,assertThrows(cn.edu.pdfworkbench.exception.ApiException.class,()->handler.execute(task)).status());
+      assertEquals(503,assertThrows(cn.edu.pdfworkbench.exception.ApiException.class,repository::owner).status());
+      String caller=UUID.randomUUID().toString();
+      java.util.function.BooleanSupplier guard=()->false;
+      try(var scope=repository.scope(caller,guard)) {
+        assertEquals(404,assertThrows(cn.edu.pdfworkbench.exception.ApiException.class,()->handler.execute(task)).status());
+        assertEquals(caller,repository.owner());assertSame(guard,repository.access());
+      }
+      assertEquals(503,assertThrows(cn.edu.pdfworkbench.exception.ApiException.class,repository::owner).status());
+    }
+  }
+
 }

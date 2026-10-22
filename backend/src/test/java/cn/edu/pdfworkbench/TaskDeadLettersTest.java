@@ -2,7 +2,6 @@ package cn.edu.pdfworkbench;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import cn.edu.pdfworkbench.ai.AiRepository;
 import cn.edu.pdfworkbench.tasks.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
@@ -44,18 +43,18 @@ class TaskDeadLettersTest {
     assertEquals(0,DATABASE.jdbc().queryForObject("SELECT COUNT(*) FROM task_dead_letters",Integer.class));
   }
   @Test void consumerAcknowledgesOnlyAfterArchiveAndDoesNotInvokeBusinessHandler()throws Exception {
-    var handler=mock(TaskHandler.class);var repository=mock(AiRepository.class);var channel=mock(Channel.class);
-    var runtime=new TaskRuntime(mock(TaskStore.class),settings,mock(TaskBroker.class),mock(ConnectionFactory.class),handler,repository,json,archive);
+    var handler=mock(TaskHandler.class);var channel=mock(Channel.class);
+    var runtime=new TaskRuntime(mock(TaskStore.class),settings,mock(TaskBroker.class),mock(ConnectionFactory.class),handler,json,archive);
     var properties=new MessageProperties();properties.setDeliveryTag(7);
     var message=new Message(payload(UUID.randomUUID().toString(),1),properties);
     doAnswer(call->{assertEquals(1,DATABASE.jdbc().queryForObject("SELECT COUNT(*) FROM task_dead_letters",Integer.class));return null;}).when(channel).basicAck(7,false);
-    try {consume(runtime,message,channel);verify(channel).basicAck(7,false);verifyNoInteractions(handler,repository);}
+    try {consume(runtime,message,channel);verify(channel).basicAck(7,false);verifyNoInteractions(handler);}
     finally {runtime.stop();}
   }
   @Test void databaseFailureReturnsMessageWithoutAckOrFailureCountIncrement()throws Exception {
     var broken=mock(TaskDeadLetters.class);doThrow(new org.springframework.dao.DataAccessResourceFailureException("fixture unavailable")).when(broken).archive(any());
     var channel=mock(Channel.class);
-    var runtime=new TaskRuntime(mock(TaskStore.class),settings,mock(TaskBroker.class),mock(ConnectionFactory.class),mock(TaskHandler.class),mock(AiRepository.class),json,broken);
+    var runtime=new TaskRuntime(mock(TaskStore.class),settings,mock(TaskBroker.class),mock(ConnectionFactory.class),mock(TaskHandler.class),json,broken);
     var properties=new MessageProperties();properties.setDeliveryTag(9);
     try {consume(runtime,new Message(new byte[0],properties),channel);verify(channel).basicNack(9,false,true);verify(channel,never()).basicAck(anyLong(),anyBoolean());verify(channel,never()).abort();}
     finally {runtime.stop();}
@@ -64,7 +63,7 @@ class TaskDeadLettersTest {
     var broken=mock(TaskDeadLetters.class);var entered=new java.util.concurrent.CountDownLatch(1);
     doAnswer(call->{entered.countDown();throw new org.springframework.dao.DataAccessResourceFailureException("fixture unavailable");}).when(broken).archive(any());
     var channel=mock(Channel.class);
-    var runtime=new TaskRuntime(mock(TaskStore.class),settings,mock(TaskBroker.class),mock(ConnectionFactory.class),mock(TaskHandler.class),mock(AiRepository.class),json,broken);
+    var runtime=new TaskRuntime(mock(TaskStore.class),settings,mock(TaskBroker.class),mock(ConnectionFactory.class),mock(TaskHandler.class),json,broken);
     var properties=new MessageProperties();properties.setDeliveryTag(11);
     var failure=new java.util.concurrent.atomic.AtomicReference<Throwable>();
     var thread=Thread.ofVirtual().unstarted(()->{try{consume(runtime,new Message(new byte[0],properties),channel);}catch(Throwable e){failure.set(e);}});

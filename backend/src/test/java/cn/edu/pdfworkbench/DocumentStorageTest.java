@@ -349,8 +349,8 @@ class DocumentStorageTest {
     var repository=new cn.edu.pdfworkbench.ai.AiRepository(settings,new ObjectMapper(),database.jdbc(),database.files());
     var documents=org.mockito.Mockito.mock(cn.edu.pdfworkbench.ai.AiDocuments.class);
     var tasks=new cn.edu.pdfworkbench.tasks.TaskStore(database.jdbc(),new cn.edu.pdfworkbench.tasks.TaskSettings("pdf-workbench.unit","worker",30,128,3,900));
-    var task=new cn.edu.pdfworkbench.tasks.TaskStore.Task(UUID.randomUUID().toString(),source.workspace,cn.edu.pdfworkbench.tasks.TaskStore.Kind.CLEAN,
-        source.document,source.document,null,"RUNNING",1,1,1,"");
+    var queued=tasks.enqueue(source.workspace,cn.edu.pdfworkbench.tasks.TaskStore.Kind.CLEAN,source.document,source.document,null);
+    var task=tasks.claim(queued.id(),1,"cleanup");
     try (var scope=repository.scope(source.workspace,()->true); var unavailable=offline()) {
       var failing=new cn.edu.pdfworkbench.ai.AiTaskHandler(repository,documents,null,null,settings,tasks,new DocumentStorage(database.jdbc(),unavailable));
       assertEquals(503,assertThrows(ApiException.class,()->failing.execute(task)).status());

@@ -1,6 +1,6 @@
 package cn.edu.pdfworkbench.storage;
 
-import cn.edu.pdfworkbench.ai.AiRepository;
+import cn.edu.pdfworkbench.util.Identifiers;
 import cn.edu.pdfworkbench.ai.AiTypes.*;
 import cn.edu.pdfworkbench.exception.ApiException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,7 +34,7 @@ public final class MigrateDocumentFiles {
       if (batch.isEmpty()) return new Counts(migrated,skipped);
       for (var row : batch) {
         workspace=row.workspace; document=row.document;
-        AiRepository.validateId(workspace); AiRepository.validateId(document);
+        Identifiers.requireUuid(workspace); Identifiers.requireUuid(document);
         var value = json.readValue(row.payload,Document.class);
         if (!document.equals(value.id()) || value.hash()==null || !value.hash().matches("[a-f0-9]{64}")
             || value.pages()<1 || value.pages()>200 || value.status()==null)

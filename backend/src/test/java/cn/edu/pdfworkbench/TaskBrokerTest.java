@@ -126,7 +126,7 @@ class TaskBrokerTest {
     var workerSettings=new TaskSettings(settings.namespace(),"worker",30,2,3,900);
     var handler=org.mockito.Mockito.mock(TaskHandler.class);
     var runtime=new TaskRuntime(store,workerSettings,broker,context.getBean(org.springframework.amqp.rabbit.connection.ConnectionFactory.class),
-        handler,org.mockito.Mockito.mock(cn.edu.pdfworkbench.ai.AiRepository.class),json,archive);
+        handler,json,archive);
     try {
       runtime.start();org.mockito.Mockito.verify(archive,org.mockito.Mockito.timeout(10000)).archive(org.mockito.AdditionalMatchers.aryEq(body));
       assertEquals(1,database.jdbc().queryForObject("SELECT COUNT(*) FROM task_dead_letters WHERE task_id=?::uuid",Integer.class,taskId));

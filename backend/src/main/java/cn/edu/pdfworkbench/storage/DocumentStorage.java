@@ -1,6 +1,6 @@
 package cn.edu.pdfworkbench.storage;
 
-import cn.edu.pdfworkbench.ai.AiRepository;
+import cn.edu.pdfworkbench.util.Identifiers;
 import cn.edu.pdfworkbench.exception.ApiException;
 import java.io.IOException;
 import java.nio.file.*;
@@ -34,7 +34,7 @@ public final class DocumentStorage {
   }
 
   public Manifest stage(String workspace, String document, String expectedPdfHash, Path pdf, Path content) throws IOException {
-    AiRepository.validateId(workspace); AiRepository.validateId(document);
+    Identifiers.requireUuid(workspace); Identifiers.requireUuid(document);
     outsideTransaction();
     String generation = UUID.randomUUID().toString();
     var source = objects.inspect(new S3ObjectStore.Key(workspace,document,generation,S3ObjectStore.Kind.PDF), pdf);
@@ -113,7 +113,7 @@ public final class DocumentStorage {
   }
 
   public Manifest ready(String workspace, String document) {
-    AiRepository.validateId(workspace); AiRepository.validateId(document);
+    Identifiers.requireUuid(workspace); Identifiers.requireUuid(document);
     if (!readableDocumentIfPresent(workspace,document,false)) throw new ApiException(404,"NOT_FOUND","记录不存在或已删除");
     var rows = jdbc.query("SELECT * FROM document_files WHERE workspace_id=?::uuid AND document_id=?::uuid AND state='READY'",this::row,workspace,document);
     if (rows.isEmpty()) throw new ApiException(503,"FILES_NOT_PUBLISHED","文档文件尚未完成存储发布");
@@ -142,7 +142,7 @@ public final class DocumentStorage {
   }
 
   public void retire(String workspace, String document) {
-    AiRepository.validateId(workspace); AiRepository.validateId(document);
+    Identifiers.requireUuid(workspace); Identifiers.requireUuid(document);
     transactions.executeWithoutResult(status -> {
       var states = jdbc.query("SELECT payload->>'status' FROM ai_documents WHERE workspace_id=?::uuid AND id=?::uuid FOR UPDATE",(r,n)->r.getString(1),workspace,document);
       if (!states.isEmpty() && !states.getFirst().equals("DELETING")) throw new ApiException(409,"DOCUMENT_NOT_DELETING","文档尚未进入清理状态");
@@ -152,7 +152,7 @@ public final class DocumentStorage {
 
   public void cleanDocument(String workspace, String document) {
     outsideTransaction();
-    AiRepository.validateId(workspace); AiRepository.validateId(document);
+    Identifiers.requireUuid(workspace); Identifiers.requireUuid(document);
     var rows = jdbc.query("SELECT * FROM document_files WHERE workspace_id=?::uuid AND document_id=?::uuid",this::row,workspace,document);
     if (rows.stream().anyMatch(value -> !value.state.equals("GARBAGE")))
       throw new ApiException(409,"FILES_NOT_RETIRED","文档文件尚未进入清理状态");
@@ -206,7 +206,7 @@ public final class DocumentStorage {
   }
 
   private Manifest get(String workspace, String document, String generation, boolean lock) {
-    AiRepository.validateId(workspace); AiRepository.validateId(document); AiRepository.validateId(generation);
+    Identifiers.requireUuid(workspace); Identifiers.requireUuid(document); Identifiers.requireUuid(generation);
     var rows = jdbc.query("SELECT * FROM document_files WHERE workspace_id=?::uuid AND document_id=?::uuid AND generation=?::uuid" + (lock ? " FOR UPDATE" : ""),this::row,workspace,document,generation);
     if (rows.isEmpty()) throw expired();
     return rows.getFirst();

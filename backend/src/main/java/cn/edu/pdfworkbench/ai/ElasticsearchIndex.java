@@ -1,5 +1,6 @@
 package cn.edu.pdfworkbench.ai;
 
+import cn.edu.pdfworkbench.util.Identifiers;
 import cn.edu.pdfworkbench.ai.AiTypes.Chunk;
 import cn.edu.pdfworkbench.exception.ApiException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -157,12 +158,12 @@ public class ElasticsearchIndex {
   }
 
   private Map<String, Object> filter(String workspace, String document, String generation, String version, List<String> chunks) {
-    AiRepository.validateId(workspace); AiRepository.validateId(document);
+    Identifiers.requireUuid(workspace); Identifiers.requireUuid(document);
     var terms = new ArrayList<Object>();
     terms.add(Map.of("term", Map.of("workspace_id", workspace)));
     terms.add(Map.of("term", Map.of("document_id", document)));
     if (generation != null) {
-      AiRepository.validateId(generation);
+      Identifiers.requireUuid(generation);
       terms.add(Map.of("term", Map.of("generation", generation)));
     }
     if (version != null) terms.add(Map.of("term", Map.of("index_version", version)));

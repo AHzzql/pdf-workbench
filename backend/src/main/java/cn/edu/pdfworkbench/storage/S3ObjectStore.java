@@ -33,7 +33,7 @@ public final class S3ObjectStore implements AutoCloseable {
   public record Key(String workspace, String document, String generation, Kind kind) {
     public Key {
       for (var value : new String[] {workspace, document, generation})
-        if (value == null || !value.matches("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"))
+        if (!cn.edu.pdfworkbench.util.Identifiers.isUuid(value))
           throw new IllegalArgumentException("Invalid object identity");
       Objects.requireNonNull(kind);
     }

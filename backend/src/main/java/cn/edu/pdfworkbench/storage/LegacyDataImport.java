@@ -1,6 +1,6 @@
 package cn.edu.pdfworkbench.storage;
 
-import cn.edu.pdfworkbench.ai.AiRepository;
+import cn.edu.pdfworkbench.util.Identifiers;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.nio.charset.StandardCharsets;
@@ -30,7 +30,7 @@ public final class LegacyDataImport {
         present = true;
         source(accountSource.resolve("account")).query("SELECT * FROM accounts", (org.springframework.jdbc.core.RowCallbackHandler) row -> {
           String id = row.getString("id");
-          AiRepository.validateId(id);
+          Identifiers.requireUuid(id);
           String email = row.getString("email");
           int added = target.update("INSERT INTO accounts(id,email,display_name,password_hash,credential_version)"
               + " VALUES(?::uuid,?,?,?,?) ON CONFLICT DO NOTHING", id, email, row.getString("display_name"),
@@ -50,7 +50,7 @@ public final class LegacyDataImport {
         try (var directories = Files.list(users)) {
           for (var directory : directories.filter(Files::isDirectory).toList()) {
             String owner = directory.getFileName().toString();
-            AiRepository.validateId(owner);
+            Identifiers.requireUuid(owner);
             if (Files.isRegularFile(directory.resolve("history.mv.db"))) {
               present = true;
               workspace(directory, fileTarget, owner, counts);
@@ -78,7 +78,7 @@ public final class LegacyDataImport {
     });
     source.query("SELECT id,doc_id,updated,payload FROM ai_conversations", (org.springframework.jdbc.core.RowCallbackHandler) row -> {
       var node = payload(row.getString("id"), row.getString("payload"));
-      AiRepository.validateId(row.getString("doc_id"));
+      Identifiers.requireUuid(row.getString("doc_id"));
       if (!row.getString("doc_id").equals(node.path("documentId").asText())) throw new IllegalStateException("LEGACY_RECORD_INVALID");
       counts[2] += target.update("INSERT INTO ai_conversations(workspace_id,id,doc_id,updated,payload)"
           + " VALUES(?::uuid,?::uuid,?::uuid,?,?::jsonb) ON CONFLICT DO NOTHING",
@@ -86,7 +86,7 @@ public final class LegacyDataImport {
     });
     source.query("SELECT id,conversation_id,created,payload FROM ai_messages", (org.springframework.jdbc.core.RowCallbackHandler) row -> {
       var node = payload(row.getString("id"), row.getString("payload"));
-      AiRepository.validateId(row.getString("conversation_id"));
+      Identifiers.requireUuid(row.getString("conversation_id"));
       if (!row.getString("conversation_id").equals(node.path("conversationId").asText())) throw new IllegalStateException("LEGACY_RECORD_INVALID");
       if (node.path("status").asText().equals("RUNNING")) {
         node.put("status", "STOPPED");
@@ -100,7 +100,7 @@ public final class LegacyDataImport {
   }
 
   private ObjectNode payload(String id, String value) {
-    AiRepository.validateId(id);
+    Identifiers.requireUuid(id);
     try {
       var node = json.readTree(value);
       if (!(node instanceof ObjectNode object) || !id.equals(node.path("id").asText()))

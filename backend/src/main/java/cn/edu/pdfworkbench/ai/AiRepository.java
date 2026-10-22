@@ -3,6 +3,7 @@ package cn.edu.pdfworkbench.ai;
 import static cn.edu.pdfworkbench.ai.AiTypes.*;
 
 import cn.edu.pdfworkbench.exception.ApiException;
+import cn.edu.pdfworkbench.util.Identifiers;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -37,7 +38,7 @@ public class AiRepository {
   }
 
   public Scope scope(String value, java.util.function.BooleanSupplier guard) {
-    validateId(value);
+    Identifiers.requireUuid(value);
     var scope = new Scope(owner.get(), access());
     owner.set(value);
     access.set(guard);
@@ -75,23 +76,18 @@ public class AiRepository {
   }
 
   public Path legacyDocumentPath(String id) {
-    validateId(id);
+    Identifiers.requireUuid(id);
     return root().resolve(id + ".pdf");
   }
 
   public Path legacyContentPath(String id) {
-    validateId(id);
+    Identifiers.requireUuid(id);
     return root().resolve(id + ".json");
   }
 
   public Path legacyIndexPath(String id) {
-    validateId(id);
+    Identifiers.requireUuid(id);
     return root().resolve("indexes").resolve(id);
-  }
-
-  public static void validateId(String id) {
-    if (id == null || !id.matches("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"))
-      throw new ApiException(400, "INVALID_ID", "标识格式不正确");
   }
 
   private String write(Object value) {
@@ -140,7 +136,7 @@ public class AiRepository {
   }
 
   public Document document(String id) {
-    validateId(id);
+    Identifiers.requireUuid(id);
     return one(
         database.query(
                 "SELECT payload FROM ai_documents WHERE workspace_id=?::uuid AND id=?::uuid",
@@ -149,7 +145,7 @@ public class AiRepository {
   }
 
   public Conversation conversation(String id) {
-    validateId(id);
+    Identifiers.requireUuid(id);
     return one(
         database.query(
                 "SELECT payload FROM ai_conversations WHERE workspace_id=?::uuid AND id=?::uuid",
@@ -253,15 +249,15 @@ public class AiRepository {
   }
 
   public String indexGeneration(String id) {
-    validateId(id);
+    Identifiers.requireUuid(id);
     return one(database.query(
         "SELECT index_generation::text FROM ai_documents WHERE workspace_id=?::uuid AND id=?::uuid",
         (row, n) -> row.getString(1), owner(), id));
   }
 
   public boolean claimIndex(String id, String token) {
-    validateId(id);
-    validateId(token);
+    Identifiers.requireUuid(id);
+    Identifiers.requireUuid(token);
     return database.update(
         "UPDATE ai_documents SET index_build_token=?::uuid,index_lease_until=clock_timestamp()+interval '10 minutes'"
             + " WHERE workspace_id=?::uuid AND id=?::uuid AND payload->>'status'<>'DELETING'"
@@ -294,7 +290,7 @@ public class AiRepository {
   }
 
   private Document lockDocument(String id) {
-    validateId(id);
+    Identifiers.requireUuid(id);
     return one(database.query(
         "SELECT payload FROM ai_documents WHERE workspace_id=?::uuid AND id=?::uuid FOR UPDATE",
         (row, n) -> read(row.getString(1), Document.class), owner(), id));
@@ -322,7 +318,7 @@ public class AiRepository {
   }
 
   public void deleteDocumentRecord(String id) {
-    validateId(id);
+    Identifiers.requireUuid(id);
     database.update("DELETE FROM ai_documents WHERE workspace_id=?::uuid AND id=?::uuid", owner(), id);
   }
 }

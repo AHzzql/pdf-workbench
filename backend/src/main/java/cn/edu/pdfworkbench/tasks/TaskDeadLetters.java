@@ -1,6 +1,6 @@
 package cn.edu.pdfworkbench.tasks;
 
-import cn.edu.pdfworkbench.ai.AiRepository;
+import cn.edu.pdfworkbench.util.Identifiers;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.security.*;
 import java.util.HexFormat;
@@ -28,7 +28,7 @@ public class TaskDeadLetters {
       if(value==null || !value.isObject() || value.size()!=2 || !value.path("taskId").isTextual()
           || !value.path("version").isIntegralNumber() || !value.path("version").canConvertToLong()
           || value.path("version").longValue()<1)throw new IllegalArgumentException();
-      AiRepository.validateId(value.path("taskId").textValue());
+      Identifiers.requireUuid(value.path("taskId").textValue());
       task=value.path("taskId").textValue();version=value.path("version").longValue();
     } catch(java.io.IOException | RuntimeException e) { /* Invalid payloads retain only their fingerprint and size. */ }
     jdbc.update("INSERT INTO task_dead_letters(namespace,fingerprint,body_bytes,task_id,dispatch_version) VALUES(?,?,?,?::uuid,?)"

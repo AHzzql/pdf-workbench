@@ -1,5 +1,6 @@
 package cn.edu.pdfworkbench.ai;
 
+import cn.edu.pdfworkbench.util.Identifiers;
 import static cn.edu.pdfworkbench.ai.AiTypes.*;
 import cn.edu.pdfworkbench.exception.ApiException;
 import cn.edu.pdfworkbench.tasks.TaskStore;
@@ -51,7 +52,7 @@ public class AiRuns {
 
   private void validateAsk(Ask ask) {
     models.requireConfigured();
-    AiRepository.validateId(ask.requestId());
+    Identifiers.requireUuid(ask.requestId());
     if (ask.mode() == null
         || !MODES.contains(ask.mode())
         || ask.question() == null

@@ -23,6 +23,16 @@ public class AiTaskHandler implements TaskHandler {
   }
 
   @Override public Runnable execute(TaskStore.Task task) throws Exception {
+    try (var scope=repository.scope(task.workspace(),()->tasks.active(task))) {
+      Runnable commit=executeScoped(task);
+      // The fenced commit runs after this scope has closed.
+      return () -> {
+        try (var commitScope=repository.scope(task.workspace(),()->tasks.active(task))) { commit.run(); }
+      };
+    }
+  }
+
+  private Runnable executeScoped(TaskStore.Task task) throws Exception {
     return switch (task.kind()) {
       case GENERATE -> generate(task);
       case INDEX -> {
