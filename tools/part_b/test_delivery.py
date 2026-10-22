@@ -9,7 +9,7 @@ spec.loader.exec_module(m)
 
 class DeliveryTests(unittest.TestCase):
     def test_allowlist(self):
-        for name in ["backend/src/main/java/App.java", "frontend/src/App.vue",
+        for name in ["workbench.cmd", "deploy/Workbench.ps1", "backend/src/main/java/App.java", "frontend/src/App.vue",
                      "deploy/compose.yml", "docs/part-a/submission/PartA_Submission.docx"]:
             self.assertTrue(m.selected(name), name)
         for name in ["deploy/.env.local", "deploy/runtime/config.json", "backend/config/application-local.yml",

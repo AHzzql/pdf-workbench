@@ -16,7 +16,7 @@ PREFIX = "PDF_Extractor_PartB"
 PREFIXES = ("backend/src/", "frontend/", "deploy/", "docs/part-a/submission/",
             "docs/part-a/swagger/vendor/", "docs/part-b/diagrams/",
             "docs/part-b/evidence/", "docs/part-b/presentation/", "docs/part-b/delivery/")
-FILES = {"backend/pom.xml", "docs/part-b/PartB_Submission.docx",
+FILES = {"workbench.cmd", "backend/pom.xml", "docs/part-b/PartB_Submission.docx",
          "docs/part-b/DELIVERY_README.md"}
 FORBIDDEN = {".git", ".codex", ".agents", "node_modules", "runtime", "__pycache__",
              "test-results", "playwright-report", "coverage"}
