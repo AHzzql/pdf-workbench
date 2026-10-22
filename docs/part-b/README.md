@@ -11,6 +11,8 @@
 - `evidence/` 中的 PDF 与截图：测试夹具、签名与移除结果及工作台显示。
 - `evidence/manifest.json`：证据、关联源码和原始套件报告的 SHA-256。
 
+- `presentation/PartB_Demonstration.pptx`：12 页中文课堂演示，覆盖工作台流程、七类核心操作、架构、测试与本机运行范围。
+
 ## 重新构建文档
 
 先运行核心测试及工作台浏览器测试，再执行证据采集。证据采集使用 `backend/target/part-b-core-tests.log` 和 `part-b-browser-tests.log`，所选测试类见 `tools/part_b/collect_evidence.py`。
