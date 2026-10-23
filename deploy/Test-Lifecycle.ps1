@@ -63,6 +63,30 @@ $failed=$false
 try { $null=New-WorkbenchStartInfo -DatabaseSchema '../invalid' } catch { $failed=$true }
 Assert $failed 'Invalid schema accepted.'
 Write-Output 'PASS child environment isolation, headless role, argument boundaries and invalid schema'
+if (!('LifecycleStateLockFixture' -as [type])) {
+    Add-Type -TypeDefinition @"
+using System;
+using System.IO;
+using System.Threading;
+public static class LifecycleStateLockFixture {
+    public static void ReleaseAfter(FileStream stream, int milliseconds) {
+        ThreadPool.QueueUserWorkItem(_ => { Thread.Sleep(milliseconds); stream.Dispose(); });
+    }
+}
+"@
+}
+$probeState = @{run=[Guid]::NewGuid().ToString('N');status='starting'}
+Set-DeploymentState $probeState
+$locked = [IO.File]::Open((Join-Path $runRoot 'state.json'),'Open','Read','None')
+try {
+    [LifecycleStateLockFixture]::ReleaseAfter($locked, 200)
+    $probeState.status = 'running'
+    Set-DeploymentState $probeState
+    Assert ((Get-DeploymentState).status -eq 'running') 'Transient state lock did not recover.'
+} finally { $locked.Dispose() }
+Write-Output 'PASS transient state replacement lock recovers within bounded retry'
+$probeState.status = 'stopped'
+Set-DeploymentState $probeState
 $supervisor=$null
 try {
     $supervisor=Start-FixtureSupervisor

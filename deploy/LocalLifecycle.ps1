@@ -14,7 +14,13 @@ function Set-DeploymentState($State) {
     $file = Join-Path $LifecycleDirectory 'state.json'
     $temporary = "$file.$PID.tmp"
     [IO.File]::WriteAllText($temporary, ($State | ConvertTo-Json -Depth 5))
-    [IO.File]::Move($temporary, $file, $true)
+    for ($attempt = 0; $attempt -lt 10; $attempt++) {
+        try { [IO.File]::Move($temporary, $file, $true); return }
+        catch {
+            if ($attempt -eq 9) { throw }
+            Start-Sleep -Milliseconds 50
+        }
+    }
 }
 function Test-DeploymentOwner {
     $file = Join-Path $LifecycleDirectory 'owner.lock'

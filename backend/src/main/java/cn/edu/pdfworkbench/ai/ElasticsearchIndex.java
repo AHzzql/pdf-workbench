@@ -12,7 +12,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.CancellationException;
+import java.util.concurrent.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -21,9 +22,18 @@ public class ElasticsearchIndex {
   private final ObjectMapper json;
   private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
   private final String authorization;
+  private final Duration requestTimeout;
   private record Reply(int status, JsonNode body) {}
 
+  @Autowired
   public ElasticsearchIndex(ElasticsearchSettings settings, ObjectMapper json) {
+    this(settings, json, Duration.ofSeconds(30));
+  }
+
+  public ElasticsearchIndex(ElasticsearchSettings settings, ObjectMapper json, Duration requestTimeout) {
+    if (requestTimeout.isZero() || requestTimeout.isNegative() || requestTimeout.compareTo(Duration.ofSeconds(30)) > 0)
+      throw new IllegalArgumentException("Invalid search request timeout");
+    this.requestTimeout = requestTimeout;
     this.settings = settings;
     this.json = json;
     authorization = "Basic " + Base64.getEncoder().encodeToString(
@@ -31,22 +41,25 @@ public class ElasticsearchIndex {
   }
 
   private Reply request(String method, String path, String body, String contentType) {
+    CompletableFuture<HttpResponse<byte[]>> pending = null;
     try {
       var publisher = body == null ? HttpRequest.BodyPublishers.noBody()
           : HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8);
       var request = HttpRequest.newBuilder(URI.create(settings.url() + path))
-          .timeout(Duration.ofSeconds(30)).header("Authorization", authorization)
+          .timeout(requestTimeout).header("Authorization", authorization)
           .header("Content-Type", contentType).method(method, publisher).build();
-      var response = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
-      try (var stream = response.body()) {
-        var bytes = stream.readNBytes(8 * 1024 * 1024 + 1);
-        if (bytes.length > 8 * 1024 * 1024) throw unavailable();
-        return new Reply(response.statusCode(), bytes.length == 0 ? json.createObjectNode() : json.readTree(bytes));
-      }
+      pending = http.sendAsync(request, ignored -> new BoundedHttpBody(8 * 1024 * 1024));
+      var response = pending.get(requestTimeout.toNanos(), TimeUnit.NANOSECONDS);
+      var bytes = response.body();
+      return new Reply(response.statusCode(), bytes.length == 0 ? json.createObjectNode() : json.readTree(bytes));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new CancellationException();
-    } catch (IOException e) { throw unavailable(); }
+    } catch (IOException | ExecutionException | TimeoutException e) {
+      throw unavailable();
+    } finally {
+      if (pending != null && !pending.isDone()) pending.cancel(true);
+    }
   }
 
   private Reply request(String method, String path, Object body) {
