@@ -47,3 +47,26 @@ test("连续滚动阅读和密码显示切换", async ({ page }) => {
   await page.getByRole("button", { name: "隐藏密码", exact: true }).click();
   await expect(input).toHaveAttribute("type", "password");
 });
+
+test("助手入口可拖拽且拖动不误打开", async ({ page }) => {
+  await page.goto("/#/text");
+  const button = page.getByLabel("打开 PDF 智能助手");
+  const before = (await button.boundingBox())!;
+  await page.mouse.move(before.x + 25, before.y + 25);
+  await page.mouse.down();
+  await page.mouse.move(before.x - 200, before.y - 150, { steps: 12 });
+  await page.mouse.up();
+  const after = (await button.boundingBox())!;
+  expect(after.x).toBeLessThan(before.x - 100);
+  expect(after.y).toBeLessThan(before.y - 80);
+  await expect(page.getByRole("dialog", { name: "PDF 智能助手" })).toBeHidden();
+  await page.setViewportSize({ width: 960, height: 720 });
+  const bounded = (await button.boundingBox())!;
+  expect(bounded.x + bounded.width).toBeLessThanOrEqual(960);
+  expect(bounded.y + bounded.height).toBeLessThanOrEqual(720);
+  await button.focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("dialog", { name: "PDF 智能助手" }),
+  ).toBeVisible();
+});

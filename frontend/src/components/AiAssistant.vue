@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useDraggableLauncher } from "../composables/useDraggableLauncher";
 import DocumentPassword from "./DocumentPassword.vue";
 import { useAccount } from "../composables/useAccount";
 import type { Selection } from "../types/pdf";
@@ -58,6 +59,7 @@ const {
   rename,
   remove,
 } = useAiAssistant(props, emit);
+const floating = useDraggableLauncher(launcher);
 function onEnter(event: KeyboardEvent) {
   if (event.isComposing || event.keyCode === 229) return;
   event.preventDefault();
@@ -384,10 +386,16 @@ function onEnter(event: KeyboardEvent) {
     <button
       ref="launcher"
       class="ai-launcher"
-      :class="{ running: working }"
+      :class="{ running: working, dragging: floating.dragging.value }"
+      :style="floating.style.value"
       aria-label="打开 PDF 智能助手"
       :aria-expanded="opened"
-      @click="opened ? close() : open()"
+      @pointerdown="floating.down"
+      @pointermove="floating.move"
+      @pointerup="floating.end"
+      @pointercancel="floating.end"
+      @lostpointercapture="floating.end"
+      @click="floating.click($event, () => (opened ? close() : open()))"
     >
       <span aria-hidden="true">✦</span><i v-if="working"></i>
     </button>

@@ -1,4 +1,7 @@
 .ai-launcher {
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
   position: fixed;
   right: 26px;
   bottom: 22px;
@@ -756,3 +759,5 @@
     width: 25px;
   }
 }
+
+.ai-launcher.dragging { cursor: grabbing; transform: none; }
