@@ -1,5 +1,7 @@
 # PDF Extractor
 
+仓库：[AHzzql/pdf-workbench](https://github.com/AHzzql/pdf-workbench)，默认分支 `master`。
+
 PDF 文本、表格、图片提取及加密、签名与水印工作台。默认游客使用，可选账户保存独立聊天记录。
 
 ## 交付文件
