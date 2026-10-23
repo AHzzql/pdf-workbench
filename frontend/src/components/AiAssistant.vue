@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { useDraggableLauncher } from "../composables/useDraggableLauncher";
+import { ref, watch } from "vue";
+import { useResizeHandle } from "../composables/useResizeHandle";
 import DocumentPassword from "./DocumentPassword.vue";
 import { useAccount } from "../composables/useAccount";
 import type { Selection } from "../types/pdf";
@@ -60,6 +62,40 @@ const {
   remove,
 } = useAiAssistant(props, emit);
 const floating = useDraggableLauncher(launcher);
+const windowElement = ref<HTMLElement | null>(null);
+const windowSize = ref<{ width: string; height: string }>();
+function setWindowSize(width: number, height: number) {
+  windowSize.value = {
+    width:
+      Math.max(
+        Math.min(340, window.innerWidth - 48),
+        Math.min(width, window.innerWidth - 48),
+      ) + "px",
+    height:
+      Math.max(
+        Math.min(300, window.innerHeight - 112),
+        Math.min(height, window.innerHeight - 112),
+      ) + "px",
+  };
+}
+const windowResize = useResizeHandle(() => {
+  const rect = windowElement.value!.getBoundingClientRect();
+  return (dx, dy) => setWindowSize(rect.width - dx, rect.height - dy);
+});
+function resizeKey(e: KeyboardEvent) {
+  if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key))
+    return;
+  e.preventDefault();
+  const rect = windowElement.value!.getBoundingClientRect();
+  setWindowSize(
+    rect.width +
+      (e.key === "ArrowLeft" ? 20 : e.key === "ArrowRight" ? -20 : 0),
+    rect.height + (e.key === "ArrowUp" ? 20 : e.key === "ArrowDown" ? -20 : 0),
+  );
+}
+watch(expanded, () => {
+  windowSize.value = undefined;
+});
 function onEnter(event: KeyboardEvent) {
   if (event.isComposing || event.keyCode === 229) return;
   event.preventDefault();
@@ -71,12 +107,28 @@ function onEnter(event: KeyboardEvent) {
   <Teleport to="body">
     <section
       v-show="opened"
+      ref="windowElement"
+      :style="windowSize"
       class="ai-window"
       :class="{ expanded }"
       role="dialog"
       aria-label="PDF 智能助手"
       @keydown.esc.stop="close"
     >
+      <button
+        type="button"
+        class="ai-resize-handle"
+        aria-label="调整助手窗口大小"
+        title="拖动调整窗口大小"
+        @pointerdown="windowResize.down"
+        @pointermove="windowResize.move"
+        @pointerup="windowResize.end"
+        @pointercancel="windowResize.end"
+        @lostpointercapture="windowResize.end"
+        @keydown="resizeKey"
+      >
+        <span aria-hidden="true">⌜</span>
+      </button>
       <header class="ai-header">
         <div class="ai-brand">
           <span class="ai-symbol" aria-hidden="true">✦</span

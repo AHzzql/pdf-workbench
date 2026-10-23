@@ -761,3 +761,7 @@
 }
 
 .ai-launcher.dragging { cursor: grabbing; transform: none; }
+
+.ai-window { max-width:calc(100vw - 48px); max-height:calc(100dvh - 112px); }
+.ai-window .ai-resize-handle { position:absolute; left:0; top:0; width:24px; height:24px; z-index:2; cursor:nwse-resize; touch-action:none; color:#7f99ba; font-size:22px; border-radius:16px 0 6px 0; }
+.ai-window .ai-resize-handle:hover,.ai-window .ai-resize-handle:focus-visible { background:#e6efff; outline-offset:-3px; }

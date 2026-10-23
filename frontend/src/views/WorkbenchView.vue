@@ -4,6 +4,7 @@ import { useRoute } from "vue-router";
 import AccountDialog from "../components/AccountDialog.vue";
 import { useAccount } from "../composables/useAccount";
 import AppIcon from "../components/AppIcon.vue";
+import { useResizeHandle } from "../composables/useResizeHandle";
 import PasswordInput from "../components/PasswordInput.vue";
 import PdfPreview from "../components/PdfPreview.vue";
 import DocumentPassword from "../components/DocumentPassword.vue";
@@ -77,6 +78,31 @@ const {
   clear,
   execute,
 } = useDocument();
+const workspaceElement = ref<HTMLElement | null>(null);
+const previewWidth = ref<string | undefined>();
+function setPreviewWidth(width: number) {
+  const total = workspaceElement.value?.clientWidth ?? 0;
+  if (total < 600) return;
+  previewWidth.value =
+    (Math.max(280, Math.min(width, total - 310)) / total) * 100 + "%";
+}
+const splitResize = useResizeHandle(() => {
+  const width =
+    workspaceElement.value
+      ?.querySelector(".preview-panel")
+      ?.getBoundingClientRect().width ?? 0;
+  return (dx) => setPreviewWidth(width + dx);
+});
+function splitKey(e: KeyboardEvent) {
+  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  e.preventDefault();
+  setPreviewWidth(
+    (workspaceElement.value
+      ?.querySelector(".preview-panel")
+      ?.getBoundingClientRect().width ?? 0) +
+      (e.key === "ArrowRight" ? 20 : -20),
+  );
+}
 const input = ref<HTMLInputElement | null>(null),
   dragging = ref(false),
   selection = ref<Selection | null>(null),
@@ -280,7 +306,11 @@ function csv(index: number) {
           @change="choose"
         />
       </div>
-      <div class="workspace">
+      <div
+        ref="workspaceElement"
+        class="workspace"
+        :style="{ '--preview-width': previewWidth }"
+      >
         <section
           class="preview-panel"
           :class="{ dragging }"
@@ -317,6 +347,19 @@ function csv(index: number) {
             </div></template
           >
         </section>
+        <div
+          class="workspace-splitter"
+          role="separator"
+          aria-label="调整预览与操作区宽度"
+          aria-orientation="vertical"
+          tabindex="0"
+          @pointerdown="splitResize.down"
+          @pointermove="splitResize.move"
+          @pointerup="splitResize.end"
+          @pointercancel="splitResize.end"
+          @lostpointercapture="splitResize.end"
+          @keydown="splitKey"
+        ></div>
         <aside class="operation-panel">
           <form class="parameters" @submit.prevent="submit">
             <div class="panel-heading">

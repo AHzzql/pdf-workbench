@@ -1033,3 +1033,11 @@ details summary {
     transition: none !important;
   }
 }
+
+@media (min-width: 851px) {
+ .workspace { grid-template-columns: minmax(0,clamp(280px,var(--preview-width,calc(100% - 390px)),calc(100% - 310px))) 10px minmax(0,1fr); }
+}
+.workspace-splitter { cursor:col-resize; touch-action:none; background:#f1f5fa; position:relative; }
+.workspace-splitter::after { content:''; position:absolute; inset:40% 3px; background:#a8bad3; border-radius:3px; }
+.workspace-splitter:hover,.workspace-splitter:focus-visible { background:#dce8ff; outline:2px solid #729cf0; outline-offset:-2px; }
+@media(max-width:850px) { .workspace-splitter { display:none; } }
