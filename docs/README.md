@@ -23,4 +23,4 @@
 
 ## 构建与审阅产物
 
-Word 导出的 PDF、逐页预览和结构检查位于 `backend/target/part-a-submission-qa` 与 `backend/target/part-b-qa`。最终交付 ZIP、摘要及独立运行/源码复验记录位于 `backend/target/part-b-delivery`。历史临时产物归档在 `backend/target/_archive/2026-10-23-cleanup`，`manifest.json` 逐项记录原位置和归档位置；该归档不纳入交付包，不包含正在使用的运行目录。
+Word 导出的 PDF、逐页预览和结构检查位于 `backend/target/part-a-submission-qa` 与 `backend/target/part-b-qa`。最终交付 ZIP、摘要及独立运行/源码复验记录位于 `backend/target/part-b-delivery`。历史临时测试目录、旧解压副本和研究材料已清理；当前运行目录和本机配置独立保留。

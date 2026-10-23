@@ -21,3 +21,6 @@ backend/config/application-local.yml
 __pycache__/
 
 deploy/runtime/
+
+.playwright-mcp/
+.local-backups/
