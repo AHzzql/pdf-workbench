@@ -55,7 +55,7 @@ public class PdfExecutor implements AutoCloseable {
       }
       for(var entry:attachments.entrySet()) upload(entry.getValue(),dir.resolve(entry.getKey()),ATTACHMENTS.get(entry.getKey()));
       long limit=operation.equals("READING")?Math.min(maxOutput,33554432L):maxOutput;
-      byte[] request=mapper.writeValueAsBytes(new PdfJobRequest(operation,password,mapper.valueToTree(options),operation.equals("READING")?Math.min(maxPages,200):maxPages,limit));
+      byte[] request=requestBytes(new PdfJobRequest(operation,password,mapper.valueToTree(options),operation.equals("READING")?Math.min(maxPages,200):maxPages,limit));
       try { runner.run(command(dir),dir,request,Duration.ofSeconds(90),536870912L); }
       finally { Arrays.fill(request,(byte)0); }
       Path manifest=dir.resolve("result.json");
@@ -93,6 +93,34 @@ public class PdfExecutor implements AutoCloseable {
           for(Path path:paths.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(path);
         } catch(IOException cleanup) { if(failure!=null) failure.addSuppressed(cleanup); else throw cleanup; }
       } finally { slots.release(); }
+    }
+  }
+
+  private byte[] requestBytes(PdfJobRequest request) throws IOException {
+    var buffer = new ByteArrayOutputStream(4096) {
+      private void reserve(int length) {
+        if (length > 65536 - count)
+          throw new ApiException(400, "PDF_REQUEST_LIMIT", "PDF 处理参数超过大小限制");
+      }
+      @Override public synchronized void write(int value) {
+        reserve(1);
+        super.write(value);
+      }
+      @Override public synchronized void write(byte[] bytes, int offset, int length) {
+        reserve(length);
+        super.write(bytes, offset, length);
+      }
+      void clear() { Arrays.fill(buf, (byte) 0); }
+    };
+    try {
+      mapper.writeValue(buffer, request);
+      return buffer.toByteArray();
+    } catch (IOException error) {
+      for (Throwable cause = error.getCause(); cause != null; cause = cause.getCause())
+        if (cause instanceof ApiException api && api.code().equals("PDF_REQUEST_LIMIT")) throw api;
+      throw error;
+    } finally {
+      buffer.clear();
     }
   }
 

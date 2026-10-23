@@ -84,4 +84,80 @@ class PdfExecutorTest {
     var request=new PdfJobRequest("SIGN","secret",mapper.valueToTree(Map.of("certificatePassword","private")),200,1000);
     assertFalse(request.toString().contains("secret")); assertFalse(request.toString().contains("private"));
   }
+  @Test void actualUploadBytesAreBoundedIndependentlyOfDeclaredSize() throws Exception {
+    var file = new MockMultipartFile("file", new byte[]{1}) {
+      @Override public long getSize() { return 1; }
+      @Override public InputStream getInputStream() {
+        return new InputStream() {
+          long remaining = 52428801L;
+          @Override public int read() { return remaining-- > 0 ? 0 : -1; }
+          @Override public int read(byte[] buffer, int offset, int length) {
+            if (remaining == 0) return -1;
+            int count = (int) Math.min(remaining, length);
+            Arrays.fill(buffer, offset, offset + count, (byte) 0);
+            remaining -= count;
+            return count;
+          }
+        };
+      }
+    };
+    try (var executor = new PdfExecutor(mapper, 1, 200, 1000000, root.toString())) {
+      var error = assertThrows(ApiException.class, () -> executor.execute(
+          file, null, "INFO", null, Map.of(), (input, output, result) -> null));
+      assertEquals(413, error.status());
+      assertEquals("FILE_TOO_LARGE", error.code());
+      empty();
+      executor.execute(pdf(false, true), null, "INFO", null, Map.of(), (input, output, result) -> null);
+    }
+    empty();
+  }
+
+  @Test void toolsAndReadingUploadShareAdmissionCapacity() throws Exception {
+    var entered = new java.util.concurrent.CountDownLatch(1);
+    var release = new java.util.concurrent.CountDownLatch(1);
+    var ordinary = pdf(false, true);
+    var blocking = new MockMultipartFile("file", ordinary.getBytes()) {
+      @Override public InputStream getInputStream() throws IOException {
+        entered.countDown();
+        try {
+          if (!release.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IOException("fixture timeout");
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new IOException(e);
+        }
+        return super.getInputStream();
+      }
+    };
+    try (var executor = new PdfExecutor(mapper, 1, 200, 1000000, root.toString());
+        var pool = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+      var service = new cn.edu.pdfworkbench.service.PdfService(executor);
+      var repository = org.mockito.Mockito.mock(cn.edu.pdfworkbench.ai.AiRepository.class);
+      org.mockito.Mockito.when(repository.documents()).thenReturn(List.of());
+      var documents = new cn.edu.pdfworkbench.ai.AiDocuments(repository,
+          org.mockito.Mockito.mock(cn.edu.pdfworkbench.ai.AiSettings.class),
+          org.mockito.Mockito.mock(cn.edu.pdfworkbench.ai.AiRetrieval.class),
+          org.mockito.Mockito.mock(cn.edu.pdfworkbench.tasks.TaskStore.class), executor, mapper);
+      var running = pool.submit(() -> {
+        service.info(blocking, null, new org.springframework.mock.web.MockHttpServletResponse());
+        return null;
+      });
+      try {
+        assertTrue(entered.await(10, java.util.concurrent.TimeUnit.SECONDS));
+        var error = assertThrows(ApiException.class, () -> documents.register(ordinary, null));
+        assertEquals(429, error.status());
+        assertEquals("CAPACITY_EXCEEDED", error.code());
+        org.mockito.Mockito.verify(repository, org.mockito.Mockito.never()).publishDocument(
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+      } finally {
+        release.countDown();
+      }
+      running.get(15, java.util.concurrent.TimeUnit.SECONDS);
+      executor.execute(ordinary, null, "READING", null, Map.of(), (input, output, result) -> {
+        assertFalse(mapper.readValue(output.toFile(), ParsedReadingDocument.class).content().chunks().isEmpty());
+        return null;
+      });
+    }
+    empty();
+  }
+
 }
