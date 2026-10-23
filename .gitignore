@@ -25,3 +25,10 @@ deploy/runtime/
 
 .playwright-mcp/
 .local-backups/
+
+# Local reference briefs supplied for document preparation.
+/2026实践性作业要求.docx
+/docs/templates/XUT SEng Autumn 2026 Part A Student Template for Submission.docx
+/docs/templates/XUT SEng Autumn 2026 Part B Student Template for Submission.docx
+/docs/templates/XUTAutumn2026StudentProjectBrief.docx
+/docs/templates/XUTAutumn2026StudentProjectBrief_NoAI_NoSchoolHeader.docx
