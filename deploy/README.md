@@ -9,27 +9,21 @@
 
 ## 构建与启动
 
-在项目根目录执行：
+源码构建需要 Maven、Node.js 与 npm；运行已打包软件不需要这些构建工具。在项目根目录执行：
 
 ```powershell
-npm --prefix frontend ci
-npm --prefix frontend run build
-.\deploy\Start-Local.ps1
+npm.cmd --prefix frontend ci
+npm.cmd --prefix frontend run build
 mvn.cmd -f backend/pom.xml package
-.\deploy\Start-Web.ps1
+.\workbench.cmd start
+.\workbench.cmd status
 ```
 
-`Start-Local.ps1` 创建本机凭据并启动六个容器，初始化私有存储桶；重复调用保留已有凭据和命名卷。`Start-Web.ps1` 启动 Windows 原生 Java 服务，默认关闭模型调用；本机工作目录默认为 `deploy/runtime/web-files`，Worker 为 `deploy/runtime/worker-files`。PDF 与提取内容的持久文件位于私有 S3，工作目录不承担持久文件共享。模型配置通过环境变量或本机配置文件提供，显式使用 `-EnableModel` 启用。
+首次启动创建本机凭据并初始化六个容器与私有存储桶，随后启动原生 Java Web 和 headless Worker。重复启动复用受管实例、保留凭据及命名卷。模型调用默认关闭，Web 与 Worker 使用同一数据库、任务命名空间和 S3 配置，不依赖共享工作盘。
 
-升级程序包前停止本机 Web 和 Worker，Windows 进程会占用运行中的 JAR；打包完成后启动新版本，Flyway 在启动时应用数据库迁移。
+停止使用 `workbench.cmd stop`，升级前停止以释放 JAR，完成构建后执行 `workbench.cmd start`。`workbench.cmd restart` 正常关闭后重启，Flyway 应用数据库迁移。监督器持有进程句柄并正常关闭应用，当前不注册 Windows SCM 服务、不提供开机自启。
 
-在第二个 PowerShell 会话启动 Worker：
-
-```powershell
-.\deploy\Start-Worker.ps1
-```
-
-Web 仅提交与读取持久任务，不连接 AMQP；Worker 统一发布 Outbox、维护租约并消费任务，不监听 HTTP。二者使用相同数据库模式、任务命名空间及 S3 配置，`-DataDirectory` 可以不同，不依赖共享盘。模型调用默认关闭；启用时 Web 和 Worker 均使用 `-EnableModel`。
+基础 PDF 接口经 PdfService 适配，由 PdfExecutor 调用独立 Java PDF 子进程，不经 RabbitMQ 或 Elasticsearch。Web 只提交和读取持久后台任务，Worker 发布 Outbox、维护租约并消费任务，不监听 HTTP。持久 PDF 和提取内容保存在私有 S3，临时工作目录不承担持久共享。
 
 访问 `http://127.0.0.1:5173`。Nginx 与 Vite 开发服务器共用 5173，不能同时监听。8080 为原生 Web 回环端口；15432、16379、19200、5672、18333 分别为本机 PostgreSQL、Redis、Elasticsearch、AMQP 和 S3 端口。
 
@@ -37,16 +31,7 @@ Web 仅提交与读取持久任务，不连接 AMQP；Worker 统一发布 Outbox
 
 ## 验证
 
-在另一个 PowerShell 会话执行：
-
-```powershell
-.\deploy\Test-Local.ps1
-.\deploy\Test-Initialization.ps1
-.\deploy\Test-ObjectStore.ps1 -Restart
-.\deploy\Verify-FileRecovery.ps1
-.\deploy\Verify-Persistence.ps1
-npm --prefix frontend run test:gateway
-```
+本机状态使用 `workbench.cmd status`。开发验证包括六个支撑服务、静态页面及 API、私有对象存储、初始化、文件恢复与持久任务；对应测试脚本保存在 deploy，执行记录在 backend/target。工作台浏览器测试使用 `npm.cmd --prefix frontend run test:gateway`。
 
 `Verify-Persistence.ps1` 使用 8180、8181 两个 Web、独立 Worker、8189 本机模型协议夹具及合成 PDF。验证包括共享会话、账户及文档隔离、跨节点撤销、强制终止后恢复、分布式限流、基础 PDF 故障边界；还会让 Web 无法连接 AMQP，终止提交进程后由 Worker 发布并完成任务，随后强制终止生成中的 Worker，校验租约接管、消息不重复及新 fencing token。取消由另一 Web 提交，并验证 SSE、模型连接关闭及消费者继续可用；文档通过队列完成墓碑后的清理。
 
@@ -80,24 +65,18 @@ Worker 同时消费 dead 队列，数据库提交消息摘要后才 ACK。摘要
 
 TaskMaintenance 每 60 秒分别清理最多 128 条已发布 Outbox、终态任务和当前命名空间死信摘要。初始保留期依次为 7、30、30 天，可使用 `--tasks.retention.published-outbox-days`、`--tasks.retention.terminal-task-days`、`--tasks.retention.dead-letter-days` 调整，范围 1–3650 天。待发布事件、活动发布租约、活动任务当前投递、仍有 Outbox 的任务、关联 RUNNING 消息的任务及仍有 DELETING 文档的 CLEAN 不删除。聊天消息与账户不按任务保留期清理；任务移除后请求去重和 SSE 仍读取消息记录。具体规则见 `docs/architecture/ADR-003-task-history.md`。
 
-停止进程保留数据库、Redis、ES 和队列数据。游客过期回收与旧索引代次自动回收尚未接入调度。
+停止进程保留数据库、Redis、ES 和队列数据。游客会话过期后，聊天记录与上传文档暂不自动清理；账户数据同样保留。
 
 ## 文档索引
 
 检索使用共享别名 `pdf-workbench-chunks`，初始物理索引为 `pdf-workbench-chunks-v1`，采用单主分片、零副本、内置 CJK 分析器及 1024 维余弦向量。修改嵌入模型后按数据库索引版本重建，原有 PDF 正则接口不经过 ES。`ELASTIC_URL`、`ELASTIC_USER`、`ELASTIC_PASSWORD` 和 `ELASTIC_ALIAS` 提供连接配置；`Start-Web.ps1` 从本机凭据文件载入密码。
 
-每个构建有独立代次；全部批次写入、刷新并计数成功后，数据库条件更新发布就绪指针。构建中断或删除不能发布半成品。索引读取失败返回 503，不按空结果处理；基础 PDF 接口独立于检索服务。旧的本机 Lucene 索引不再读写，既有目录在文档删除时清理。旧 ES 代次及异常退出残留的自动回收尚未接入调度。
+每个构建有独立代次；全部批次写入、刷新并计数成功后，数据库条件更新发布就绪指针。构建中断或删除不能发布半成品。索引读取失败返回 503，不按空结果处理；基础 PDF 接口独立于检索服务。旧的本机 Lucene 索引不再读写，既有目录在文档删除时清理。Worker 每分钟分页扫描索引代次，将候选持久化并给予默认 600 秒宽限。每轮最多清理 8 组，持有文档行锁复核当前指针与活动构建租约，仅删除精确代次；失败保留候选重试，不删除原 PDF 或聊天。
 
 
 ## 旧数据导入
 
-停止使用旧目录的应用后执行：
-
-```powershell
-.\deploy\Import-Legacy.ps1 -AccountSource 'D:\backup\accounts' -ReadingSource 'D:\backup\reading' -FileTarget 'D:\workbench-data'
-.\deploy\Migrate-Files.ps1 -SourceDirectory 'D:\workbench-data'
-.\deploy\Start-Web.ps1
-```
+先停止使用旧目录的应用。旧 H2 导入工具为 `Import-Legacy.ps1`，指定账户源目录、阅读源目录及目标目录，再通过文件迁移工具发布至 S3；迁移完成后使用 `workbench.cmd start` 启动。
 
 导入保留标识、编码后的密码及文件原件，重复导入不覆盖 PostgreSQL 中已存在的新数据。原共享游客目录导入隔离空间，不分配给新的会话。源数据库以只读方式打开；目标文件冲突或缺失时中止数据库事务。数据库回滚不删除已经复制的文件，目标目录可能保留无业务引用的文件。
 
@@ -105,9 +84,7 @@ TaskMaintenance 每 60 秒分别清理最多 128 条已发布 Outbox、终态任
 
 旧 H2 业务记录导入 PostgreSQL 后，或升级已有 PostgreSQL 服务时，使用原持久文件目录发布 S3 清单：
 
-```powershell
-.\deploy\Migrate-Files.ps1 -SourceDirectory 'D:\workbench-data'
-```
+文件迁移工具 `Migrate-Files.ps1` 的 `SourceDirectory` 参数指定旧持久目录。
 
 `-DatabaseSchema` 可指定已存在的模式；省略时使用连接配置中的当前模式。迁移按空间和文档 UUID 定位原 PDF/JSON，验证源摘要及内容结构；每文档独立提交，不覆盖已有 READY 清单，不删除源文件。重复执行跳过已发布文档；失败时停止，保留已经迁移的文档及未发布对象的清理记录。错误目录、缺失文件、摘要冲突和无效内容不会发布清单。S3 失败不转换成本机读取成功。升级时先停止旧 Web/Worker，完成业务导入和文件迁移后启动新版本；迁移原件作为独立备份保留，业务库与文件备份保持配套。
 

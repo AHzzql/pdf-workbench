@@ -62,7 +62,7 @@ def run():
     for group in ['FR1','FR2','FR3','FR4','FR5','FR6','FR7','FR9','FR10','FR11','FR12','FR13–FR16','FR17–FR19','WM01','WM02']:
         check('Requirement coverage '+group,group in body)
     check('Optional attachment boundary','FR8 附件提取不在范围' in body)
-    check('Fourteen records / evidence counts',manifest['junit_tests']==93 and manifest['browser_tests']==8 and '15 条完整记录' in body)
+    check('Fifteen records / evidence counts',manifest['junit_tests']==93 and manifest['browser_tests']==8 and '15 条完整记录' in body)
     for name in ['architecture','modules','wnd']:
         fig=json.loads((OUT/'diagrams'/f'{name}.json').read_text('utf-8'));ids={x['id'] for x in fig['nodes']}
         check('Diagram endpoints '+name,all(e['from'] in ids and e['to'] in ids for e in fig['edges']))
