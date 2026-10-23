@@ -4,9 +4,8 @@ import static cn.edu.pdfworkbench.ai.AiTypes.*;
 
 import cn.edu.pdfworkbench.exception.ApiException;
 import cn.edu.pdfworkbench.tasks.TaskStore;
-import cn.edu.pdfworkbench.model.TextOptions;
-import cn.edu.pdfworkbench.util.PdfInfoUtils;
-import cn.edu.pdfworkbench.util.PdfTextUtils;
+import cn.edu.pdfworkbench.pdf.PdfExecutor;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.file.*;
 import java.security.MessageDigest;
@@ -14,7 +13,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
-import org.apache.pdfbox.Loader;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -24,53 +22,40 @@ public class AiDocuments {
   private final AiSettings settings;
   private final AiRetrieval retrieval;
   private final TaskStore tasks;
+  private final PdfExecutor executor;
+  private final ObjectMapper mapper;
   private final Map<String, ReentrantLock> locks = new ConcurrentHashMap<>();
 
-  public AiDocuments(AiRepository repository, AiSettings settings, AiRetrieval retrieval, TaskStore tasks) {
+  public AiDocuments(AiRepository repository, AiSettings settings, AiRetrieval retrieval, TaskStore tasks, PdfExecutor executor, ObjectMapper mapper) {
     this.repository = repository;
     this.settings = settings;
     this.retrieval = retrieval;
     this.tasks = tasks;
+    this.executor = executor;
+    this.mapper = mapper;
   }
 
   public synchronized Document register(MultipartFile file, String password) throws Exception {
     if (file.isEmpty() || file.getSize() > 50L * 1024 * 1024)
       throw new ApiException(413, "FILE_TOO_LARGE", "PDF 文件必须为 1 字节至 50 MiB");
     var known = repository.documents();
-    Files.createDirectories(repository.root());
-    Path temp = Files.createTempFile(repository.root(), "upload-", ".tmp");
-    String id = UUID.randomUUID().toString();
-    try {
-      file.transferTo(temp);
-      if (Files.size(temp)<1 || Files.size(temp)>50L*1024*1024)
-        throw new ApiException(413,"FILE_TOO_LARGE","PDF 文件必须为 1 字节至 50 MiB");
+    return executor.execute(file, password, "READING", null, Map.of(), (temp, output, result) -> {
+      String id = UUID.randomUUID().toString();
       String hash;
       try (var input = Files.newInputStream(temp)) {
-        var digest = MessageDigest.getInstance("SHA-256");
+        java.security.MessageDigest digest;
+        try { digest = MessageDigest.getInstance("SHA-256"); }
+        catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
         byte[] b = new byte[8192];
         for (int n; (n = input.read(b)) != -1; ) digest.update(b, 0, n);
         hash = HexFormat.of().formatHex(digest.digest());
       }
-      int pages;
-      boolean encrypted;
-      try (var pdf = Loader.loadPDF(temp.toFile(), password == null ? "" : password)) {
-        pages = pdf.getNumberOfPages();
-        encrypted = pdf.isEncrypted();
-        if (pages < 1 || pages > 200)
-          throw new ApiException(413, "PAGE_LIMIT", "AI 阅读支持 1 至 200 页 PDF");
-      }
-      var text = PdfTextUtils.extract(temp, password, new TextOptions(null, true));
-      if (text.pages().stream().mapToLong(p -> p.text().length()).sum() > 2_000_000)
-        throw new ApiException(413, "TEXT_LIMIT", "文档文字量超过 AI 处理限制");
+      var parsed = mapper.readValue(output.toFile(), ParsedReadingDocument.class);
       for (var d : known)
         if (d.hash().equals(hash)
             && d.version().equals(settings.indexVersion())
             && !d.status().equals("DELETING")
             && repository.filesReady(d.id())) return d;
-      var content = AiChunker.split(text, PdfInfoUtils.read(temp, password).bookmarks());
-      if (content.chunks().isEmpty())
-        throw new ApiException(422, "NO_TEXT", "文档没有可提取文字，当前不支持扫描件 OCR");
-      if (content.chunks().size() > 4000) throw new ApiException(413, "CHUNK_LIMIT", "文档片段数量超过限制");
       String name =
           Objects.toString(file.getOriginalFilename(), "document.pdf")
               .replaceAll("[\\\\/\\p{Cntrl}]", "_");
@@ -81,16 +66,14 @@ public class AiDocuments {
               name,
               hash,
               settings.indexVersion(),
-              pages,
-              encrypted,
+              parsed.pages(),
+              parsed.encrypted(),
               "PARSED",
               "",
               System.currentTimeMillis());
-      repository.publishDocument(document,temp,content);
+      repository.publishDocument(document,temp,parsed.content());
       return document;
-    } finally {
-      Files.deleteIfExists(temp);
-    }
+    });
   }
 
   public Content prepare(String id, Consumer<String> progress) throws Exception {

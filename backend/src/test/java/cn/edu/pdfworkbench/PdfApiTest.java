@@ -192,6 +192,7 @@ class PdfApiTest {
                   "test-password"));
       assertEquals(200, signed.getStatusCode().value());
       var verified = post("/signatures/verify", signed.getBody(), Map.of());
+      assertEquals(200, verified.getStatusCode().value(), () -> new String(verified.getBody(), java.nio.charset.StandardCharsets.UTF_8));
       assertEquals("VALID", mapper.readTree(verified.getBody()).get(0).path("integrity").asText());
       var removed = post("/signatures/remove", signed.getBody(), Map.of("confirmRemoval", true));
       try (var doc = Loader.loadPDF(removed.getBody())) {

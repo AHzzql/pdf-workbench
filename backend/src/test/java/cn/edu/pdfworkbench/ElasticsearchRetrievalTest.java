@@ -146,8 +146,8 @@ class ElasticsearchRetrievalTest {
       document(id); retrieval.index(id, List.of(chunk("p1-0", "retained")), ignored -> {});
     }
     try (var scope = repository.scope(owner, () -> true)) {
-      new AiDocuments(repository, settings, retrieval, tasks).delete(id);
-      new AiDocuments(repository, settings, retrieval, tasks).cleanFiles(id);
+      new AiDocuments(repository, settings, retrieval, tasks, mock(cn.edu.pdfworkbench.pdf.PdfExecutor.class), new ObjectMapper()).delete(id);
+      new AiDocuments(repository, settings, retrieval, tasks, mock(cn.edu.pdfworkbench.pdf.PdfExecutor.class), new ObjectMapper()).cleanFiles(id);
       repository.deleteDocumentRecord(id);
       assertEquals(404, assertThrows(ApiException.class, () -> repository.document(id)).status());
     }
@@ -206,13 +206,13 @@ class ElasticsearchRetrievalTest {
       var manifest=DATABASE.files().ready(owner,id);
       var unavailable = mock(AiRetrieval.class);
       doThrow(new ApiException(503, "SEARCH_UNAVAILABLE", "fixture")).when(unavailable).delete(id);
-      var documents = new AiDocuments(repository, settings, unavailable, tasks);
+      var documents = new AiDocuments(repository, settings, unavailable, tasks, mock(cn.edu.pdfworkbench.pdf.PdfExecutor.class), new ObjectMapper());
       assertEquals(503, assertThrows(ApiException.class, () -> { documents.delete(id); documents.cleanFiles(id); }).status());
       assertEquals("DELETING", repository.document(id).status());
       assertNotNull(DATABASE.objects().getContent(manifest.content()));
       assertEquals("DOCUMENT_DELETING", assertThrows(ApiException.class, () -> documents.createConversation(id)).code());
-      new AiDocuments(repository, settings, retrieval, tasks).delete(id);
-      new AiDocuments(repository, settings, retrieval, tasks).cleanFiles(id);
+      new AiDocuments(repository, settings, retrieval, tasks, mock(cn.edu.pdfworkbench.pdf.PdfExecutor.class), new ObjectMapper()).delete(id);
+      new AiDocuments(repository, settings, retrieval, tasks, mock(cn.edu.pdfworkbench.pdf.PdfExecutor.class), new ObjectMapper()).cleanFiles(id);
       DATABASE.files().retire(owner,id);
       DATABASE.files().cleanDocument(owner,id);
       repository.deleteDocumentRecord(id);

@@ -69,7 +69,7 @@ class PdfServiceLimitsTest {
     var file =
         new MockMultipartFile("file", "a.pdf", "application/pdf", pdf(1)) {
           @Override
-          public void transferTo(Path path) throws IOException {
+          public InputStream getInputStream() throws IOException {
             entered.countDown();
             try {
               if (!release.await(10, TimeUnit.SECONDS)) throw new IOException("timeout");
@@ -77,7 +77,7 @@ class PdfServiceLimitsTest {
               Thread.currentThread().interrupt();
               throw new IOException(e);
             }
-            super.transferTo(path);
+            return super.getInputStream();
           }
         };
     var service = service(200, 100000);

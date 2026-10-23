@@ -88,7 +88,7 @@ class TaskStoreTest {
     var settings=new cn.edu.pdfworkbench.ai.AiSettings(System.getProperty("java.io.tmpdir"),"","http://127.0.0.1:9","http://127.0.0.1:9","chat","embed","rank");
     var repository=new cn.edu.pdfworkbench.ai.AiRepository(settings,new com.fasterxml.jackson.databind.ObjectMapper(),DATABASE.jdbc(),DATABASE.files());
     var retrieval=org.mockito.Mockito.mock(cn.edu.pdfworkbench.ai.AiRetrieval.class);
-    var documents=new cn.edu.pdfworkbench.ai.AiDocuments(repository,settings,retrieval,store);
+    var documents=new cn.edu.pdfworkbench.ai.AiDocuments(repository,settings,retrieval,store,org.mockito.Mockito.mock(cn.edu.pdfworkbench.pdf.PdfExecutor.class),new com.fasterxml.jackson.databind.ObjectMapper());
     String token=UUID.randomUUID().toString();
     try(var scope=repository.scope(owner,()->true)) {
       repository.save(new cn.edu.pdfworkbench.ai.AiTypes.Document(document,"fixture.pdf","hash",settings.indexVersion(),1,false,"PARSED","",1));
