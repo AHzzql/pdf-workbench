@@ -19,7 +19,7 @@ mvn.cmd -f backend/pom.xml package
 .\workbench.cmd status
 ```
 
-首次启动创建本机凭据并初始化六个容器与私有存储桶，随后启动原生 Java Web 和 headless Worker。重复启动复用受管实例、保留凭据及命名卷。模型调用默认关闭，Web 与 Worker 使用同一数据库、任务命名空间和 S3 配置，不依赖共享工作盘。
+首次启动创建本机凭据并初始化六个容器与私有存储桶，随后启动原生 Java Web 和 headless Worker。重复启动复用受管实例、保留凭据及命名卷。未配置模型密钥时模型不可用；配置本机模型后统一启动器同时向 Web 与 Worker 加载，Web 与 Worker 使用同一数据库、任务命名空间和 S3 配置，不依赖共享工作盘。
 
 停止使用 `workbench.cmd stop`，升级前停止以释放 JAR，完成构建后执行 `workbench.cmd start`。`workbench.cmd restart` 正常关闭后重启，Flyway 应用数据库迁移。监督器持有进程句柄并正常关闭应用，当前不注册 Windows SCM 服务、不提供开机自启。
 

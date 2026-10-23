@@ -11,7 +11,7 @@ $state = [ordered]@{ run=$Run; supervisor=$PID; status='starting'; web=$null; wo
 $stopFile = Join-Path $runDirectory 'stop'
 function Start-Application([string] $Role) {
     $ready = Join-Path $runDirectory "$Role.ready"
-    $info = New-WorkbenchStartInfo -Role $Role -ReadyFile $ready
+    $info = New-WorkbenchStartInfo -Role $Role -ReadyFile $ready -EnableModel
     $outFile = [IO.File]::Open((Join-Path $runDirectory "$Role.log"), 'CreateNew', 'Write', 'Read')
     $errFile = [IO.File]::Open((Join-Path $runDirectory "$Role.error.log"), 'CreateNew', 'Write', 'Read')
     $process = $null

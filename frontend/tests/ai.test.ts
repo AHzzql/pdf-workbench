@@ -362,6 +362,9 @@ describe("AI 阅读界面", () => {
     input.value = "reader";
     input.dispatchEvent(new Event("input"));
     await flushPromises();
+    expect(wrapper.emitted("password")).toBeUndefined();
+    (document.querySelector(".ai-password button") as HTMLButtonElement).click();
+    await flushPromises();
     expect(wrapper.emitted("password")?.at(-1)).toEqual(["reader"]);
     expect(document.querySelector(".ai-error")).toBeNull();
     wrapper.unmount();

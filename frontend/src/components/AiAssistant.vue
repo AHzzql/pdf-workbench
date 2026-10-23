@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DocumentPassword from "./DocumentPassword.vue";
 import { useAccount } from "../composables/useAccount";
 import type { Selection } from "../types/pdf";
 import { useAiAssistant } from "../composables/useAiAssistant";
@@ -206,15 +207,12 @@ function onEnter(event: KeyboardEvent) {
       </template>
       <template v-else>
         <div v-if="document?.encrypted" class="ai-password">
-          <label
-            >PDF 打开密码<input
-              type="password"
-              autocomplete="off"
-              placeholder="恢复原文预览时输入"
-              @input="
-                emit('password', ($event.target as HTMLInputElement).value)
-              "
-          /></label>
+          <DocumentPassword
+            :key="document?.id"
+            :model-value="password"
+            :document="file"
+            @update:model-value="emit('password', $event)"
+          />
         </div>
         <div ref="body" class="ai-body">
           <template v-if="outlineVisible">

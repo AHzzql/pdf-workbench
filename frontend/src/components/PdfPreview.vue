@@ -68,7 +68,12 @@ async function load() {
     await render();
   } catch (reason) {
     if (current === version)
-      error.value = reason instanceof Error ? reason.message : "预览加载失败";
+      error.value =
+        reason instanceof Error && reason.name === "PasswordException"
+          ? (reason as Error & { code?: number }).code === 1
+            ? "此 PDF 需要打开密码，请输入后点击确认密码"
+            : "密码不正确，请修改后重新确认"
+          : "预览加载失败，请检查 PDF 文件";
   } finally {
     if (current === version) loading.value = false;
   }

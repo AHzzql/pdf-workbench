@@ -5,6 +5,7 @@ import AccountDialog from "../components/AccountDialog.vue";
 import { useAccount } from "../composables/useAccount";
 import AppIcon from "../components/AppIcon.vue";
 import PdfPreview from "../components/PdfPreview.vue";
+import DocumentPassword from "../components/DocumentPassword.vue";
 import ResultPanel from "../components/ResultPanel.vue";
 import FilePicker from "../components/FilePicker.vue";
 import AiAssistant from "../components/AiAssistant.vue";
@@ -322,14 +323,7 @@ function csv(index: number) {
               <span class="step-number">01</span>
             </div>
             <fieldset :disabled="busy">
-              <label class="field"
-                >文档打开密码 <span class="optional">可选</span
-                ><input
-                  v-model="password"
-                  type="password"
-                  autocomplete="off"
-                  placeholder="仅加密文档需要"
-              /></label>
+              <DocumentPassword v-model="password" :document="file" />
               <label
                 v-if="['text', 'tables', 'watermark'].includes(tool)"
                 class="field"
