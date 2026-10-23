@@ -48,6 +48,10 @@ function New-WorkbenchStartInfo {
         $info.ArgumentList.Add("--spring.flyway.schemas=$DatabaseSchema")
         $info.ArgumentList.Add("--spring.flyway.default-schema=$DatabaseSchema")
     }
+    if ($EnableModel) {
+        $localConfig = [Uri]::new((Join-Path $root 'backend/config/application-local.yml')).AbsoluteUri
+        $info.ArgumentList.Add("--spring.config.import=optional:$localConfig")
+    }
     if (!$EnableModel) {
         foreach ($value in @('--spring.config.import=optional:classpath:local-no-provider.yml','--ai.api-key=',
             '--ai.base-url=http://127.0.0.1:9','--ai.rerank-url=http://127.0.0.1:9')) { $info.ArgumentList.Add($value) }

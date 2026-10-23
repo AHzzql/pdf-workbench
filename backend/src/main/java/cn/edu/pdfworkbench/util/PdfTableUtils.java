@@ -53,7 +53,7 @@ public final class PdfTableUtils {
         for (var group : components(collector.segments())) {
           var xs = axes(group, false);
           var ys = axes(group, true);
-          if (xs.size() < 2 || ys.size() < 2 || !isGrid(group, xs, ys)) continue;
+          if (xs.size() < 2 || ys.size() < 2 || (xs.size() == 2 && ys.size() == 2) || !isGrid(group, xs, ys)) continue;
           var bounds =
               new Rect(
                   xs.getFirst(),

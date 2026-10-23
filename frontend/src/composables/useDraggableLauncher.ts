@@ -71,5 +71,5 @@ export function useDraggableLauncher(element: Ref<HTMLElement | null>) {
         }
       : undefined,
   );
-  return { style, dragging, down, move, end, click };
+  return { style, dragging, down, move, end, click, reset: () => { position.value = null; suppressClick = false; } };
 }

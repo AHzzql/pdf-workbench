@@ -82,9 +82,9 @@ const workspaceElement = ref<HTMLElement | null>(null);
 const previewWidth = ref<string | undefined>();
 function setPreviewWidth(width: number) {
   const total = workspaceElement.value?.clientWidth ?? 0;
-  if (total < 600) return;
+  if (total < 450) return;
   previewWidth.value =
-    (Math.max(280, Math.min(width, total - 310)) / total) * 100 + "%";
+    (Math.max(180, Math.min(width, total - 240)) / total) * 100 + "%";
 }
 const splitResize = useResizeHandle(() => {
   const width =

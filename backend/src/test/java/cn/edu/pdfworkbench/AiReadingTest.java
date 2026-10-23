@@ -141,4 +141,23 @@ class AiReadingTest {
   private Chunk chunk(String id, int page, int start, String text) {
     return new Chunk(id, page, start, start + text.length(), text, List.of());
   }
+
+  @Test
+  void welcomeUsesDistributedEvidenceWithoutIndexOrIntermediateSummaries() throws Exception {
+    var repository=mock(AiRepository.class);var model=mock(AiModelClient.class);
+    var documents=mock(AiDocuments.class);var retrieval=mock(AiRetrieval.class);
+    var chunks=new ArrayList<Chunk>();
+    for(int i=1;i<=30;i++)chunks.add(chunk("p"+i+"-0",i,0,"x".repeat(1000)));
+    when(repository.content("d")).thenReturn(new Content(chunks,List.of()));
+    when(repository.document("d")).thenReturn(new Document("d","long.pdf","hash","v",30,false,"PARSED","",0));
+    new AiReading(repository,model,documents,retrieval,new AiIntent(model,new ObjectMapper())).generate(
+      new Conversation("c","d","title",0,0),
+      new Message("m","c","assistant","","RUNNING","","WELCOME","",null,null,List.of(),1,0),
+      stage->{},delta->{});
+    verify(model,never()).complete(anyString(),anyString());
+    verify(model).stream(anyString(),contains("抽样"),any());
+    verifyNoInteractions(documents,retrieval);
+    var sampled=AiReading.welcomeEvidence(chunks);
+    assertEquals(8,sampled.size());assertSame(chunks.getFirst(),sampled.getFirst());assertSame(chunks.getLast(),sampled.getLast());
+  }
 }

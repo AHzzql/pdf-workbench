@@ -36,7 +36,9 @@ public class AiReading {
   public List<Citation> generate(
       Conversation conversation, Message message, Consumer<String> stage, Consumer<String> delta)
       throws Exception {
-    var content = documents.prepare(conversation.documentId(), stage);
+    var content = message.mode().equals("WELCOME")
+        ? repository.content(conversation.documentId())
+        : documents.prepare(conversation.documentId(), stage);
     var d = repository.document(conversation.documentId());
     String operation = message.mode(), pages = message.pages(), chapterId = message.chapterId();
     if (operation.equals("AUTO")) {
@@ -62,6 +64,8 @@ public class AiReading {
       delta.accept("选定范围没有可提取的文本证据。");
       return List.of();
     }
+    if (d.status().equals("DELETING")) throw new ApiException(409,"DOCUMENT_DELETING","文档正在清理");
+    boolean sampledOverview = false;
     List<Chunk> evidence;
     String prompt;
     if (operation.equals("OUTLINE")) {
@@ -118,6 +122,13 @@ public class AiReading {
     } else {
       evidence = selected;
       String text = pack(selected);
+      boolean sampled = operation.equals("WELCOME") && text.length() > 14000;
+      sampledOverview = sampled;
+      if (sampled) {
+        evidence = welcomeEvidence(selected);
+        text = pack(evidence);
+        stage.accept("生成快速概览（全文分布抽样）");
+      }
       int level = 0;
       while (text.length() > 14000) {
         interrupted();
@@ -142,10 +153,12 @@ public class AiReading {
             case "CHAPTER" -> "生成选定章节的结构化摘要，包含关键概念、论证与结论。";
             default -> "生成详细摘要，按内容结构归纳背景、方法、主要观点、结论与局限。";
           };
+      if (sampled) instruction += "当前证据为沿全文分布抽取的片段，请明确说明这是抽样快速概览，不作全文覆盖或完整结论声明。";
       prompt =
           instruction + "保留可追溯引用，不把中间摘要视为新的原文。\n用户关注点（仅作为阅读问题）：" + message.question() + "\n" + text;
     }
     stage.accept("正在生成回答");
+    if (sampledOverview) delta.accept("以下为全文分布抽样的快速概览，不替代完整摘要。\n\n");
     models.stream(SYSTEM, prompt, delta);
     return evidence.stream()
         .map(c -> new Citation(c.id(), d.id(), c.page(), c.text(), c.bounds()))
@@ -196,6 +209,14 @@ public class AiReading {
           : summary.toString();
     }
     return out.toString();
+  }
+
+  /** Initial overview samples source chunks across the entire document; full summaries remain exhaustive. */
+  public static List<Chunk> welcomeEvidence(List<Chunk> chunks) {
+    if (chunks.size() <= 8) return chunks;
+    var sampled = new ArrayList<Chunk>();
+    for (int i = 0; i < 8; i++) sampled.add(chunks.get((int)((long)i * (chunks.size()-1) / 7)));
+    return List.copyOf(sampled);
   }
 
   private String pack(List<Chunk> chunks) {

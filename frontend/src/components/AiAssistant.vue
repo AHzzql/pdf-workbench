@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useDraggableLauncher } from "../composables/useDraggableLauncher";
-import { ref, watch } from "vue";
+import { ref, watch, onMounted, onBeforeUnmount } from "vue";
 import { useResizeHandle } from "../composables/useResizeHandle";
 import DocumentPassword from "./DocumentPassword.vue";
 import { useAccount } from "../composables/useAccount";
@@ -63,6 +63,12 @@ const {
 } = useAiAssistant(props, emit);
 const floating = useDraggableLauncher(launcher);
 const windowElement = ref<HTMLElement | null>(null);
+const windowLocation = ref<{
+  left: string;
+  top: string;
+  right: string;
+  bottom: string;
+}>();
 const windowSize = ref<{ width: string; height: string }>();
 function setWindowSize(width: number, height: number) {
   windowSize.value = {
@@ -80,7 +86,45 @@ function setWindowSize(width: number, height: number) {
 }
 const windowResize = useResizeHandle(() => {
   const rect = windowElement.value!.getBoundingClientRect();
-  return (dx, dy) => setWindowSize(rect.width - dx, rect.height - dy);
+  return (dx, dy) => {
+    setWindowSize(rect.width - dx, rect.height - dy);
+    placeWindow(
+      rect.right - parseFloat(windowSize.value!.width),
+      rect.bottom - parseFloat(windowSize.value!.height),
+    );
+  };
+});
+function placeWindow(x: number, y: number) {
+  const r = windowElement.value?.getBoundingClientRect();
+  const width = parseFloat(windowSize.value?.width ?? "") || r?.width || 520,
+    height = parseFloat(windowSize.value?.height ?? "") || r?.height || 800;
+  windowLocation.value = {
+    left: Math.max(8, Math.min(x, window.innerWidth - width - 8)) + "px",
+    top: Math.max(8, Math.min(y, window.innerHeight - height - 8)) + "px",
+    right: "auto",
+    bottom: "auto",
+  };
+}
+const windowMove = useResizeHandle(() => {
+  const r = windowElement.value!.getBoundingClientRect();
+  return (dx, dy) => placeWindow(r.left + dx, r.top + dy);
+});
+function startWindowMove(e: PointerEvent) {
+  if ((e.target as HTMLElement).closest("button")) return;
+  windowMove.down(e);
+}
+function constrainWindow() {
+  if (!windowLocation.value) return;
+  const r = windowElement.value?.getBoundingClientRect();
+  if (r) placeWindow(r.left, r.top);
+}
+onMounted(() => window.addEventListener("resize", constrainWindow));
+onBeforeUnmount(() => window.removeEventListener("resize", constrainWindow));
+watch(opened, (value) => {
+  if (!value) {
+    floating.reset();
+    windowLocation.value = undefined;
+  }
 });
 function resizeKey(e: KeyboardEvent) {
   if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key))
@@ -108,11 +152,15 @@ function onEnter(event: KeyboardEvent) {
     <section
       v-show="opened"
       ref="windowElement"
-      :style="windowSize"
+      :style="{ ...windowSize, ...windowLocation }"
       class="ai-window"
       :class="{ expanded }"
       role="dialog"
       aria-label="PDF 智能助手"
+      @pointermove="windowMove.move"
+      @pointerup="windowMove.end"
+      @pointercancel="windowMove.end"
+      @lostpointercapture="windowMove.end"
       @keydown.esc.stop="close"
     >
       <button
@@ -129,7 +177,7 @@ function onEnter(event: KeyboardEvent) {
       >
         <span aria-hidden="true">⌜</span>
       </button>
-      <header class="ai-header">
+      <header class="ai-header" @pointerdown="startWindowMove">
         <div class="ai-brand">
           <span class="ai-symbol" aria-hidden="true">✦</span
           ><strong>PDF 智能助手</strong>
@@ -436,6 +484,7 @@ function onEnter(event: KeyboardEvent) {
       </template>
     </section>
     <button
+      v-show="!opened"
       ref="launcher"
       class="ai-launcher"
       :class="{ running: working, dragging: floating.dragging.value }"

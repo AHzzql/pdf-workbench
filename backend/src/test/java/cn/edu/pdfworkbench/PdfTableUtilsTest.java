@@ -160,4 +160,17 @@ class PdfTableUtilsTest {
         IllegalArgumentException.class,
         () -> new TableData(1, new Rect(0, 0, 1, 1), List.of(List.of("a"), List.of("a", "b"))));
   }
+
+  @Test
+  void decorativeRectangleIsNotATable() throws Exception {
+    Path input = directory.resolve("decorative.pdf");
+    try (var doc = new PDDocument()) {
+      var page = new PDPage(); doc.addPage(page);
+      try (var stream = new PDPageContentStream(doc,page)) {
+        stream.addRect(50,50,200,200);stream.stroke();
+      }
+      doc.save(input.toFile());
+    }
+    assertTrue(PdfTableUtils.extract(input,null,new TableOptions(null,null)).isEmpty());
+  }
 }

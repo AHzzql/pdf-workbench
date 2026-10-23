@@ -99,11 +99,37 @@ test("工作区分栏与助手左上角可以拖拽调整", async ({ page }) => 
   const resized = (await dialog.boundingBox())!;
   expect(resized.width).toBeGreaterThan(initial.width + 50);
   expect(resized.height).toBeGreaterThan(initial.height + 10);
-  await page.screenshot({ path: "test-results/resizable-layout.png", fullPage: true });
+  await page.screenshot({
+    path: "test-results/resizable-layout.png",
+    fullPage: true,
+  });
   await page.setViewportSize({ width: 800, height: 650 });
   const bounded = (await dialog.boundingBox())!;
   expect(bounded.x).toBeGreaterThanOrEqual(0);
   expect(bounded.y).toBeGreaterThanOrEqual(0);
   expect(bounded.width).toBeLessThanOrEqual(800);
   await expect(split).toBeHidden();
+});
+
+test("助手窗口可拖动且入口只在关闭后回到默认位置", async ({ page }) => {
+  await page.goto("/#/text");
+  const launcher = page.getByLabel("打开 PDF 智能助手");
+  const initial = (await launcher.boundingBox())!;
+  await launcher.click();
+  await expect(launcher).toBeHidden();
+  const dialog = page.getByRole("dialog", { name: "PDF 智能助手" });
+  const before = (await dialog.boundingBox())!;
+  const header = dialog.locator(".ai-header");
+  const h = (await header.boundingBox())!;
+  await page.mouse.move(h.x + 150, h.y + 25);
+  await page.mouse.down();
+  await page.mouse.move(h.x - 40, h.y + 35, { steps: 10 });
+  await page.mouse.up();
+  const after = (await dialog.boundingBox())!;
+  expect(after.x).toBeLessThan(before.x - 100);
+  await page.getByRole("button", { name: "关闭助手", exact: true }).click();
+  await expect(launcher).toBeVisible();
+  const reset = (await launcher.boundingBox())!;
+  expect(Math.abs(reset.x - initial.x)).toBeLessThan(3);
+  expect(Math.abs(reset.y - initial.y)).toBeLessThan(3);
 });
