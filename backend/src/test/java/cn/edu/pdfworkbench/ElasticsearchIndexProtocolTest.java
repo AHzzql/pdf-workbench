@@ -43,4 +43,39 @@ class ElasticsearchIndexProtocolTest {
     assertThrows(IllegalArgumentException.class, () -> new ElasticsearchSettings("http://name:password@localhost:9200", "u", "p", "pdf-workbench-test"));
     assertThrows(IllegalArgumentException.class, () -> new ElasticsearchSettings("http://localhost:9200", "u", "p", "../../invalid"));
   }
+  @Test
+  void validatesGenerationPaginationBeforeReturningCleanupCandidates() throws Exception {
+    var mapper = new ObjectMapper();
+    var key = Map.of("workspace", UUID.randomUUID().toString(), "document", UUID.randomUUID().toString(),
+        "generation", UUID.randomUUID().toString());
+    var body = new java.util.concurrent.atomic.AtomicReference<Map<String,Object>>();
+    var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext("/", exchange -> {
+      if (exchange.getRequestMethod().equals("HEAD")) { exchange.sendResponseHeaders(200, -1); exchange.close(); return; }
+      exchange.getRequestBody().readAllBytes();
+      byte[] response = mapper.writeValueAsBytes(body.get());
+      exchange.sendResponseHeaders(200, response.length);
+      try (var stream = exchange.getResponseBody()) { stream.write(response); }
+    });
+    server.start();
+    try {
+      var index = new ElasticsearchIndex(new ElasticsearchSettings("http://127.0.0.1:" + server.getAddress().getPort(),
+          "fixture", "fixture", "pdf-workbench-protocol"), mapper);
+      var aggregation = Map.of("buckets", List.of(Map.of("key", key)), "after_key", key);
+      body.set(Map.of("aggregations", Map.of("generations", aggregation)));
+      assertEquals(1, index.generations(Map.of(), 1).items().size());
+      assertEquals(key, index.generations(Map.of(), 1).after());
+      assertThrows(ApiException.class, () -> index.generations(key, 1));
+      body.set(Map.of("timed_out", true, "aggregations", Map.of("generations", aggregation)));
+      assertThrows(ApiException.class, () -> index.generations(Map.of(), 1));
+      body.set(Map.of("aggregations", Map.of("generations", Map.of("buckets", List.of(Map.of("key", key))))));
+      assertThrows(ApiException.class, () -> index.generations(Map.of(), 1));
+      var invalid = new HashMap<>(key); invalid.put("generation", "not-a-uuid");
+      body.set(Map.of("aggregations", Map.of("generations", Map.of("buckets", List.of(Map.of("key", invalid)), "after_key", key))));
+      assertThrows(ApiException.class, () -> index.generations(Map.of(), 1));
+      body.set(Map.of("_shards", Map.of("failed", 1), "aggregations", Map.of("generations", aggregation)));
+      assertThrows(ApiException.class, () -> index.generations(Map.of(), 1));
+    } finally { server.stop(0); }
+  }
+
 }

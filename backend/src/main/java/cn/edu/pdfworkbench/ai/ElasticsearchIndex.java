@@ -149,6 +149,46 @@ public class ElasticsearchIndex {
     return output;
   }
 
+  public record Generation(String workspace, String document, String generation) {}
+  public record GenerationPage(List<Generation> items, Map<String, String> after) {}
+
+  public GenerationPage generations(Map<String, String> after, int limit) {
+    if (limit < 1 || limit > 128) throw new IllegalArgumentException("Invalid generation scan limit");
+    if (!exists()) return new GenerationPage(List.of(), Map.of());
+    var composite = new LinkedHashMap<String, Object>();
+    composite.put("size", limit);
+    composite.put("sources", List.of(
+        Map.of("workspace", Map.of("terms", Map.of("field", "workspace_id"))),
+        Map.of("document", Map.of("terms", Map.of("field", "document_id"))),
+        Map.of("generation", Map.of("terms", Map.of("field", "generation")))));
+    if (!after.isEmpty()) composite.put("after", generationKey(json.valueToTree(after)));
+    var result = successful(request("POST", "/" + settings.alias() + "/_search",
+        Map.of("size", 0, "track_total_hits", false,
+            "aggs", Map.of("generations", Map.of("composite", composite)))));
+    var aggregation = result.path("aggregations").path("generations");
+    if (result.path("timed_out").asBoolean() || result.path("_shards").path("failed").asInt() != 0
+        || !aggregation.path("buckets").isArray() || aggregation.path("buckets").size() > limit)
+      throw unavailable();
+    var items = new ArrayList<Generation>();
+    for (var bucket : aggregation.path("buckets")) {
+      var key = generationKey(bucket.path("key"));
+      items.add(new Generation(key.get("workspace"), key.get("document"), key.get("generation")));
+    }
+    var next = aggregation.has("after_key") ? generationKey(aggregation.path("after_key")) : Map.<String,String>of();
+    if (!items.isEmpty() && (next.isEmpty() || next.equals(after))) throw unavailable();
+    return new GenerationPage(List.copyOf(items), next);
+  }
+
+  private Map<String, String> generationKey(JsonNode key) {
+    if (!key.isObject() || key.size() != 3) throw unavailable();
+    var result = new LinkedHashMap<String, String>();
+    for (String name : List.of("workspace", "document", "generation")) {
+      if (!key.path(name).isTextual() || !Identifiers.isUuid(key.path(name).asText())) throw unavailable();
+      result.put(name, key.path(name).asText());
+    }
+    return Map.copyOf(result);
+  }
+
   public void delete(String workspace, String document, String generation) {
     if (!exists()) return;
     var result = successful(request("POST", "/" + settings.alias() + "/_delete_by_query?refresh=true",
