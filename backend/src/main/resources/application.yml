@@ -1,6 +1,6 @@
 spring:
   config:
-    import: optional:file:./config/application-local.yml,optional:file:./backend/config/application-local.yml
+    import: optional:file:./config/application-local.yml,optional:file:./backend/config/application-local.yml,optional:classpath:/application-local.yml
   application:
     name: pdf-workbench
   datasource:
