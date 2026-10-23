@@ -9,7 +9,7 @@ spec.loader.exec_module(m)
 
 class DeliveryTests(unittest.TestCase):
     def test_allowlist(self):
-        for name in ["workbench.cmd", "deploy/Workbench.ps1", "backend/src/main/java/App.java", "frontend/src/App.vue",
+        for name in ["workbench.cmd", "deploy/Workbench.ps1", "tools/performance/check_large_mixed.py", "backend/src/main/java/App.java", "frontend/src/App.vue",
                      "deploy/compose.yml", "docs/part-a/submission/PartA_Submission.docx"]:
             self.assertTrue(m.selected(name), name)
         for name in ["deploy/.env.local", "deploy/runtime/config.json", "backend/config/application-local.yml",
@@ -17,6 +17,12 @@ class DeliveryTests(unittest.TestCase):
                      "backend/src/test/secret.p12", "docs/part-a/PartA需求规格说明书.docx",
                      "../backend/pom.xml", "backend/src/../../secret", "C:/secret", "deploy\\config.yml"]:
             self.assertFalse(m.selected(name), name)
+
+    def test_output_selection_and_verify_are_mutually_exclusive(self):
+        import subprocess, sys
+        result = subprocess.run([sys.executable, str(Path(m.__file__)), "--verify", "fixture.zip",
+                                 "--output-directory", "unused"], capture_output=True)
+        self.assertEqual(2, result.returncode)
 
     def test_runtime_values_and_private_keys_rejected(self):
         with tempfile.TemporaryDirectory() as d:

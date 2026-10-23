@@ -15,7 +15,7 @@ OUTPUT = ROOT / "backend/target/part-b-delivery"
 PREFIX = "PDF_Extractor_PartB"
 PREFIXES = ("backend/src/", "frontend/", "deploy/", "docs/part-a/submission/",
             "docs/part-a/swagger/vendor/", "docs/part-b/diagrams/",
-            "docs/part-b/evidence/", "docs/part-b/presentation/", "docs/part-b/delivery/")
+            "docs/part-b/evidence/", "docs/part-b/presentation/", "docs/part-b/delivery/", "tools/performance/")
 FILES = {"workbench.cmd", "backend/pom.xml", "docs/part-b/PartB_Submission.docx",
          "docs/part-b/DELIVERY_README.md"}
 FORBIDDEN = {".git", ".codex", ".agents", "node_modules", "runtime", "__pycache__",
@@ -115,8 +115,9 @@ def verify(path):
             raise ValueError("Missing delivery artifacts")
     return {"files": len(manifest["files"]), "bytes": path.stat().st_size, "sha256": sha(path.read_bytes())}
 
-def build():
-    OUTPUT.mkdir(parents=True, exist_ok=True)
+def build(output=None):
+    output = Path(output) if output is not None else OUTPUT
+    output.mkdir(parents=True, exist_ok=True)
     secrets = local_secrets(ROOT)
     tracked = git("ls-files", "-z").decode("utf-8").split("\0")
     payloads = {}
@@ -146,26 +147,28 @@ def build():
                 "compiled_application_files_checked": count,
                 "files": [{"path": n, "bytes": len(d), "sha256": sha(d)} for n, d in sorted(payloads.items())]}
     payloads["MANIFEST.json"] = json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8")
-    candidate = OUTPUT / "delivery.tmp.zip"
+    candidate = output / "delivery.tmp.zip"
     try:
         with zipfile.ZipFile(candidate, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
             for name, data in sorted(payloads.items()):
                 z.writestr(PREFIX + "/" + name, data)
         result = verify(candidate)
-        final = OUTPUT / "PDF_Extractor_PartB_Delivery.zip"
+        final = output / "PDF_Extractor_PartB_Delivery.zip"
         candidate.replace(final)
         result["path"] = str(final)
-        (OUTPUT / "verification.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-        (OUTPUT / (final.name + ".sha256")).write_text(result["sha256"] + "  " + final.name + "\n", encoding="ascii")
+        (output / "verification.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        (output / (final.name + ".sha256")).write_text(result["sha256"] + "  " + final.name + "\n", encoding="ascii")
         print(json.dumps(result, ensure_ascii=False))
     finally:
         candidate.unlink(missing_ok=True)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--verify", type=Path)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--verify", type=Path)
+    group.add_argument("--output-directory", type=Path)
     args = parser.parse_args()
     if args.verify:
         print(json.dumps(verify(args.verify), ensure_ascii=False))
     else:
-        build()
+        build(args.output_directory)
