@@ -20,7 +20,7 @@ PostgreSQL Outbox ── RabbitMQ ── Windows 原生 Worker
                                       └── 有界 Java PDF 子进程
 ```
 
-前端采用 Vue 3、TypeScript、Vue Router、Pinia 和 PDF.js，保留 Vite 作为开发与构建工具。正式运行由 Nginx 提供构建后的静态资源并反向代理 API；不引入 SSR 或第二个业务后端。PostgreSQL 通过 Spring JDBC 和 Flyway 管理，私有对象存储采用 SeaweedFS 的 S3 接口。Redis、Elasticsearch、RabbitMQ 和 Nginx 使用 Linux 容器，应用与 PDF 子进程直接运行在 Windows JDK 上。Docker Desktop 承载容器运行环境，不承载项目开发环境。
+前端采用 Vue 3、TypeScript、Vue Router 和 PDF.js，保留 Vite 作为开发与构建工具。正式运行由 Nginx 提供构建后的静态资源并反向代理 API；不引入 SSR 或第二个业务后端。PostgreSQL 通过 Spring JDBC 和 Flyway 管理，私有对象存储采用 SeaweedFS 的 S3 接口。Redis、Elasticsearch、RabbitMQ 和 Nginx 使用 Linux 容器，应用与 PDF 子进程直接运行在 Windows JDK 上。Docker Desktop 承载容器运行环境，不承载项目开发环境。
 
 ## 决策一：Redis 的可过期状态
 
