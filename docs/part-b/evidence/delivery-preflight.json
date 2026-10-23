@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "runtimeJarSHA256": "6fabdfcdf567ed5027d43b72fc38ae9a37608e6ecf87691fc1d5f8aad5b1569a",
+  "backendTests": 299,
+  "frontendTests": 33,
+  "sourceClassParity": true,
+  "frontendArtifactParity": true,
+  "temporaryCredentialsRemoved": true,
+  "compiledResources": 173,
+  "frontendAssets": 5,
+  "verified_date": "2026-10-23"
+}

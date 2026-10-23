@@ -1,7 +1,7 @@
 """Chinese Part B content tied to executable classes and test methods."""
 INTRO=[
 'PDF Extractor 面向需要从 PDF 中复用文字、表格和图片，或对文档施加访问限制、数字签名及水印的使用者。系统以浏览器工作台为入口，在同一文档预览旁提供七类操作面板。用户选择文件后可指定页码、检索表达式或处理参数，查看结构化结果，并保存 CSV、图片压缩包或新的 PDF。所有修改均作用于上传副本，源文件保持不变。',
-'应用由 Vue 3 与 TypeScript 前端、Java 21 目标字节码的 Spring Boot 后端构成。PDF.js 负责浏览器预览，PDFBox 负责文档解析与修改，Bouncy Castle 支持签名及证书处理，RE2/J 执行受支持的正则检索。控制器将 HTTP 参数转换为选项对象，PdfService 负责并发配额、临时工作目录和输出交付，工具类实现各项 PDF 算法。当前基础处理采用同步请求模型。Windows 运行 Java 进程，Nginx 提供同源静态文件和 API 入口；本机服务数据与部署配置分离保存。',
+'应用由 Vue 3 与 TypeScript 前端、Java 21 目标字节码的 Spring Boot 后端构成。PDF.js 负责浏览器预览，PDFBox 负责文档解析与修改，Bouncy Castle 支持签名及证书处理，RE2/J 执行受支持的正则检索。控制器将 HTTP 参数转换为选项对象，PdfService 负责 HTTP 结果交付，PdfExecutor 管理共享配额、暂存目录及进程期限，PdfChild 在独立 Java 子进程中调用 PDF 工具类。当前基础处理采用同步请求模型。Windows 运行 Java 进程，Nginx 提供同源静态文件和 API 入口；本机服务数据与部署配置分离保存。',
 '功能范围包括带文本层的中英文内容、规则网格表格、图片资源及文档信息提取，AES 加密与打印、复制、修改权限设置，PKCS#12 签署、分项验签和确认后的签名移除，以及指定页面的文字或图片水印。验收通过可重现的 JUnit 夹具、HTTP 请求和真实浏览器操作完成。本文给出实现结构、启动方式、实际测试记录、需求追踪和适用边界；输入大小、页数、输出体积与并发数属于容量约束，处理耗时与持续吞吐另以具体负载测量。'
 ]
 MODULES=[
@@ -9,7 +9,9 @@ MODULES=[
 ('PdfPreview / ResultPanel','PDF.js 渲染页与选区；分别显示文本、表格、图片导出和验签结果。','frontend/src/components/PdfPreview.vue；ResultPanel.vue'),
 ('ExtractionController','接收文本、检索、文档信息、表格与图片请求，转换页码和区域参数。','controller/ExtractionController.java'),
 ('ModificationController / SignatureController','接收加密、水印及签名参数，调用对应服务方法。','controller/ModificationController.java；SignatureController.java'),
-('PdfService','申请信号量；暂存输入；检查格式、页数和输出；序列化或下载；finally 清理并释放配额。','service/PdfService.java'),
+('PdfService','将操作及选项交给执行器；设置响应元数据并流式交付结果。','service/PdfService.java'),
+('PdfExecutor / PdfProcessRunner','管理共享并发槽、有界上传、请求/结果协议、进程期限及回收；回调后清理工作目录。','pdf/PdfExecutor.java；PdfProcessRunner.java'),
+('PdfChild / PdfJobRequest / PdfJobResult','不启动 Spring；检查密码与页数，调用工具库并写入有界结果和结果清单。','pdf/PdfChild.java；PdfJobRequest.java；PdfJobResult.java'),
 ('PdfTextUtils / TextCollector','提取文字及字体、颜色、位置；组织文字块与阅读次序；按 RE2/J 模式返回匹配位置。','util/PdfTextUtils.java；TextCollector.java'),
 ('PdfTableUtils / GridCollector','收集绘图线段，按连通分量划分表格，确定行列网格并归入单元格文字。','util/PdfTableUtils.java；GridCollector.java'),
 ('PdfImageUtils / ImageCollector','递归读取资源及内联图片；保留原始流，记录重复引用及出现位置，转换 PNG/JPG。','util/PdfImageUtils.java；ImageCollector.java'),
@@ -73,7 +75,11 @@ CASES=[
 ('TC14','元数据 书签与批注','PdfInfoUtilsTest','extractsChineseMetadataNestedBookmarksAndAnnotations',
  '构建带中文元数据、嵌套书签和批注的 PDF，读取文档信息。',
  '中文属性、书签层次及批注信息可读取，返回对象保留各自结构。',
- '该用例的元数据、书签及批注字段断言全部通过。','core-junit.xml')]
+ '该用例的元数据、书签及批注字段断言全部通过。','core-junit.xml'),
+('TC15','子进程超时回收与后续恢复','pdf.PdfProcessRunnerTest','timeoutKillsEvenWhenStdinIsNotRead',
+ '向不读取 stdin 的真实 Java 子进程写入 64 KiB 请求；夹具期限设为 2 秒，随后再次执行正常任务。',
+ '返回 PDF_TIMEOUT/504；调用在 9 秒内结束，子进程退出，请求字节清零，后续正常任务成功。',
+ '超时状态、回收期限、进程退出、请求清零和后续执行断言全部通过。','process-junit.xml')]
 ACCEPTANCE=[
 ('FR1 / ERR01','给定有效或异常上传，当执行任一操作，那么合法文件进入处理；参数、密码、格式与容量异常返回对应稳定错误码。','TC01、TC09–TC12；PdfApiTest'),
 ('FR2 / FR3 / FR5','给定具有文本层的选定页，当提取文字，那么返回该页内容、段落/文字块及字体、颜色和默认用户坐标；夹具坐标误差 ≤0.1 pt。','TC02；PdfTextUtilsTest'),

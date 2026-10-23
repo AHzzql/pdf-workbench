@@ -4,7 +4,7 @@
   "nodes": [
     {
       "id": "E1",
-      "label": "E1 Document user",
+      "label": "Document user",
       "x": 230,
       "y": 290,
       "width": 370,
@@ -13,7 +13,7 @@
     },
     {
       "id": "P0",
-      "label": "P0 PDF Extractor",
+      "label": "PDF Extractor",
       "x": 1010,
       "y": 290,
       "width": 560,

@@ -57,17 +57,17 @@ function note(s,text,source){s.speakerNotes.text=text+'\n依据：'+source;}
 // 2. Workbench and navigation
 {
  const s=shell('一个文档，七类操作',2);await image(s,'docs/part-b/diagrams/wnd.png',55,220,740,415);
- item(s,247,'W00 → W01','选择 PDF，预览并确定页码。',365);
- item(s,370,'W02 → W08','在当前文档切换七类工具。',365);
- item(s,493,'W09 → W10','查看结果或错误，修正后重试。',365);
+ item(s,247,'选择与预览','选择 PDF，预览并确定页码。',365);
+ item(s,370,'切换工具','在当前文档切换七类工具。',365);
+ item(s,493,'结果与错误','查看结果或错误，修正后重试。',365);
  note(s,'选择 api-sample.pdf，切换文本、表格、图片，确认原文件无需重复上传。','docs/part-b/diagrams/wnd.json；frontend/src/router/index.ts');
 }
 // 3. Architecture
 {
  const s=shell('基础操作采用同步请求',3);await image(s,'docs/part-b/diagrams/architecture.png',58,227,790,414);
  item(s,252,'浏览器 + Nginx','静态文件和 API 使用同源入口。',335);
- item(s,379,'Windows Java Web','核心 PDF 运算仍在 Web JVM 内。',335);
- item(s,506,'后台服务','Worker 与持久任务独立运行。',335);
+ item(s,379,'Windows Java Web','适配请求并管理独立 PDF 子进程。',335);
+ item(s,506,'PDF 子进程','90 秒期限，退出后回收临时文件。',335);
  note(s,'区分基础同步 PDF 工具与独立 Worker。PostgreSQL、Redis、RabbitMQ、Elasticsearch 为共享支撑组件，不称核心正则检索依赖 Elasticsearch。','docs/part-b/PartB_Submission.docx §1.2.1；service/PdfService.java');
 }
 // 4. Text
@@ -91,7 +91,7 @@ function note(s,text,source){s.speakerNotes.text=text+'\n依据：'+source;}
  const s=shell('原始流与转换结果分别记录',6);await image(s,'docs/part-b/evidence/core-partial-images.png',42,222,790,438);
  item(s,256,'资源身份','同一图片重复绘制仍保留出现位置。',320);
  item(s,392,'ZIP 清单','原始流、PNG/JPG 与来源信息。',320);
- item(s,528,'部分转换','RAW_ONLY 显示诊断，不伪装成功。',320);
+ item(s,528,'部分转换','RAW_ONLY 保留原始流及诊断。',320);
  note(s,'演示部分图片不可转换时的反馈，再查看 ZIP 的清单和可解码图片。','PdfImageUtilsTest；PdfApiTest.reportsPartialImageExportsWithRawFilesAndDiagnostics');
 }
 // 7. Encryption
@@ -123,7 +123,7 @@ function note(s,text,source){s.speakerNotes.text=text+'\n依据：'+source;}
  const s=shell('错误反馈与业务结果分开',10);await image(s,'docs/part-b/evidence/core-unknown-revision.png',42,222,790,438);
  item(s,247,'400 / 403','页码或表达式错误；密码错误。',330);
  item(s,374,'413 / 429','超出容量；并发槽位占用。',330);
- item(s,501,'验签状态','无法判定修订，不等于请求失败。',330);
+ item(s,501,'504 / 验签状态','处理超时；验签结论单独呈现。',330);
  note(s,'分别展示非法页码、缺少密码、无图片结果和未知签名类型。','PdfApiTest.distinguishesBusinessErrorsAndReturnsCoreProperties；docs/part-b/evidence/core-unknown-revision.png');
 }
 // 11. Evidence
@@ -132,8 +132,8 @@ function note(s,text,source){s.speakerNotes.text=text+'\n依据：'+source;}
  shape(s,82,237,535,227,'#153B4A');shape(s,664,237,535,227,'#153B4A');
  txt(s,'93',112,255,230,130,94,C.white,true);txt(s,'JUnit 实例 · 失败 0',112,387,460,45,23,C.pale);
  txt(s,'8',694,255,230,130,94,C.white,true);txt(s,'浏览器用例 · 失败 0',694,387,460,45,23,C.pale);
- txt(s,'14 条完整测试记录  /  需求 → 实现 → 用例 → 证据',82,532,1110,83,28,C.white);
- note(s,'展示 core-junit.xml 中对应方法、14 条记录、实际截图与证据 SHA-256。','docs/part-b/evidence/junit-summary.txt；browser-summary.txt；manifest.json');
+ txt(s,'15 条完整测试记录  /  需求 → 实现 → 用例 → 证据',82,532,1110,83,28,C.white);
+ note(s,'展示 core-junit.xml 中对应方法、15 条记录、实际截图与证据 SHA-256。','docs/part-b/evidence/junit-summary.txt；browser-summary.txt；manifest.json');
 }
 // 12. Runtime and scope
 {
@@ -144,8 +144,9 @@ function note(s,text,source){s.speakerNotes.text=text+'\n依据：'+source;}
    txt(s,cols[i][0],x+22,268,222,51,29,C.white,true);txt(s,cols[i][1],x+22,341,222,104,21,C.pale);
  }
  txt(s,'单 PDF ≤50 MiB · ≤200 页 · 同时处理 2 项 · 输出 ≤200 MiB',82,532,1110,65,24,C.white);
- txt(s,'公网部署仍需 TLS、可信代理、最小权限与配套备份。',82,602,1110,45,19,'#B1C6C9');
- note(s,'说明本机启动顺序与对公网部署的独立配置要求；现场仅使用本机服务。','deploy/README.md；backend/src/main/resources/application.yml；docs/part-b/PartB_Submission.docx §1.6');
+ txt(s,'启动：workbench.cmd start   状态：status   停止：stop',82,598,1110,35,21,C.pale);
+ txt(s,'公网部署需 TLS、可信代理、最小权限与配套备份。',82,638,1110,28,17,'#B1C6C9');
+ note(s,'说明workbench.cmd start 统一启动入口与对公网部署的独立配置要求；现场仅使用本机服务。','deploy/README.md；backend/src/main/resources/application.yml；docs/part-b/PartB_Submission.docx §1.6');
 }
 if(deck.slides.items.length!==12)throw new Error('Expected 12 slides');
 const imageDirs=path.join(privateDir,'pages');await fs.mkdir(imageDirs,{recursive:true});

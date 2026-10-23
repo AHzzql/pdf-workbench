@@ -1,0 +1,9 @@
+{
+  "operation": "text",
+  "status": 200,
+  "response_bytes": 6226645,
+  "elapsed_ms": 1765.21,
+  "pages": 20,
+  "fixture_bytes": 35296,
+  "validated": true
+}

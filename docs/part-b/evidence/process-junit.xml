@@ -1,0 +1,25 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites>
+  <testsuite name="cn.edu.pdfworkbench.pdf.PdfProcessRunnerTest" time="3.161" tests="10" errors="0" skipped="0" failures="0">
+    <testcase name="environmentExcludesCredentialsAndJvmInjection" classname="cn.edu.pdfworkbench.pdf.PdfProcessRunnerTest" time="0.005" />
+    <testcase name="timeoutKillsEvenWhenStdinIsNotRead" classname="cn.edu.pdfworkbench.pdf.PdfProcessRunnerTest" time="2.451" />
+    <testcase name="childHeapFailureDoesNotPreventAnotherRequest" classname="cn.edu.pdfworkbench.pdf.PdfProcessRunnerTest" time="0.223" />
+    <testcase name="crashDoesNotExposeChildStderr" classname="cn.edu.pdfworkbench.pdf.PdfProcessRunnerTest" time="0.081" />
+    <testcase name="interruptKillsChildAndPreservesInterruptFlag" classname="cn.edu.pdfworkbench.pdf.PdfProcessRunnerTest" time="0.102" />
+    <testcase name="outputGrowthIsTerminated" classname="cn.edu.pdfworkbench.pdf.PdfProcessRunnerTest" time="0.116" />
+    <testcase name="unavailableExecutableDoesNotExposeItsPath" classname="cn.edu.pdfworkbench.pdf.PdfProcessRunnerTest" time="0.005" />
+    <testcase name="closingRunnerStopsActiveChildAndRejectsMoreWork" classname="cn.edu.pdfworkbench.pdf.PdfProcessRunnerTest" time="0.094" />
+    <testcase name="sendsOnlyThroughStdinAndClearsRequest" classname="cn.edu.pdfworkbench.pdf.PdfProcessRunnerTest" time="0.076" />
+    <testcase name="oversizedRequestNeverStartsAProcessAndIsCleared" classname="cn.edu.pdfworkbench.pdf.PdfProcessRunnerTest" time="0.004" />
+  </testsuite>
+  <testsuite name="cn.edu.pdfworkbench.pdf.PdfExecutorTest" time="7.159" tests="8" errors="0" skipped="0" failures="0">
+    <testcase name="passwordErrorsRetainCodesAndNextRequestSucceeds" classname="cn.edu.pdfworkbench.pdf.PdfExecutorTest" time="1.486" />
+    <testcase name="invalidRegexAndOutputLimitReleaseSlot" classname="cn.edu.pdfworkbench.pdf.PdfExecutorTest" time="1.094" />
+    <testcase name="requestDescriptionRedactsSecrets" classname="cn.edu.pdfworkbench.pdf.PdfExecutorTest" time="0.004" />
+    <testcase name="actualUploadBytesAreBoundedIndependentlyOfDeclaredSize" classname="cn.edu.pdfworkbench.pdf.PdfExecutorTest" time="0.556" />
+    <testcase name="malformedAndBlankReadingRetainFailureSemantics" classname="cn.edu.pdfworkbench.pdf.PdfExecutorTest" time="0.985" />
+    <testcase name="readingReturnsContentAndCleansWorkspace" classname="cn.edu.pdfworkbench.pdf.PdfExecutorTest" time="1.239" />
+    <testcase name="toolsAndReadingUploadShareAdmissionCapacity" classname="cn.edu.pdfworkbench.pdf.PdfExecutorTest" time="1.778" />
+    <testcase name="oversizedParametersNeverReachChild" classname="cn.edu.pdfworkbench.pdf.PdfExecutorTest" time="0.013" />
+  </testsuite>
+</testsuites>

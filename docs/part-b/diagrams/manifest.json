@@ -1,15 +1,15 @@
 [
   {
     "id": "architecture",
-    "title": "基础 PDF 请求与本机部署",
+    "title": "PDF 请求与进程边界",
     "width": 1400,
-    "height": 1040
+    "height": 1250
   },
   {
     "id": "modules",
-    "title": "控制器 服务与工具模块",
+    "title": "适配 执行边界与算法模块",
     "width": 1400,
-    "height": 1050
+    "height": 1320
   },
   {
     "id": "wnd",

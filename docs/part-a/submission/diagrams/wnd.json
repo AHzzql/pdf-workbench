@@ -4,7 +4,7 @@
   "nodes": [
     {
       "id": "W00",
-      "label": "W00 Select / open PDF",
+      "label": "Select / open PDF",
       "x": 700,
       "y": 70,
       "width": 460,
@@ -13,7 +13,7 @@
     },
     {
       "id": "W01",
-      "label": "W01 Preview and page navigation\nPDF loaded; page total displayed",
+      "label": "Preview and page navigation\nPDF loaded; page total displayed",
       "x": 700,
       "y": 260,
       "width": 540,
@@ -22,7 +22,7 @@
     },
     {
       "id": "W02",
-      "label": "W02 Text and search",
+      "label": "Text and search",
       "x": 405,
       "y": 465,
       "width": 470,
@@ -31,7 +31,7 @@
     },
     {
       "id": "W03",
-      "label": "W03 Tables and CSV",
+      "label": "Tables and CSV",
       "x": 405,
       "y": 585,
       "width": 470,
@@ -40,7 +40,7 @@
     },
     {
       "id": "W04",
-      "label": "W04 Images and ZIP",
+      "label": "Images and ZIP",
       "x": 405,
       "y": 705,
       "width": 470,
@@ -49,7 +49,7 @@
     },
     {
       "id": "W05",
-      "label": "W05 Document information",
+      "label": "Document information",
       "x": 405,
       "y": 825,
       "width": 470,
@@ -58,7 +58,7 @@
     },
     {
       "id": "W06",
-      "label": "W06 Encryption / permissions",
+      "label": "Encryption / permissions",
       "x": 405,
       "y": 945,
       "width": 470,
@@ -67,7 +67,7 @@
     },
     {
       "id": "W07",
-      "label": "W07 Digital signatures",
+      "label": "Digital signatures",
       "x": 405,
       "y": 1065,
       "width": 470,
@@ -76,7 +76,7 @@
     },
     {
       "id": "W08",
-      "label": "W08 Text / image watermark",
+      "label": "Text / image watermark",
       "x": 405,
       "y": 1185,
       "width": 470,
@@ -85,7 +85,7 @@
     },
     {
       "id": "W09",
-      "label": "W09 Inspect results\nSave supported output",
+      "label": "Inspect results\nSave supported output",
       "x": 1060,
       "y": 750,
       "width": 460,
@@ -94,7 +94,7 @@
     },
     {
       "id": "W10",
-      "label": "W10 Read status / errors\nCorrect inputs and retry",
+      "label": "Read status / errors\nCorrect inputs and retry",
       "x": 1060,
       "y": 1110,
       "width": 460,

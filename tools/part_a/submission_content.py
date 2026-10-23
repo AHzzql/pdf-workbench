@@ -70,7 +70,7 @@ SOFTWARE = [
     ("Q15", "May the original document be overwritten?", "No. Process an uploaded copy and return a separate result file. An output-write failure must leave the original bytes unchanged.", "Integrity requirement", "NFR1/NFR4"),
     ("Q16", "Which outputs are required?", "JSON for structured information, CSV for a selected table, a ZIP with manifest and images, and PDF for document modifications.", "Interface requirement", "API01–API11"),
     ("Q17", "How are errors communicated?", "Show a readable explanation and stable code. Differentiate input, permission, unsupported-feature, capacity and output-write errors; keep secrets and internal paths out of feedback.", "Usability requirement", "Common error package"),
-    ("Q18", "What performance is acceptable?", "Initial acceptance envelope: one PDF up to 50 MiB/200 pages, two concurrent core operations and output up to 200 MiB. Timing and sustained throughput require a workload-specific baseline.", "Capacity baseline", "Service limits; NFR2"),
+    ("Q18", "What performance is acceptable?", "Initial acceptance envelope: one PDF up to 50 MiB/200 pages, two concurrent core operations and output up to 200 MiB. A reproducible 20-page text fixture has a response-time target of 5 seconds on the test machine. The processing deadline is 90 seconds; sustained throughput depends on the workload.", "Capacity baseline", "Service limits; NFR2"),
     ("Q19", "Which security risks are addressed?", "Protect source files, credentials and signing keys; validate uploads and ranges; bound request concurrency and output; use same-origin transport and private service storage. Public TLS and least-privilege deployment require deployment configuration.", "Security constraint", "NFR4; deployment boundary"),
     ("Q20", "Which features are mandatory or optional?", "Include FR1–FR7 and FR10–FR19, plus watermarking and page count. Include optional FR9; exclude optional FR8. Exclude OCR, unrestricted PDF editing, full PDF creation, online collaboration and general format conversion.", "Scope decision", "Project brief; selected scope")
 ]
@@ -122,6 +122,8 @@ ERRORS = [
     ("Invalid certificate", "422 CERTIFICATE_INVALID", "Select a compatible certificate/key container; a wrong container password has its own password error."),
     ("Invalid digital signature", "200; integrity INVALID", "The signature integrity check detected invalid signed data. Other verification conclusions remain separate."),
     ("Encryption failure", "422 ENCRYPTION_FAILED", "The encrypted copy could not be produced; the input remains unchanged."),
-    ("Output file cannot be created", "500 OUTPUT_CREATE_FAILED", "Output storage is unavailable; retry when storage is restored.")
+    ("Output file cannot be created", "500 OUTPUT_CREATE_FAILED", "Output storage is unavailable; retry when storage is restored."),
+    ("Processing deadline exceeded", "504 PDF_TIMEOUT", "This operation exceeded its time limit; reduce the selected work or try another PDF."),
+    ("Processing subprocess failed", "503 PDF_PROCESS_FAILED", "The processing task did not complete; no result file is delivered.")
 ]
 API_NAMES = ["Extract page text and attributes", "Search with a regular expression", "Read information, pages, bookmarks and annotations", "Extract ruled tables", "Export one table as CSV", "Export raw images and PNG/JPG", "Create an encrypted permission-controlled copy", "Sign with a certificate", "Verify digital signatures", "Remove all signatures", "Apply a text or image watermark"]

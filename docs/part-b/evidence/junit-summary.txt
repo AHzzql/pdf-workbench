@@ -1,15 +1,15 @@
-[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.091 s -- in cn.edu.pdfworkbench.PageSelectionTest
-[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 9.472 s -- in cn.edu.pdfworkbench.PdfApiTest
-[INFO] Tests run: 20, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.608 s -- in cn.edu.pdfworkbench.PdfEncryptionUtilsTest
-[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.187 s -- in cn.edu.pdfworkbench.PdfImageUtilsTest
-[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.124 s -- in cn.edu.pdfworkbench.PdfInfoUtilsTest
-[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.092 s -- in cn.edu.pdfworkbench.PdfOutputFailureTest
-[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.080 s -- in cn.edu.pdfworkbench.PdfServiceLimitsTest
-[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.535 s -- in cn.edu.pdfworkbench.PdfSignatureUtilsTest
-[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.120 s -- in cn.edu.pdfworkbench.PdfTableUtilsTest
-[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.178 s -- in cn.edu.pdfworkbench.PdfTextUtilsTest
-[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.312 s -- in cn.edu.pdfworkbench.PdfWatermarkUtilsTest
+[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.065 s -- in cn.edu.pdfworkbench.PageSelectionTest
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 26.79 s -- in cn.edu.pdfworkbench.PdfApiTest
+[INFO] Tests run: 20, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.659 s -- in cn.edu.pdfworkbench.PdfEncryptionUtilsTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.186 s -- in cn.edu.pdfworkbench.PdfImageUtilsTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.113 s -- in cn.edu.pdfworkbench.PdfInfoUtilsTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.084 s -- in cn.edu.pdfworkbench.PdfOutputFailureTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.258 s -- in cn.edu.pdfworkbench.PdfServiceLimitsTest
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.429 s -- in cn.edu.pdfworkbench.PdfSignatureUtilsTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.168 s -- in cn.edu.pdfworkbench.PdfTableUtilsTest
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.240 s -- in cn.edu.pdfworkbench.PdfTextUtilsTest
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.320 s -- in cn.edu.pdfworkbench.PdfWatermarkUtilsTest
 [INFO] Tests run: 93, Failures: 0, Errors: 0, Skipped: 0
 [INFO] BUILD SUCCESS
-[INFO] Total time:  24.870 s
-[INFO] Finished at: 2026-10-22T14:18:32+08:00
+[INFO] Total time:  35.543 s
+[INFO] Finished at: 2026-10-23T12:15:01+08:00

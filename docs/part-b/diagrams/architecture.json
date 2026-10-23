@@ -1,49 +1,58 @@
 {
   "id": "architecture",
-  "title": "基础 PDF 请求与本机部署",
+  "title": "PDF 请求与进程边界",
   "nodes": [
     {
       "id": "browser",
-      "label": "浏览器工作台\nVue 3 / TypeScript / PDF.js",
+      "label": "浏览器工作台\nVue 3 / PDF.js 预览与操作参数",
       "x": 700,
-      "y": 95,
+      "y": 85,
       "width": 1080,
-      "height": 130,
+      "height": 110,
       "kind": "external"
     },
     {
       "id": "nginx",
       "label": "Nginx 同源入口\n静态构建文件 / API 反向代理",
       "x": 700,
-      "y": 310,
+      "y": 280,
       "width": 1080,
-      "height": 130,
+      "height": 110,
       "kind": "process"
     },
     {
       "id": "web",
-      "label": "Windows 原生 Java Web\n控制器 → PdfService → PDF 工具库",
+      "label": "Windows 原生 Web\nHTTP 控制器 → PdfService → PdfExecutor",
       "x": 700,
-      "y": 555,
+      "y": 490,
+      "width": 1080,
+      "height": 140,
+      "kind": "process"
+    },
+    {
+      "id": "child",
+      "label": "独立 Java PDF 子进程\nPdfChild → PDF 工具库",
+      "x": 700,
+      "y": 760,
       "width": 1080,
       "height": 160,
       "kind": "process"
     },
     {
       "id": "temp",
-      "label": "每请求临时目录\n输入副本及处理结果",
-      "x": 360,
-      "y": 815,
-      "width": 550,
+      "label": "每请求临时目录\n输入副本及结果文件",
+      "x": 350,
+      "y": 1030,
+      "width": 600,
       "height": 140,
       "kind": "store"
     },
     {
       "id": "return",
-      "label": "JSON / CSV / ZIP / PDF\n浏览器查看与另存",
-      "x": 1040,
-      "y": 815,
-      "width": 550,
+      "label": "Web 流式交付\nJSON / CSV / ZIP / PDF",
+      "x": 1050,
+      "y": 1030,
+      "width": 600,
       "height": 140,
       "kind": "external"
     }
@@ -52,60 +61,75 @@
     {
       "from": "browser",
       "to": "nginx",
-      "label": "选择文件及提交参数",
+      "label": "文件与操作参数",
       "points": [
         [
           700,
-          160
+          140
         ],
         [
           700,
-          245
+          225
         ]
       ]
     },
     {
       "from": "nginx",
       "to": "web",
-      "label": "/api/v1/pdf/*",
+      "label": "同源 PDF API",
       "points": [
         [
           700,
-          375
+          335
         ],
         [
           700,
-          475
+          420
         ]
       ]
     },
     {
       "from": "web",
+      "to": "child",
+      "label": "stdin 参数 / 暂存输入",
+      "points": [
+        [
+          700,
+          560
+        ],
+        [
+          700,
+          680
+        ]
+      ]
+    },
+    {
+      "from": "child",
       "to": "temp",
-      "label": "校验后处理",
+      "label": "读取副本 / 写入产物",
       "points": [
         [
-          360,
-          635
+          350,
+          840
         ],
         [
-          360,
-          745
+          350,
+          960
         ]
       ]
     },
     {
-      "from": "web",
+      "from": "child",
       "to": "return",
-      "label": "响应交付",
+      "label": "结果文件与清单",
       "points": [
         [
-          1040,
-          635
+          1050,
+          840
         ],
         [
-          1040,
-          745
+          1050,
+          960
         ]
       ]
     }

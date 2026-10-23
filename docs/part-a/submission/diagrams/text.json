@@ -4,7 +4,7 @@
   "nodes": [
     {
       "id": "E1",
-      "label": "E1 Document user",
+      "label": "Document user",
       "x": 700,
       "y": 75,
       "width": 430,
@@ -13,7 +13,7 @@
     },
     {
       "id": "P1",
-      "label": "P1 Validate input\nFR1 and common constraints",
+      "label": "Validate input\nFR1 and common constraints",
       "x": 700,
       "y": 270,
       "width": 430,
@@ -22,7 +22,7 @@
     },
     {
       "id": "P9",
-      "label": "P9 Explain errors\nCommon package",
+      "label": "Explain errors\nCommon package",
       "x": 1140,
       "y": 270,
       "width": 360,
@@ -30,8 +30,17 @@
       "kind": "process"
     },
     {
+      "id": "D1",
+      "label": "Temporary input copy\nOne operation only",
+      "x": 250,
+      "y": 270,
+      "width": 350,
+      "height": 120,
+      "kind": "store"
+    },
+    {
       "id": "P2.1",
-      "label": "P2.1 Extract page text\nFR2 / FR3 / FR5",
+      "label": "Extract page text\nFR2 / FR3 / FR5",
       "x": 250,
       "y": 525,
       "width": 400,
@@ -40,7 +49,7 @@
     },
     {
       "id": "P2.2",
-      "label": "P2.2 Match expressions\nFR4",
+      "label": "Match expressions\nFR4",
       "x": 700,
       "y": 525,
       "width": 400,
@@ -49,7 +58,7 @@
     },
     {
       "id": "P2.3",
-      "label": "P2.3 Read PDF objects\nFR6 / FR7 / FR9",
+      "label": "Read PDF objects\nFR6 / FR7 / FR9",
       "x": 1150,
       "y": 525,
       "width": 400,
@@ -58,7 +67,7 @@
     },
     {
       "id": "P8",
-      "label": "P8 Assemble result\nand download metadata",
+      "label": "Assemble result\nand download metadata",
       "x": 700,
       "y": 800,
       "width": 440,
@@ -67,7 +76,7 @@
     },
     {
       "id": "E1b",
-      "label": "E1 Inspect and save results",
+      "label": "Document user",
       "x": 700,
       "y": 1020,
       "width": 470,
@@ -76,6 +85,36 @@
     }
   ],
   "edges": [
+    {
+      "from": "P1",
+      "to": "D1",
+      "label": "Staged copy",
+      "points": [
+        [
+          485,
+          245
+        ],
+        [
+          425,
+          245
+        ]
+      ]
+    },
+    {
+      "from": "D1",
+      "to": "P1",
+      "label": "Input bytes",
+      "points": [
+        [
+          425,
+          295
+        ],
+        [
+          485,
+          295
+        ]
+      ]
+    },
     {
       "from": "E1",
       "to": "P1",

@@ -29,9 +29,11 @@ def run():
         check('No instructional residue '+phrase,phrase not in body)
     check('Native TOC retained',any('TOC' in s for s in d.element.body.xpath('.//w:instrText/text()')))
     check('Five figures',len(d.inline_shapes)==5)
-    check('Actual synchronous processing stated','PDF 解析及输出生成仍位于 Web JVM 内' in body and '基础 11 项 PDF 操作不入消息队列' in body)
+    check('Actual synchronous processing stated','PdfProcessRunner 启动独立 Java 子进程' in body and '基础 11 项 PDF 操作同步等待子进程，不入消息队列' in body)
     check('Middleware roles stated',all(s in body for s in ['Nginx','PostgreSQL','Redis','RabbitMQ','Elasticsearch','S3']))
-    check('No completed isolated PDF process claim','受限 Java PDF 子进程' not in body)
+    check('Executor boundaries stated',all(v in body for v in ['90 秒','384 MiB','512 MiB','PdfExecutor']))
+    check('Legacy display numbers removed',not re.search(r'W\d{2}|P\d+\.\d+',body))
+    check('Single deployment entry','workbench.cmd start' in body and 'Start-Web.ps1' not in body)
     check('Source quality template columns',any(all(x in ' '.join(c.text for c in t.rows[0].cells) for x in ['Requirement','Implementation','Test Case','Evidence']) for t in d.tables))
     report=ET.parse(OUT/'evidence/core-junit.xml').getroot();cases=report.findall('.//testcase')
     check('Actual JUnit tests',len(cases)==93 and len(report.findall('testsuite'))==11)
@@ -46,20 +48,21 @@ def run():
         p=ROOT/('backend/target/surefire-reports/TEST-cn.edu.pdfworkbench.'+item['suite']+'.xml')
         check('Execution report provenance '+item['suite'],p.is_file() and sha(p)==item['source_report_sha256'])
     check('Browser summary',re.search(r'8 passed', (OUT/'evidence/browser-summary.txt').read_text('utf-8')))
+    cases += ET.parse(OUT/'evidence/process-junit.xml').getroot().findall('.//testcase')
     for id,title,cls,method,*rest in CASES:
         matches=[c for c in cases if c.get('classname')=='cn.edu.pdfworkbench.'+cls and c.get('name').startswith(method+'(')]
         # Surefire names include parameter signatures for parameterized instances.
         if not matches:matches=[c for c in cases if c.get('classname')=='cn.edu.pdfworkbench.'+cls and c.get('name')==method]
         check('Executed method '+id,bool(matches))
         if id=='TC05':check('Sixteen permission combinations',len(matches)==16)
-        check('Test record '+id,id+' '+title in body and method in body and all(s in body for s in rest[:3]))
-        check('Test source method '+id,method+'(' in (ROOT/f'backend/src/test/java/cn/edu/pdfworkbench/{cls}.java').read_text('utf-8'))
+        check('Test record '+id,id in body and title in body and method in body and all(s in body for s in rest[:3]))
+        check('Test source method '+id,method+'(' in (ROOT/('backend/src/test/java/cn/edu/pdfworkbench/'+cls.replace('.','/')+'.java')).read_text('utf-8'))
         for file in rest[-1].split('；'):check('Case evidence file '+id+' '+file,(OUT/'evidence'/file).is_file())
     check('At least five complete records',len(CASES)>=5 and len([t for t in d.tables if t.cell(0,0).text=='记录项'])==len(CASES))
     for group in ['FR1','FR2','FR3','FR4','FR5','FR6','FR7','FR9','FR10','FR11','FR12','FR13–FR16','FR17–FR19','WM01','WM02']:
         check('Requirement coverage '+group,group in body)
     check('Optional attachment boundary','FR8 附件提取不在范围' in body)
-    check('Fourteen records / evidence counts',manifest['junit_tests']==93 and manifest['browser_tests']==8 and '14 条完整记录' in body)
+    check('Fourteen records / evidence counts',manifest['junit_tests']==93 and manifest['browser_tests']==8 and '15 条完整记录' in body)
     for name in ['architecture','modules','wnd']:
         fig=json.loads((OUT/'diagrams'/f'{name}.json').read_text('utf-8'));ids={x['id'] for x in fig['nodes']}
         check('Diagram endpoints '+name,all(e['from'] in ids and e['to'] in ids for e in fig['edges']))

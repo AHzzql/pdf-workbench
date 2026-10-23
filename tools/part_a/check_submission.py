@@ -86,8 +86,9 @@ def run():
         ids={n['id'] for n in data['nodes']}
         check('DFD edge endpoints '+name,all(e['from'] in ids and e['to'] in ids for e in data['edges']))
         check('DFD named flows '+name,all(e['label'] for e in data['edges']))
-        check('DFD process identities '+name,all(n['id']==n['label'].split()[0] for n in data['nodes'] if '.' in n['id']))
+        check('DFD process identities '+name,len(ids)==len(data['nodes']) and all(n['label'].strip() and not re.match(r'^(?:P\d|E\d|W\d)',n['label']) for n in data['nodes']))
         check('DFD included in document '+name,group[0] in all_text)
+        check('Temporary input store '+name,any(n['id']=='D1' and 'Temporary input copy' in n['label'] for n in data['nodes']))
     wnd=json.loads((OUT/'diagrams/wnd.json').read_text('utf-8'))
     check('All tool panels in WND',set('W'+str(i).zfill(2) for i in range(11))=={n['id'] for n in wnd['nodes']})
     check('Retry navigation',any(e['from']=='W10' and e['to']=='W01' for e in wnd['edges']))

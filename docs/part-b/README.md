@@ -5,10 +5,12 @@
 ## 内容与证据
 
 - `diagrams/`：基础请求架构、模块关系和工作台导航的 SVG、PNG 与结构数据。
-- `evidence/core-junit.xml`：2026-10-22 执行的 11 个核心测试类，共 93 个实例。
+- `evidence/core-junit.xml`：2026-10-23 执行的 11 个核心测试类，共 93 个实例。
 - `evidence/junit-summary.txt`：对应 Maven 执行摘要。
 - `evidence/browser-summary.txt`：Nginx 入口 8 项工作台浏览器测试输出。
 - `evidence/` 中的 PDF 与截图：测试夹具、签名与移除结果及工作台显示。
+- `evidence/process-junit.xml`：独立进程与执行器 18 项测试。
+- `evidence/20-page-baseline.json`、`large-mixed-results.json`：实际大文档及混合负载记录。
 - `evidence/manifest.json`：证据、关联源码和原始套件报告的 SHA-256。
 
 - `presentation/PartB_Demonstration.pptx`：12 页中文课堂演示，覆盖工作台流程、七类核心操作、架构、测试与本机运行范围。
@@ -43,6 +45,6 @@ python tools/part_b/build_delivery.py --verify backend/target/part-b-delivery/PD
 
 打包前须完成前端构建和后端编译打包。工具校验 JAR 与本机编译目录一致，按版本控制文件清单收集源码，扫描当前运行凭据及私钥，并检查 ZIP 路径、CRC、文件长度和逐文件 SHA-256。
 
-delivery/source-verification.json 保存独立解压目录的完整 Maven 构建结果：37 个测试类共 259 个实例，失败、错误与跳过均为 0；158 个应用类和资源与交付 JAR 一致，173 个实现及测试源文件与当前工作树一致。前端 33 项测试与静态构建通过。ZIP 原始 JAR 在独立 JVM、随机数据库模式中完成静态页、OpenAPI、PDF 文本提取及非法表达式 400 检查；解压后的凭据初始化和 Compose 配置检查通过。临时服务凭据未写入 ZIP，测试模式已删除。
+软件预检记录位于 `backend/target/software-preflight-final/`：独立解压源码 Maven 299 项、前端 33 项通过，173 个应用类和资源及 5 个前端资产与原包一致。该次预检包包含此前版本的正式报告，不作为最终交付包。报告中的摘要见 `evidence/delivery-preflight.json`。
 
-tools/part_b/verify_delivery.ps1 复用本机支撑服务，在 backend/target/delivery-check/PDF_Extractor_PartB 解压目录及生成的 ZIP 上重复运行 JAR 检查；只创建和删除随机验证模式，不启动或替换现有容器。原始完整构建日志保存在独立解压目录的 build-verification.log，运行日志位于 backend/target/part-b-delivery/runtime.log。
+`verify_delivery.ps1 -DeliveryDirectory <目录>` 校验交付清单并解压到唯一新目录，以原始 JAR 检查静态页、OpenAPI、文本提取及非法表达式 400。`verify_source.ps1 -DeliveryDirectory <目录>` 随后从该新目录重新构建和测试，并核对应用及前端产物。两者只创建和删除随机验证模式，不替换主部署。

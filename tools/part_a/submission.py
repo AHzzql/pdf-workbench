@@ -17,6 +17,9 @@ TEMPLATE=ROOT/'docs/templates/PartA-Submission-Template.docx'
 CJK=re.compile(r'[\u3400-\u9fff]')
 
 class EnglishFigure(graphics.Figure):
+    def node(self,id,text,x,y,w=350,h=110,kind='process'):
+        text=re.sub(r'^(?:W\d+|E\d+[a-z]?|P\d+(?:\.\d+)*|D\d+)\s+','',text)
+        return super().node(id,text,x,y,w,h,kind)
     def text(self,x,y,value,size=30,anchor='mm',background=False):
         super().text(x,y,value,max(24,min(size,28)),anchor,background)
     def save(self,out):
@@ -42,6 +45,9 @@ def diagrams():
         f.node('E1','E1 Document user',700,75,430,100,'external')
         f.node('P1','P1 Validate input\nFR1 and common constraints',700,270,430,120)
         f.node('P9','P9 Explain errors\nCommon package',1140,270,360,120)
+        f.node('D1','Temporary input copy\nOne operation only',250,270,350,120,'store')
+        f.edge('P1','D1','Staged copy',[(485,245),(425,245)],(310,185),21)
+        f.edge('D1','P1','Input bytes',[(425,295),(485,295)],(280,355),21)
         f.edge('E1','P1','PDF and operation inputs',[(700,125),(700,210)],(700,165),22)
         f.edge('P1','P9','Invalid input',[(915,270),(960,270)],(1095,180),22)
         sequential=name not in {'text','signatures'}
@@ -65,7 +71,7 @@ def diagrams():
                        'encryption':['','','Encrypted copy'],'watermark':['','','Marked copy']}[name][j]
                 f.edge(process_ids[j],'P8',label,[(x,588),(x,675),(700,675),(700,740)] if x!=700 else [(700,588),(700,740)],(x,620),21)
         f.text(700,665,'Structured data or a processed copy',22,background=True)
-        f.node('E1b','E1 Inspect and save results',700,1020,470,100,'external')
+        f.node('E1b','E1 Document user',700,1020,470,100,'external')
         f.edge('P8','E1b','Result and status',[(700,860),(700,970)],(700,915),22)
         f.edge('P9','E1b','Error details',[(1320,270),(1365,270),(1365,1020),(935,1020)],(1240,925),22)
         result.append(f.save(target))
@@ -95,7 +101,7 @@ def diagrams():
     f.node('params','Text extraction\nPages: 1,3\nPreserve paragraphs: yes',1035,410,600,190,'external')
     f.node('action','Extract text     Search pattern',1035,570,600,85,'external')
     f.node('result','Page 1: Alpha is 42.\nBlocks / bounds / style\nStatus: extraction completed',1035,745,600,225,'external')
-    f.text(700,945,'Conceptual interface prototype; navigation IDs correspond to the WND.',22)
+    f.text(700,945,'Conceptual interface prototype using the same panels as the navigation diagram.',22)
     result.append(f.save(target))
     (OUT/'figures.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
     return result
@@ -238,7 +244,7 @@ def document(spec):
     h(d,'2.1 Introduction',2)
     for text in FUNCTIONAL_INTRO:p(d,text)
     h(d,'2.2 Functional Requirements (FRs) - Data-Flow-Diagram Modelling',2,page=True)
-    p(d,'Notation: E denotes an external user, P a transformation, and each labelled arrow a data flow. The diagrams focus on the PDF operation boundary, not middleware deployment topology.')
+    p(d,'External boxes represent document users, rounded nodes represent transformations, and named arrows show the data exchanged. Functional names identify the nodes; FR labels retain requirement traceability. The diagrams describe PDF data flows rather than deployment topology.')
     fig(d,'context','Figure 1. PDF Extractor context and input/output boundary.')
     table(d,['Boundary data','Meaning and constraint'],[
         ('Input document','One uploaded PDF copy; at most 50 MiB and 200 pages. The original is not overwritten.'),
@@ -254,7 +260,7 @@ def document(spec):
     h(d,'2.3 Functional Requirements - Error Handling Common Use Package',2,page=True)
     p(d,'All tools share input, range, password, permission and output-storage validation. Feedback identifies the problem and the next usable action while preserving the source. A business conclusion, such as an invalid signature, is not the same as a failed HTTP request.')
     table(d,['Condition','Code / result','User-facing explanation'],ERRORS,[3.7,5.4,6.8],compact=True)
-    p(d,'Additional shared limits return 413 for excessive size/pages/output and 429 CAPACITY_EXCEEDED when core processing capacity is occupied. Password and permission errors are separate. Client responses omit credentials, signing keys, stack traces and internal file paths.')
+    p(d,'Additional shared limits return 413 for excessive size/pages/output and 429 CAPACITY_EXCEEDED when core processing capacity is occupied. An operation exceeding 90 seconds returns 504 PDF_TIMEOUT; a failed processing subprocess returns 503 without a partial result. Password and permission errors are separate. Client responses omit credentials, signing keys, stack traces and internal file paths.')
     h(d,'2.4 Functional Requirements - Window Navigation Diagram Prototype',2,page=True)
     p(d,'The interface uses a persistent document preview with operation panels. Selecting a tool keeps the current document; selecting a new file replaces it. One-based page selection, explicit save controls and local status/error feedback are shared conventions. Keyboard focus and readable controls apply across panels.')
     fig(d,'wnd','Figure 8. Window and panel navigation for the PDF workbench.')
@@ -264,8 +270,8 @@ def document(spec):
     p(d,'The offline Swagger UI is available at /part-a/submission/swagger/. Its OpenAPI 3.0.3 contract is /part-a/submission/openapi.json, with the same-origin server /. It describes eleven core operations using multipart request bodies, typed result models and stable error responses. No credential has a default or example value. The WND represents user navigation; Swagger represents the associated request/response interface.')
     rows=[]
     for path,entry in spec['paths'].items():
-        op=entry['post'];rows.append((op['summary'].split(' ')[0],path,op['x-wnd'],', '.join(op['x-requirements'])))
-    table(d,['ID','POST path','Panel','Requirement links'],rows,[1.4,8.1,1.5,4.9])
+        op=entry['post'];rows.append((op['summary'].split(' ')[0],path,{'W02':'Text and search','W03':'Tables and CSV','W04':'Images and ZIP','W05':'Document information','W06':'Encryption and permissions','W07':'Digital signatures','W08':'Watermarks'}[op['x-wnd']],', '.join(op['x-requirements'])))
+    table(d,['ID','POST path','Panel','Requirement links'],rows,[1.2,6.4,3.7,4.6])
     shot=OUT/'diagrams/swagger-prototype.png'
     if shot.exists():fig(d,'swagger-prototype','Figure 10. English Swagger interface prototype served through the same-origin gateway.')
     p(d,'Reference basis: PDF Extractor project brief (FR1–FR19 and watermarking scope); Part A Student Template for Submission; the accompanying OpenAPI contract. API schemas and acceptance rules use the selected project scope recorded in sections 1.3.3 and 1.3.4.')

@@ -1,0 +1,173 @@
+{
+  "format": "pdf-workbench-large-mixed-v1",
+  "status": "PASS",
+  "measured_utc": "2026-10-23T03:43:11.434272+00:00",
+  "records": [
+    {
+      "operation": "info",
+      "status": 200,
+      "response_bytes": 370,
+      "elapsed_ms": 591.558,
+      "phase": "200-page-sequential"
+    },
+    {
+      "operation": "text",
+      "status": 200,
+      "response_bytes": 62268899,
+      "elapsed_ms": 5808.024,
+      "phase": "200-page-sequential"
+    },
+    {
+      "operation": "text/search",
+      "status": 200,
+      "response_bytes": 234693,
+      "elapsed_ms": 1552.475,
+      "phase": "200-page-sequential"
+    },
+    {
+      "operation": "encrypt",
+      "status": 200,
+      "response_bytes": 303975,
+      "elapsed_ms": 699.772,
+      "phase": "200-page-sequential"
+    },
+    {
+      "operation": "watermark",
+      "status": 200,
+      "response_bytes": 352661,
+      "elapsed_ms": 784.4,
+      "phase": "200-page-sequential"
+    },
+    {
+      "operation": "info",
+      "status": 200,
+      "response_bytes": 368,
+      "elapsed_ms": 983.025,
+      "phase": "near-upload-limit"
+    },
+    {
+      "operation": "info",
+      "status": 413,
+      "response_bytes": 71,
+      "elapsed_ms": 532.901,
+      "code": "PAGE_LIMIT",
+      "phase": "201-pages"
+    },
+    {
+      "operation": "info",
+      "status": 413,
+      "response_bytes": 81,
+      "elapsed_ms": 306.805,
+      "code": "FILE_TOO_LARGE",
+      "phase": "51-mib-embedded"
+    },
+    {
+      "operation": "info",
+      "status": 200,
+      "response_bytes": 370,
+      "elapsed_ms": 633.754,
+      "phase": "mixed-burst",
+      "round": 1
+    },
+    {
+      "operation": "text/search",
+      "status": 200,
+      "response_bytes": 234693,
+      "elapsed_ms": 1603.725,
+      "phase": "mixed-burst",
+      "round": 1
+    },
+    {
+      "operation": "encrypt",
+      "status": 429,
+      "response_bytes": 84,
+      "elapsed_ms": 25.595,
+      "code": "CAPACITY_EXCEEDED",
+      "phase": "mixed-burst",
+      "round": 1
+    },
+    {
+      "operation": "watermark",
+      "status": 429,
+      "response_bytes": 84,
+      "elapsed_ms": 17.956,
+      "code": "CAPACITY_EXCEEDED",
+      "phase": "mixed-burst",
+      "round": 1
+    },
+    {
+      "operation": "info",
+      "status": 200,
+      "response_bytes": 370,
+      "elapsed_ms": 674.412,
+      "phase": "mixed-burst",
+      "round": 2
+    },
+    {
+      "operation": "text/search",
+      "status": 429,
+      "response_bytes": 84,
+      "elapsed_ms": 19.375,
+      "code": "CAPACITY_EXCEEDED",
+      "phase": "mixed-burst",
+      "round": 2
+    },
+    {
+      "operation": "encrypt",
+      "status": 200,
+      "response_bytes": 303975,
+      "elapsed_ms": 768.821,
+      "phase": "mixed-burst",
+      "round": 2
+    },
+    {
+      "operation": "watermark",
+      "status": 429,
+      "response_bytes": 84,
+      "elapsed_ms": 32.472,
+      "code": "CAPACITY_EXCEEDED",
+      "phase": "mixed-burst",
+      "round": 2
+    },
+    {
+      "operation": "encrypt",
+      "status": 200,
+      "response_bytes": 303975,
+      "elapsed_ms": 749.049,
+      "phase": "mixed-pair"
+    },
+    {
+      "operation": "watermark",
+      "status": 200,
+      "response_bytes": 352661,
+      "elapsed_ms": 844.806,
+      "phase": "mixed-pair"
+    },
+    {
+      "operation": "info",
+      "status": 200,
+      "response_bytes": 370,
+      "elapsed_ms": 575.655,
+      "phase": "recovery"
+    }
+  ],
+  "scope": "Synthetic 200-page text, embedded byte-size fixtures and two four-way mixed bursts plus an encryption/watermark pair; not a soak or public throughput test",
+  "fixtures": {
+    "200-pages": {
+      "bytes": 345406,
+      "sha256": "39a6e44479f67371e43951abe50e84b1673171885aac3cb292b763acd1dedfa5"
+    },
+    "201-pages": {
+      "bytes": 347132,
+      "sha256": "e8e28326bff88560aa66ef162095d11fa8656991f6f55f73861aa0fb29757d04"
+    },
+    "49-mib-embedded": {
+      "bytes": 51383172,
+      "sha256": "ee7b2714d7e7f265b32ad61be06f242c6d24be38a74c22817deb219b4119b75c"
+    },
+    "51-mib-embedded": {
+      "bytes": 53480324,
+      "sha256": "8bee25f56ca5b7da5ac192e6d2d77605239143dcf81a0ed9827a6af552239052"
+    }
+  }
+}
