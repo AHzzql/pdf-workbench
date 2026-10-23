@@ -10,7 +10,7 @@ describe("文档密码确认", () => {
     await w.get("input").trigger("blur");
     expect(w.emitted("update:modelValue")).toBeUndefined();
     await w.get("input").setValue("complete-password");
-    await w.get("button").trigger("click");
+    await w.get(".confirm-password").trigger("click");
     expect(w.emitted("update:modelValue")).toEqual([["complete-password"]]);
   });
   it("回车确认，切换文档清除草稿", async () => {
@@ -29,7 +29,7 @@ describe("文档密码确认", () => {
     });
     await w.get("input").setValue("");
     expect(w.emitted("update:modelValue")).toBeUndefined();
-    await w.get("button").trigger("click");
+    await w.get(".confirm-password").trigger("click");
     expect(w.emitted("update:modelValue")).toEqual([[""]]);
   });
 });

@@ -4,6 +4,7 @@ import { useRoute } from "vue-router";
 import AccountDialog from "../components/AccountDialog.vue";
 import { useAccount } from "../composables/useAccount";
 import AppIcon from "../components/AppIcon.vue";
+import PasswordInput from "../components/PasswordInput.vue";
 import PdfPreview from "../components/PdfPreview.vue";
 import DocumentPassword from "../components/DocumentPassword.vue";
 import ResultPanel from "../components/ResultPanel.vue";
@@ -379,15 +380,15 @@ function csv(index: number) {
               >
               <template v-if="tool === 'encrypt'"
                 ><label class="field"
-                  >用户密码<input
+                  >用户密码<PasswordInput
                     v-model="form.userPassword"
-                    type="password"
+                    aria-label="用户密码"
                     autocomplete="new-password" /></label
                 ><label class="field"
-                  >所有者密码<input
+                  >所有者密码<PasswordInput
                     v-model="form.ownerPassword"
+                    aria-label="所有者密码"
                     required
-                    type="password"
                     autocomplete="new-password" /></label
                 ><label class="field"
                   >加密强度<select v-model.number="form.keyLength">
@@ -444,9 +445,9 @@ function csv(index: number) {
                       accept=".p12,.pfx"
                       required /></label
                   ><label class="field"
-                    >证书密码<input
+                    >证书密码<PasswordInput
                       v-model="form.certificatePassword"
-                      type="password"
+                      aria-label="证书密码"
                       autocomplete="off" /></label
                   ><label class="field"
                     >证书别名 <span class="optional">可选</span

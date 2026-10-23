@@ -5,9 +5,9 @@ import {
   GlobalWorkerOptions,
   type PDFDocumentProxy,
   type PDFDocumentLoadingTask,
-  type RenderTask,
 } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import PdfPage from "./PdfPage.vue";
 import type { Selection } from "../types/pdf";
 GlobalWorkerOptions.workerSrc = workerUrl;
 const props = defineProps<{
@@ -19,28 +19,36 @@ const page = ref(1),
   total = ref(0),
   zoom = ref(1),
   error = ref(""),
-  loading = ref(false),
-  canvas = ref<HTMLCanvasElement | null>(null);
-const dimensions = ref({ width: 0, height: 0 }),
-  rectangles = ref<
-    { left: number; top: number; width: number; height: number }[]
-  >([]);
+  loading = ref(false);
 const document = shallowRef<PDFDocumentProxy | null>(null);
 const scrollArea = ref<HTMLElement | null>(null);
 let task: PDFDocumentLoadingTask | null = null,
-  renderTask: RenderTask | null = null,
-  version = 0,
-  renderVersion = 0;
+  version = 0;
+function navigate(target: number) {
+  const root = scrollArea.value,
+    el = root?.querySelector<HTMLElement>(`[data-page="${target}"]`);
+  if (root && el) {
+    root.scrollTop +=
+      el.getBoundingClientRect().top - root.getBoundingClientRect().top;
+    page.value = target;
+  }
+}
+function scrolled() {
+  const root = scrollArea.value;
+  if (!root) return;
+  const top = root.getBoundingClientRect().top;
+  const pages = Array.from(root.querySelectorAll<HTMLElement>("[data-page]"));
+  const current = pages.find(
+    (el) => el.getBoundingClientRect().bottom > top + 80,
+  );
+  if (current) page.value = Number(current.dataset.page);
+}
 function destroy() {
   version++;
-  renderVersion++;
-  renderTask?.cancel();
-  renderTask = null;
   void task?.destroy();
   task = null;
   document.value = null;
   total.value = 0;
-  rectangles.value = [];
 }
 async function load() {
   destroy();
@@ -65,7 +73,7 @@ async function load() {
         ? props.selection.page
         : 1;
     await nextTick();
-    await render();
+    navigate(page.value);
   } catch (reason) {
     if (current === version)
       error.value =
@@ -78,65 +86,14 @@ async function load() {
     if (current === version) loading.value = false;
   }
 }
-async function render() {
-  const pdf = document.value;
-  if (!pdf) return;
-  const current = ++renderVersion;
-  renderTask?.cancel();
-  try {
-    const pdfPage = await pdf.getPage(page.value);
-    if (current !== renderVersion || !canvas.value) return;
-    const viewport = pdfPage.getViewport({ scale: zoom.value });
-    const ratio = window.devicePixelRatio || 1;
-    dimensions.value = { width: viewport.width, height: viewport.height };
-    canvas.value.width = Math.floor(viewport.width * ratio);
-    canvas.value.height = Math.floor(viewport.height * ratio);
-    renderTask = pdfPage.render({
-      canvas: canvas.value,
-      viewport,
-      transform: ratio === 1 ? undefined : [ratio, 0, 0, ratio, 0, 0],
-    });
-    await renderTask.promise;
-    if (current !== renderVersion) return;
-    rectangles.value =
-      props.selection?.page === page.value
-        ? props.selection.bounds.map((r) => {
-            const [x1, y1] = viewport.convertToViewportPoint(r.x, r.y);
-            const [x2, y2] = viewport.convertToViewportPoint(
-              r.x + r.width,
-              r.y + r.height,
-            );
-            return {
-              left: Math.min(x1!, x2!),
-              top: Math.min(y1!, y2!),
-              width: Math.abs(x2! - x1!),
-              height: Math.abs(y2! - y1!),
-            };
-          })
-        : [];
-    await nextTick();
-    if (current === renderVersion && rectangles.value.length) {
-      scrollArea.value
-        ?.querySelector<HTMLElement>(".highlight")
-        ?.scrollIntoView({ block: "center", inline: "nearest" });
-    }
-  } catch (reason) {
-    if (
-      current === renderVersion &&
-      !(
-        reason instanceof Error && reason.name === "RenderingCancelledException"
-      )
-    )
-      error.value = "页面渲染失败";
-  }
-}
 watch(() => [props.file, props.password], load, { immediate: true });
-watch([page, zoom], render);
 watch(
   () => props.selection,
-  () => {
-    if (props.selection) page.value = props.selection.page;
-    void render();
+  async () => {
+    if (props.selection) {
+      await nextTick();
+      navigate(props.selection.page);
+    }
   },
 );
 onBeforeUnmount(destroy);
@@ -145,10 +102,18 @@ onBeforeUnmount(destroy);
   <div class="preview-toolbar">
     <span class="section-label">文档预览</span>
     <div v-if="total" class="preview-controls">
-      <button aria-label="上一页" :disabled="page <= 1" @click="page--">
+      <button
+        aria-label="上一页"
+        :disabled="page <= 1"
+        @click="navigate(page - 1)"
+      >
         ‹</button
       ><span>{{ page }} / {{ total }}</span
-      ><button aria-label="下一页" :disabled="page >= total" @click="page++">
+      ><button
+        aria-label="下一页"
+        :disabled="page >= total"
+        @click="navigate(page + 1)"
+      >
         ›</button
       ><select v-model.number="zoom" aria-label="预览缩放">
         <option :value="0.75">75%</option>
@@ -158,35 +123,18 @@ onBeforeUnmount(destroy);
       </select>
     </div>
   </div>
-  <div ref="scrollArea" class="preview-scroll">
+  <div ref="scrollArea" class="preview-scroll" @scroll.passive="scrolled">
     <p v-if="loading" class="preview-message">正在加载文档…</p>
     <p v-if="error" class="preview-message error" role="status">{{ error }}</p>
-    <div
-      v-show="document && !error"
-      class="paper"
-      :style="{
-        width: dimensions.width + 'px',
-        height: dimensions.height + 'px',
-      }"
-    >
-      <canvas
-        ref="canvas"
-        :style="{
-          width: dimensions.width + 'px',
-          height: dimensions.height + 'px',
-        }"
-        aria-label="PDF 页面预览"
-      /><span
-        v-for="(r, i) in rectangles"
-        :key="i"
-        class="highlight"
-        :style="{
-          left: r.left + 'px',
-          top: r.top + 'px',
-          width: r.width + 'px',
-          height: r.height + 'px',
-        }"
-      ></span>
-    </div>
+    <template v-if="document && !error">
+      <PdfPage
+        v-for="n in total"
+        :key="version + ':' + n"
+        :pdf="document"
+        :number="n"
+        :zoom="zoom"
+        :selection="selection"
+      />
+    </template>
   </div>
 </template>
