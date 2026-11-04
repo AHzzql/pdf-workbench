@@ -13,7 +13,7 @@ export default defineConfig({
   retries: 0,
   outputDir: "test-results/production",
   use: {
-    baseURL: "http://127.0.0.1:8080",
+    baseURL: "http://127.0.0.1:5173",
     headless: true,
     viewport: { width: 1440, height: 1000 },
     screenshot: "only-on-failure",

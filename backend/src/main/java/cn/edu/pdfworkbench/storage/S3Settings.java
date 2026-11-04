@@ -10,7 +10,7 @@ public record S3Settings(String endpoint, String region, String bucket, String a
     if (!Set.of("http", "https").contains(uri.getScheme()) || uri.getHost() == null
         || uri.getUserInfo() != null || uri.getQuery() != null || uri.getFragment() != null
         || !Set.of("", "/").contains(uri.getPath())
-        || (uri.getScheme().equals("http") && !Set.of("127.0.0.1", "localhost", "[::1]").contains(uri.getHost())))
+        || (uri.getScheme().equals("http") && !Set.of("127.0.0.1", "localhost", "[::1]", "objects").contains(uri.getHost())))
       throw new IllegalArgumentException("Invalid S3 endpoint; remote connections require HTTPS");
     if (bucket == null || !bucket.matches("pdf-workbench-[a-z0-9-]{1,48}")
         || region == null || !region.matches("[a-z0-9-]{1,40}"))

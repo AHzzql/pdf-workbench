@@ -1,0 +1,15 @@
+.git
+.idea
+.local-backups
+.playwright-mcp
+.env
+backend/target
+frontend/node_modules
+frontend/dist
+frontend/coverage
+frontend/test-results
+frontend/playwright-report
+deploy/runtime
+docs
+output
+tools

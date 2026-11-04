@@ -11,20 +11,4 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   reporter: [["list"], ["html", { open: "never" }]],
-  webServer: [
-    {
-      command:
-        "pwsh -NoProfile -File ../deploy/Start-Web.ps1 -DataDirectory ./target/e2e/ai -DatabaseSchema wb_e2e_default -SessionNamespace pdf-workbench:e2e:default",
-      cwd: "../backend",
-      url: "http://127.0.0.1:8080/v3/api-docs",
-      reuseExistingServer: true,
-      timeout: 120000,
-    },
-    {
-      command: "npm run dev",
-      url: "http://127.0.0.1:5173",
-      reuseExistingServer: true,
-      timeout: 60000,
-    },
-  ],
 });

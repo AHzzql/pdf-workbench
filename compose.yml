@@ -1,0 +1,275 @@
+name: pdf-workbench
+
+x-app-environment: &app-environment
+  DATABASE_URL: jdbc:postgresql://postgres:5432/pdf_workbench
+  DATABASE_USER: pdf_workbench
+  DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  REDIS_USER: workbench
+  REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: 5672
+  RABBITMQ_USER: workbench
+  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+  RABBITMQ_VHOST: workbench
+  ELASTIC_URL: http://elasticsearch:9200
+  ELASTIC_USER: elastic
+  ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?ELASTIC_PASSWORD is required}
+  S3_ENDPOINT: http://objects:8333
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+  S3_BUCKET: pdf-workbench-private
+  AI_API_KEY: ${AI_API_KEY:-}
+  AI_BASE_URL: ${AI_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode}
+  AI_RERANK_URL: ${AI_RERANK_URL:-https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank}
+  AI_DATA_DIRECTORY: /data/ai
+  SESSION_NAMESPACE: pdf-workbench:session:v1
+  TASK_NAMESPACE: pdf-workbench.tasks.v1
+
+x-app-dependencies: &app-dependencies
+  postgres:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+  rabbitmq:
+    condition: service_healthy
+  elasticsearch:
+    condition: service_healthy
+  objects-init:
+    condition: service_completed_successfully
+
+services:
+  gateway:
+    build:
+      context: .
+      target: gateway
+    ports:
+      - "127.0.0.1:5173:80"
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 128m
+    pids_limit: 64
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      target: app
+    environment:
+      <<: *app-environment
+      SERVER_ADDRESS: 0.0.0.0
+      TASK_ROLE: web
+    depends_on: *app-dependencies
+    networks: [default, object-storage]
+    volumes:
+      - ai_data:/data/ai
+    restart: unless-stopped
+    mem_limit: 1280m
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/v3/api-docs"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  worker:
+    build:
+      context: .
+      target: app
+    environment:
+      <<: *app-environment
+      TASK_ROLE: worker
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      SPRING_MAIN_KEEP_ALIVE: "true"
+    depends_on:
+      <<: *app-dependencies
+      web:
+        condition: service_healthy
+    networks: [default, object-storage]
+    volumes:
+      - ai_data:/data/ai
+    restart: unless-stopped
+    mem_limit: 768m
+    pids_limit: 256
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: pdf_workbench
+      POSTGRES_USER: pdf_workbench
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    mem_limit: 512m
+    pids_limit: 128
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "pdf_workbench", "-d", "pdf_workbench"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - always
+      - --maxmemory
+      - 160mb
+      - --maxmemory-policy
+      - noeviction
+      - --user
+      - default
+      - "off"
+      - --user
+      - workbench
+      - "on"
+      - ">${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+      - "~*"
+      - "+@all"
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    mem_limit: 256m
+    pids_limit: 128
+    healthcheck:
+      test: ["CMD", "redis-cli", "--user", "workbench", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.5
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "true"
+      xpack.security.autoconfiguration.enabled: "false"
+      xpack.security.http.ssl.enabled: "false"
+      xpack.ml.enabled: "false"
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?ELASTIC_PASSWORD is required}
+      ES_JAVA_OPTS: -Xms1g -Xmx1g
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+    mem_limit: 2g
+    pids_limit: 1024
+    healthcheck:
+      test: ["CMD-SHELL", 'curl -fs -u "elastic:$$ELASTIC_PASSWORD" "http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow&timeout=5s" > /dev/null']
+      interval: 10s
+      timeout: 8s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:4-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: workbench
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+      RABBITMQ_DEFAULT_VHOST: workbench
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: +S 2:2
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+    mem_limit: 512m
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  objects:
+    image: chrislusf/seaweedfs:4.48
+    entrypoint: ["weed"]
+    command:
+      - server
+      - -dir=/data
+      - -ip=objects
+      - -ip.bind=0.0.0.0
+      - -master.volumeSizeLimitMB=1024
+      - -volume.max=8
+      - -filer
+      - -filer.disableDirListing=true
+      - -filer.exposeDirectoryData=false
+      - -s3
+      - -s3.ip.bind=0.0.0.0
+      - -s3.config=/run/secrets/s3-identities.json
+      - -s3.iam=false
+      - -s3.iam.readOnly=true
+      - -s3.autoCreateBucket=false
+      - -s3.allowDeleteBucketNotEmpty=false
+      - -s3.port.iceberg=0
+      - -s3.port.lance=0
+      - -s3.concurrentFileUploadLimit=2
+      - -s3.concurrentUploadLimitMB=100
+      - -s3.readerCacheSizeMB=64
+    configs:
+      - source: s3-identities
+        target: /run/secrets/s3-identities.json
+    networks: [object-storage]
+    volumes:
+      - object_data:/data
+    restart: unless-stopped
+    mem_limit: 512m
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD-SHELL", 'wget -S -O /dev/null http://127.0.0.1:8333/ 2>&1 | grep -Eq "HTTP/1.1 (200|403|404)"']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  objects-init:
+    image: chrislusf/seaweedfs:4.48
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        printf 's3.bucket.create -name pdf-workbench-private -owner workbench\nexit\n' |
+          weed shell -master=objects:9333 -filer=objects:8888 2>&1 |
+          grep -Eq 'created bucket pdf-workbench-private|already exists'
+    depends_on:
+      objects:
+        condition: service_healthy
+    networks: [object-storage]
+    restart: "no"
+
+configs:
+  s3-identities:
+    content: |
+      {
+        "identities": [{
+          "name": "workbench",
+          "credentials": [{
+            "accessKey": "${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}",
+            "secretKey": "${S3_SECRET_KEY:?S3_SECRET_KEY is required}"
+          }],
+          "actions": [
+            "Read:pdf-workbench-private",
+            "Write:pdf-workbench-private",
+            "List:pdf-workbench-private"
+          ]
+        }]
+      }
+
+volumes:
+  postgres_data:
+  redis_data:
+  elasticsearch_data:
+  rabbitmq_data:
+  object_data:
+  ai_data:
+
+networks:
+  object-storage:
+    internal: true
