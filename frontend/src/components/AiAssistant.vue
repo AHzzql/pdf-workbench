@@ -61,6 +61,7 @@ const {
   rename,
   remove,
 } = useAiAssistant(props, emit);
+defineExpose({ open });
 const floating = useDraggableLauncher(launcher);
 const windowElement = ref<HTMLElement | null>(null);
 const windowLocation = ref<{

@@ -86,7 +86,7 @@ springdoc:
     path: /swagger-ui.html
     operations-sorter: alpha
 workbench:
-  max-pages: 200
+  max-pages: 300
   max-concurrent-jobs: 2
   max-output-bytes: 209715200
 ai:

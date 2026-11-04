@@ -32,3 +32,8 @@ deploy/runtime/
 /docs/templates/XUT SEng Autumn 2026 Part B Student Template for Submission.docx
 /docs/templates/XUTAutumn2026StudentProjectBrief.docx
 /docs/templates/XUTAutumn2026StudentProjectBrief_NoAI_NoSchoolHeader.docx
+
+# Local project reports, design artifacts, and development state.
+/docs/
+/DEV_STATE.md
+/output/

@@ -67,7 +67,7 @@ public final class PdfChild {
     int pages; boolean encrypted;
     try(var document=Loader.loadPDF(input.toFile(),password==null?"":password)) {
       pages=document.getNumberOfPages(); encrypted=document.isEncrypted();
-      if(pages>request.maxPages()) throw new ApiException(413,"PAGE_LIMIT","文档页数超过限制");
+      if(pages>request.maxPages()) throw new ApiException(413,"PAGE_LIMIT","文档共 " + pages + " 页，超过当前处理上限 " + request.maxPages() + " 页，请拆分文件后处理");
     } catch(InvalidPasswordException e) { throw PdfProcessingException.password(password,e); }
     return switch(request.operation()) {
       case "TEXT" -> json(PdfTextUtils.extract(input,password,options(TextOptions.class)));

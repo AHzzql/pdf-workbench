@@ -16,6 +16,7 @@ import type { Selection } from "../types/pdf";
 import type { Field } from "../api/pdf";
 const account = useAccount();
 const accountOpen = ref(false);
+const assistant = ref<InstanceType<typeof AiAssistant> | null>(null);
 onMounted(() => {
   void account.refresh();
 });
@@ -237,10 +238,10 @@ function csv(index: number) {
   <div class="workbench">
     <aside class="sidebar">
       <a class="brand" href="#/text"
-        ><span class="brand-mark"><AppIcon name="text" /></span
-        ><span>文档工作台<small>PDF WORKBENCH</small></span></a
+        ><span class="brand-mark">p.</span
+        ><span>paperwork<small>DOCUMENT STUDIO</small></span></a
       >
-      <div class="nav-caption">文档工具</div>
+      <div class="nav-caption">DOCUMENT TOOLS</div>
       <nav aria-label="文档工具">
         <RouterLink
           v-for="item in tools"
@@ -252,7 +253,7 @@ function csv(index: number) {
         ></RouterLink>
       </nav>
       <div class="sidebar-footer">
-        <span class="local-dot"></span>本地文档处理<span class="version"
+        <span class="local-dot"></span>PDF 文档工作空间<span class="version"
           >v1.1</span
         >
       </div>
@@ -260,8 +261,10 @@ function csv(index: number) {
     <main class="main">
       <header class="topbar">
         <div>
-          <div class="eyebrow">文档处理 / {{ active.title }}</div>
-          <h1>{{ active.title }}</h1>
+          <div class="breadcrumbs">
+            工作台 <span>/</span> 文档处理 <span>/</span>
+            <b>{{ active.title }}</b>
+          </div>
         </div>
         <div class="topbar-right">
           <span class="tool-description">{{ active.hint }}</span
@@ -283,6 +286,33 @@ function csv(index: number) {
           </button>
         </div>
       </header>
+      <section class="page-heading">
+        <div>
+          <div class="eyebrow">
+            DOCUMENT WORKSPACE /
+            {{
+              String(tools.findIndex((item) => item.id === tool) + 1).padStart(
+                2,
+                "0",
+              )
+            }}
+          </div>
+          <h1>{{ active.title }}</h1>
+          <p>
+            {{
+              tool === "info"
+                ? "读取并分析 PDF 文档的基本信息、属性、书签与批注，为文档管理与后续处理提供依据。"
+                : active.hint
+            }}
+          </p>
+        </div>
+        <div class="heading-actions">
+          <button class="secondary" @click="assistant?.open()">
+            ✧ AI 阅读助手
+          </button>
+          <button class="primary" @click="input?.click()">＋ 选择 PDF</button>
+        </div>
+      </section>
       <div class="document-bar">
         <div class="file-summary">
           <span class="file-badge">PDF</span>
@@ -295,6 +325,7 @@ function csv(index: number) {
             }}</small>
           </div>
         </div>
+        <span v-if="file" class="file-state"><i></i>已载入</span>
         <button class="secondary compact" @click="input?.click()">
           <AppIcon name="upload" />{{ file ? "更换文件" : "选择文件" }}</button
         ><input
@@ -343,7 +374,7 @@ function csv(index: number) {
               <p>提取内容、保护文档，或添加签名与水印</p>
               <button class="primary" @click="input?.click()">
                 <AppIcon name="upload" />选择 PDF 文件</button
-              ><small>PDF 格式 · 最大 50 MiB · 200 页</small>
+              ><small>PDF 格式 · 最大 50 MiB · 普通工具 300 页 · AI 阅读 200 页</small>
             </div></template
           >
         </section>
@@ -360,11 +391,35 @@ function csv(index: number) {
           @lostpointercapture="splitResize.end"
           @keydown="splitKey"
         ></div>
+        <section class="results" aria-live="polite">
+          <ResultPanel
+            :tool="tool"
+            :mode="mode"
+            :result="result"
+            :completed="completed"
+            :busy="busy"
+            @locate="selection = $event"
+            @csv="csv"
+          /><a
+            v-if="download"
+            class="download-card"
+            :href="download.url"
+            :download="download.name"
+            ><span class="download-icon"><AppIcon name="download" /></span
+            ><span
+              ><strong>下载处理结果</strong><small>{{ download.name }}</small
+              ><small v-if="download.note">{{ download.note }}</small></span
+            ><AppIcon name="arrow"
+          /></a>
+        </section>
         <aside class="operation-panel">
+          <div v-if="error" class="error-banner" role="alert">{{ error }}</div>
           <form class="parameters" @submit.prevent="submit">
             <div class="panel-heading">
-              <h2>处理参数</h2>
-              <span class="step-number">01</span>
+              <h2>
+                <span class="panel-letter">C</span>处理设置
+                <small>SETTINGS</small>
+              </h2>
             </div>
             <fieldset :disabled="busy">
               <DocumentPassword v-model="password" :document="file" />
@@ -605,9 +660,33 @@ function csv(index: number) {
                   位置采用 PDF 原始坐标轴，通常以左下角为原点。
                 </p></template
               >
-              <p v-if="tool === 'info'" class="parameter-note">
-                读取文档标准及自定义元数据、书签层级、批注与高亮位置。
-              </p>
+              <div v-if="tool === 'info'" class="info-settings">
+                <h3>读取范围</h3>
+                <div class="scope-choice">
+                  <span class="scope-radio"></span>
+                  <div>
+                    <strong>整份文档</strong><small>读取全部页面信息</small>
+                  </div>
+                </div>
+                <p class="parameter-note">
+                  读取文档元数据、书签、批注及 XMP 信息。
+                </p>
+                <h3>返回内容</h3>
+                <div class="response-chips">
+                  <span
+                    v-for="label in [
+                      '标准元数据',
+                      '自定义元数据',
+                      '书签目录',
+                      '批注位置',
+                      'XMP',
+                      '诊断信息',
+                    ]"
+                    :key="label"
+                    >{{ label }}</span
+                  >
+                </div>
+              </div>
               <button
                 type="submit"
                 class="primary run-button"
@@ -621,37 +700,19 @@ function csv(index: number) {
               </button>
             </fieldset>
           </form>
-          <div v-if="error" class="error-banner" role="alert">{{ error }}</div>
-          <section class="results" aria-live="polite">
-            <ResultPanel
-              :tool="tool"
-              :mode="mode"
-              :result="result"
-              :completed="completed"
-              :busy="busy"
-              @locate="selection = $event"
-              @csv="csv"
-            /><a
-              v-if="download"
-              class="download-card"
-              :href="download.url"
-              :download="download.name"
-              ><span class="download-icon"><AppIcon name="download" /></span
-              ><span
-                ><strong>下载处理结果</strong><small>{{ download.name }}</small
-                ><small v-if="download.note">{{ download.note }}</small></span
-              ><AppIcon name="arrow"
-            /></a>
-          </section>
         </aside>
       </div>
       <footer class="workspace-footer">
-        <span>源文件保持不变</span><span>PDF 文档处理系统</span>
+        <span
+          ><i class="local-dot"></i>{{ file ? "文档已就绪" : "等待选择文档" }}
+          <b>·</b> 源文件保持不变</span
+        ><span>paperwork · DOCUMENT STUDIO　 v1.1.0</span>
       </footer>
     </main>
   </div>
   <AccountDialog :open="accountOpen" @close="accountOpen = false" />
   <AiAssistant
+    ref="assistant"
     :file="file"
     :password="password"
     @locate="selection = $event"

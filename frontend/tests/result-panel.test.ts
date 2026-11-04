@@ -131,7 +131,9 @@ describe("核心 PDF 结果", () => {
         },
       },
     });
-    expect(wrapper.text()).toContain("总页数 20");
+    expect(wrapper.get(".info-summary strong").text()).toBe("20");
+    expect(wrapper.find(".match-card").exists()).toBe(false);
+    await wrapper.get(".tabs button:nth-child(3)").trigger("click");
     expect(wrapper.get(".match-card").attributes("disabled")).toBeDefined();
     await wrapper.get(".match-card").trigger("click");
     expect(wrapper.emitted("locate")).toBeUndefined();

@@ -27,7 +27,7 @@ public class PdfExecutor implements AutoCloseable {
   @Autowired
   public PdfExecutor(ObjectMapper mapper,
       @Value("${workbench.max-concurrent-jobs:2}") int concurrency,
-      @Value("${workbench.max-pages:200}") int maxPages,
+      @Value("${workbench.max-pages:300}") int maxPages,
       @Value("${workbench.max-output-bytes:209715200}") long maxOutput,
       @Value("${workbench.temporary-root:${java.io.tmpdir}}") String root) {
     if (concurrency < 1 || maxPages < 1 || maxOutput < 1) throw new IllegalArgumentException("Invalid PDF limits");

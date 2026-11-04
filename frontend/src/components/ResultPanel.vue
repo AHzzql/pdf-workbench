@@ -21,9 +21,20 @@ const emit = defineEmits<{
   csv: [index: number];
 }>();
 const tab = ref("text");
+const infoTab = ref("metadata");
+const infoTabs = {
+  metadata: "元数据",
+  bookmarks: "书签",
+  annotations: "批注",
+  xmp: "XMP",
+  diagnostics: "诊断",
+};
 watch(
   () => props.result,
-  () => (tab.value = "text"),
+  () => {
+    tab.value = "text";
+    infoTab.value = "metadata";
+  },
 );
 const text = computed(() => props.result as TextResult | null),
   tables = computed(() => props.result as TableData[] | null);
@@ -43,7 +54,7 @@ const states: Record<string, string> = {
 </script>
 <template>
   <div class="result-heading">
-    <h2>处理结果</h2>
+    <h2><span class="panel-letter">B</span>处理结果 <small>OUTPUT</small></h2>
     <span v-if="completed" class="status-dot">处理完成</span>
   </div>
   <div v-if="busy" class="result-placeholder">
@@ -237,54 +248,94 @@ const states: Record<string, string> = {
       </section></template
     >
     <template v-else-if="tool === 'info' && info"
-      ><p class="result-count">总页数 {{ info.pageCount }}</p>
-      <h3>标准元数据</h3>
-      <dl class="metadata">
-        <template v-for="(value, key) in info.standardMetadata" :key="key"
-          ><dt>{{ key }}</dt>
-          <dd>{{ value || "—" }}</dd></template
+      ><div class="tabs" aria-label="文档信息分类">
+        <button
+          v-for="(label, key) in infoTabs"
+          :key="key"
+          :class="{ active: infoTab === key }"
+          :aria-pressed="infoTab === key"
+          @click="infoTab = key"
         >
-      </dl>
-      <h3>自定义元数据</h3>
-      <p v-if="!Object.keys(info.customMetadata).length" class="empty-note">
-        无自定义元数据
-      </p>
-      <dl class="metadata">
-        <template v-for="(value, key) in info.customMetadata" :key="key"
-          ><dt>{{ key }}</dt>
-          <dd>{{ value }}</dd></template
+          {{ label }}
+        </button>
+      </div>
+      <div class="info-summary">
+        <div>
+          <small>页数</small><strong>{{ info.pageCount }}</strong>
+        </div>
+        <div>
+          <small>顶层书签</small><strong>{{ info.bookmarks.length }}</strong>
+        </div>
+        <div>
+          <small>批注</small><strong>{{ info.annotations.length }}</strong>
+        </div>
+      </div>
+      <template v-if="infoTab === 'metadata'">
+        <h3>文档基本信息</h3>
+        <dl class="metadata">
+          <template v-for="(value, key) in info.standardMetadata" :key="key"
+            ><dt>{{ key }}</dt>
+            <dd>{{ value || "—" }}</dd></template
+          >
+        </dl>
+        <h3>自定义元数据</h3>
+        <p v-if="!Object.keys(info.customMetadata).length" class="empty-note">
+          无自定义元数据
+        </p>
+        <dl class="metadata">
+          <template v-for="(value, key) in info.customMetadata" :key="key"
+            ><dt>{{ key }}</dt>
+            <dd>{{ value }}</dd></template
+          >
+        </dl>
+      </template>
+      <template v-if="infoTab === 'bookmarks'">
+        <h3>文档结构（书签）</h3>
+        <BookmarkTree
+          :items="info.bookmarks"
+          @locate="(page) => emit('locate', { page, bounds: [] })"
+        />
+        <p v-if="!info.bookmarks.length" class="empty-note">无书签</p>
+      </template>
+      <template v-if="infoTab === 'annotations'">
+        <h3>批注</h3>
+        <p v-if="!info.annotations.length" class="empty-note">无批注</p>
+        <button
+          v-for="(annotation, i) in info.annotations"
+          :key="i"
+          class="match-card"
+          :disabled="!annotation.bounds"
+          @click="
+            annotation.bounds &&
+            emit('locate', {
+              page: annotation.page,
+              bounds: [annotation.bounds],
+            })
+          "
         >
-      </dl>
-      <h3>书签</h3>
-      <BookmarkTree
-        :items="info.bookmarks"
-        @locate="(page) => emit('locate', { page, bounds: [] })"
-      />
-      <p v-if="!info.bookmarks.length" class="empty-note">无书签</p>
-      <h3>批注</h3>
-      <p v-if="!info.annotations.length" class="empty-note">无批注</p>
-      <button
-        v-for="(annotation, i) in info.annotations"
-        :key="i"
-        class="match-card"
-        :disabled="!annotation.bounds"
-        @click="
-          annotation.bounds &&
-          emit('locate', { page: annotation.page, bounds: [annotation.bounds] })
-        "
+          <small
+            >第 {{ annotation.page }} 页 · {{ annotation.type }} ·
+            {{ annotation.author }}</small
+          >{{ annotation.contents || "无文本内容" }}
+        </button>
+      </template>
+      <template v-if="infoTab === 'xmp'">
+        <p v-if="!info.xmp" class="empty-note">无 XMP 元数据</p>
+        <details v-if="info.xmp" open>
+          <summary>XMP 元数据</summary>
+          <pre class="extracted-text">{{ info.xmp }}</pre>
+        </details>
+      </template>
+      <template v-if="infoTab === 'diagnostics'">
+        <p v-if="!info.diagnostics.length" class="empty-note">无诊断信息</p>
+        <p
+          v-for="message in info.diagnostics"
+          :key="message"
+          class="empty-note"
+        >
+          {{ message }}
+        </p></template
       >
-        <small
-          >第 {{ annotation.page }} 页 · {{ annotation.type }} ·
-          {{ annotation.author }}</small
-        >{{ annotation.contents || "无文本内容" }}
-      </button>
-      <details v-if="info.xmp">
-        <summary>XMP 元数据</summary>
-        <pre class="extracted-text">{{ info.xmp }}</pre>
-      </details>
-      <p v-for="message in info.diagnostics" :key="message" class="empty-note">
-        {{ message }}
-      </p></template
-    >
+    </template>
   </template>
 </template>
