@@ -1,0 +1,18 @@
+spring:
+  datasource:
+    password: replace-with-the-postgres-password-from-.env
+  data:
+    redis:
+      password: replace-with-the-redis-password-from-.env
+  rabbitmq:
+    password: replace-with-the-rabbitmq-password-from-.env
+
+search:
+  password: replace-with-the-elasticsearch-password-from-.env
+
+storage:
+  access-key: replace-with-the-s3-access-key-from-.env
+  secret-key: replace-with-the-s3-secret-key-from-.env
+
+ai:
+  api-key: ""

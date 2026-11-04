@@ -40,7 +40,7 @@ final class TestServices implements AutoCloseable {
       source = new HikariDataSource(config);
       Flyway.configure().dataSource(source).defaultSchema(schema).cleanDisabled(true).load().migrate();
     } catch (Exception e) {
-      throw new IllegalStateException("Local PostgreSQL/Redis fixtures require deploy/Start-Local.ps1", e);
+      throw new IllegalStateException("Local PostgreSQL/Redis fixtures require Docker Compose services", e);
     }
   }
 

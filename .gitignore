@@ -21,10 +21,9 @@ backend/src/main/resources/application-local.yml
 
 __pycache__/
 
-deploy/runtime/
-
 .playwright-mcp/
 .local-backups/
+/deploy/
 
 # Local reference briefs supplied for document preparation.
 /2026实践性作业要求.docx

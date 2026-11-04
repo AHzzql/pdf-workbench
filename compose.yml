@@ -108,6 +108,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:15432:5432"
     restart: unless-stopped
     mem_limit: 512m
     pids_limit: 128
@@ -142,6 +144,8 @@ services:
       REDISCLI_AUTH: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     volumes:
       - redis_data:/data
+    ports:
+      - "127.0.0.1:16379:6379"
     restart: unless-stopped
     mem_limit: 256m
     pids_limit: 128
@@ -163,6 +167,8 @@ services:
       ES_JAVA_OPTS: -Xms1g -Xmx1g
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "127.0.0.1:19200:9200"
     restart: unless-stopped
     mem_limit: 2g
     pids_limit: 1024
@@ -181,6 +187,8 @@ services:
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: +S 2:2
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "127.0.0.1:5672:5672"
     restart: unless-stopped
     mem_limit: 512m
     pids_limit: 256
@@ -221,6 +229,8 @@ services:
     networks: [object-storage]
     volumes:
       - object_data:/data
+    ports:
+      - "127.0.0.1:18333:8333"
     restart: unless-stopped
     mem_limit: 512m
     pids_limit: 256
