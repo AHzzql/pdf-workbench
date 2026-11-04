@@ -18,8 +18,8 @@ class S3ObjectStoreTest {
   @TempDir Path directory;
 
   private S3Settings local() throws Exception {
-    Path file = Path.of("../deploy/.env.local");
-    if (!Files.isRegularFile(file)) file = Path.of("deploy/.env.local");
+    Path file = Path.of("../.env");
+    if (!Files.isRegularFile(file)) file = Path.of(".env");
     var env = new HashMap<String, String>();
     for (var line : Files.readAllLines(file)) {
       var pair = line.split("=", 2);

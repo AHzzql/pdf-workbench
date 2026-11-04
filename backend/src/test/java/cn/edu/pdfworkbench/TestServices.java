@@ -19,8 +19,8 @@ final class TestServices implements AutoCloseable {
 
   TestServices() {
     try {
-      Path file = Path.of("deploy/.env.local");
-      if (!Files.isRegularFile(file)) file = Path.of("../deploy/.env.local");
+      Path file = Path.of(".env");
+      if (!Files.isRegularFile(file)) file = Path.of("../.env");
       credentials = new HashMap<>();
       for (String line : Files.readAllLines(file)) {
         var pair = line.split("=", 2);

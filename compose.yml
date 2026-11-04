@@ -20,7 +20,7 @@ x-app-environment: &app-environment
   S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
   S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
   S3_BUCKET: pdf-workbench-private
-  AI_API_KEY: ${AI_API_KEY:-}
+  AI_API_KEY: ${AI_API_KEY:?AI_API_KEY is required}
   AI_BASE_URL: ${AI_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode}
   AI_RERANK_URL: ${AI_RERANK_URL:-https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank}
   AI_DATA_DIRECTORY: /data/ai

@@ -40,7 +40,7 @@ nginx.conf               网关与静态资源配置
 
 ## Docker 部署
 
-安装 Docker Engine 和 Docker Compose，复制环境变量模板并填写随机密码：
+安装 Docker Engine 和 Docker Compose，复制环境变量模板，填写随机密码和有效的 `AI_API_KEY`：
 
 ```text
 cp .env.example .env
@@ -109,7 +109,7 @@ npm --prefix frontend run test:gateway
 | `RABBITMQ_PASSWORD` | RabbitMQ 密码 |
 | `S3_ACCESS_KEY` | 对象存储访问密钥 |
 | `S3_SECRET_KEY` | 对象存储私钥 |
-| `AI_API_KEY` | AI 模型 API Key，可留空 |
+| `AI_API_KEY` | AI 模型 API Key，Docker 完整部署必填 |
 | `AI_BASE_URL` | OpenAI 兼容模型接口地址 |
 | `AI_RERANK_URL` | 重排序接口地址 |
 
