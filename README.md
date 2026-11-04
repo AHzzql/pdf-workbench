@@ -30,6 +30,15 @@ mvn.cmd -f backend/pom.xml -DskipTests package
 workbench.cmd start
 ```
 
-首次构建先生成程序，支撑服务就绪后执行 `mvn.cmd -f backend/pom.xml test`、`npm.cmd --prefix frontend test`。集成测试使用实际本机支撑服务，源码初次构建跳过测试不等于测试通过。
+支撑服务就绪后执行后端与前端测试：
 
-仓库只保留应用源码、测试、构建配置和运行所需的部署文件；报告、截图、演示稿、生成工具、专项验收脚本、构建产物、依赖和本机配置不纳入版本控制。普通 PDF 工具最多处理 300 页，AI 阅读最多 200 页，上传 PDF 最大 50 MiB。
+```text
+mvn.cmd -f backend/pom.xml test
+npm.cmd --prefix frontend test
+```
+
+## 处理限制
+
+- 上传 PDF 最大 50 MiB
+- 普通 PDF 工具最多处理 300 页
+- AI 阅读最多处理 200 页
