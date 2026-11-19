@@ -567,7 +567,7 @@ function csv(index: number) {
                   </p></template
                 ><template v-else
                   ><p class="parameter-note">
-                    生成移除全部签名的新副本。仅支持未加密文档，原文件保持不变。
+                    生成移除全部签名的新副本。移除签名会改变文档，并影响其真实性与完整性验证。仅支持未加密文档，原文件保持不变。
                   </p>
                   <label class="check-field"
                     ><input
@@ -690,6 +690,7 @@ function csv(index: number) {
               <button
                 type="submit"
                 class="primary run-button"
+                :aria-label="busy ? '正在处理…' : action"
                 :disabled="!file || busy"
               >
                 <span v-if="busy" class="spinner"></span

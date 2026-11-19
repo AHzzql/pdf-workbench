@@ -11,6 +11,7 @@ import org.apache.pdfbox.pdmodel.graphics.image.PDImage;
 final class GridCollector extends PDFGraphicsStreamEngine {
   static final float TOLERANCE = 1;
   private final List<Segment> pending = new ArrayList<>();
+  private final List<Segment> filledLines = new ArrayList<>();
   private final List<Segment> segments = new ArrayList<>();
   private Point2D current = new Point2D.Float();
   private Point2D start = current;
@@ -44,10 +45,16 @@ final class GridCollector extends PDFGraphicsStreamEngine {
 
   @Override
   public void appendRectangle(Point2D a, Point2D b, Point2D c, Point2D d) {
+    int offset = pending.size();
     segment(a, b);
     segment(b, c);
     segment(c, d);
     segment(d, a);
+    // 填充区域的外缘不是边框；仅保留以细长矩形绘制的线条。
+    double width = a.distance(b), height = b.distance(c);
+    if (Math.min(width, height) <= TOLERANCE) {
+      filledLines.addAll(pending.subList(offset, pending.size()));
+    }
     current = a;
     start = a;
   }
@@ -84,17 +91,21 @@ final class GridCollector extends PDFGraphicsStreamEngine {
   @Override
   public void endPath() {
     pending.clear();
+    filledLines.clear();
   }
 
   @Override
   public void strokePath() {
     segments.addAll(pending);
     pending.clear();
+    filledLines.clear();
   }
 
   @Override
   public void fillPath(int windingRule) {
-    strokePath();
+    segments.addAll(filledLines);
+    pending.clear();
+    filledLines.clear();
   }
 
   @Override

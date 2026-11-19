@@ -51,6 +51,18 @@ docker compose up --build -d
 
 API 文档：<http://127.0.0.1:5173/swagger-ui.html>
 
+| 本机管理入口 | 登录账户 | 密码变量 |
+|---|---|---|
+| [RabbitMQ](http://127.0.0.1:15672) | `workbench` | `RABBITMQ_PASSWORD` |
+| [SeaweedFS](http://127.0.0.1:23646) | `admin` | `SEAWEED_ADMIN_PASSWORD` |
+| [Kibana](http://127.0.0.1:15601) | `elastic` | `ELASTIC_PASSWORD` |
+
+管理入口仅监听宿主机回环地址，勿通过公网隧道发布。Kibana 使用独立的 `kibana_system` 账户连接 Elasticsearch，不用于网页登录。
+
+升级已有 RabbitMQ 数据卷时，首次重建前运行 `docker compose exec -T rabbitmq hostname`，将结果填入 `.env` 的 `RABBITMQ_NODE_HOSTNAME`，避免节点名变化后读不到原队列。在已有数据卷上修改 PostgreSQL、RabbitMQ 或 Elasticsearch 密码时，需先更新服务内账户，再重建容器使应用读取新密码。
+
+修改 S3 凭据后，运行 `docker compose up -d --force-recreate --no-deps objects` 重新加载身份配置，再运行 `docker compose up -d` 更新应用的连接凭据。
+
 ```text
 docker compose ps
 docker compose logs -f web worker
@@ -106,7 +118,10 @@ npm --prefix frontend run test:gateway
 | `POSTGRES_PASSWORD` | PostgreSQL 密码 |
 | `REDIS_PASSWORD` | Redis 密码 |
 | `ELASTIC_PASSWORD` | Elasticsearch 密码 |
+| `KIBANA_SYSTEM_PASSWORD` | Kibana 连接 Elasticsearch 的服务账户密码 |
 | `RABBITMQ_PASSWORD` | RabbitMQ 密码 |
+| `RABBITMQ_NODE_HOSTNAME` | RabbitMQ 节点主机名，默认 `rabbitmq` |
+| `SEAWEED_ADMIN_PASSWORD` | SeaweedFS 网页管理密码 |
 | `S3_ACCESS_KEY` | 对象存储访问密钥 |
 | `S3_SECRET_KEY` | 对象存储私钥 |
 | `AI_API_KEY` | AI 模型 API Key，Docker 完整部署必填 |

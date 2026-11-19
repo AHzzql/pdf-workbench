@@ -173,4 +173,42 @@ class PdfTableUtilsTest {
     }
     assertTrue(PdfTableUtils.extract(input,null,new TableOptions(null,null)).isEmpty());
   }
-}
+  @Test
+  void filledParagraphBackgroundsAreNotTableBorders() throws Exception {
+    Path file = directory.resolve("paragraph-backgrounds.pdf");
+    try (var doc = new PDDocument()) {
+      var page = new PDPage();
+      doc.addPage(page);
+      try (var stream = new PDPageContentStream(doc, page)) {
+        for (int y = 500; y < 560; y += 15) {
+          stream.setNonStrokingColor(Color.WHITE);
+          stream.addRect(70, y, 454, 15);
+          stream.fill();
+          PdfTextUtilsTest.text(stream, "Ordinary paragraph", 72, y + 3, 12, Color.BLACK);
+        }
+      }
+      doc.save(file.toFile());
+    }
+    assertTrue(PdfTableUtils.extract(file, null, new TableOptions(null, null)).isEmpty());
+  }
+
+  @Test
+  void extractsGridDrawnWithThinFilledRectangles() throws Exception {
+    Path file = directory.resolve("filled-lines.pdf");
+    try (var doc = new PDDocument()) {
+      var page = new PDPage();
+      doc.addPage(page);
+      try (var stream = new PDPageContentStream(doc, page)) {
+        for (int x : new int[] {60, 160, 260}) {
+          stream.addRect(x, 500, 0.5f, 80);
+          stream.fill();
+        }
+        for (int y : new int[] {500, 540, 580}) {
+          stream.addRect(60, y, 200, 0.5f);
+          stream.fill();
+        }
+      }
+      doc.save(file.toFile());
+    }
+    assertEquals(1, PdfTableUtils.extract(file, null, new TableOptions(null, null)).size());
+  }}

@@ -81,8 +81,8 @@ test("上传、文本、搜索、表格、图片、元数据与下载闭环", as
   await page.getByRole("button", { name: "正则搜索" }).click();
   await page.getByLabel("正则表达式").fill("Alpha");
   await page.getByRole("button", { name: "搜索文本" }).click();
-  await expect(page.locator(".match-card")).toContainText("Alpha");
-  await page.locator(".match-card").click();
+  await expect(page.locator(".match-card").first()).toContainText("Alpha");
+  await page.locator(".match-card").first().click();
   await expect(page.locator(".highlight").first()).toBeVisible();
   await page.getByRole("link", { name: "表格提取" }).click();
   await page.getByRole("button", { name: "解析表格" }).click();
@@ -98,8 +98,8 @@ test("上传、文本、搜索、表格、图片、元数据与下载闭环", as
   await expect(page.locator(".download-card")).toContainText("images.zip");
   await page.getByRole("link", { name: "文档信息" }).click();
   await page.getByRole("button", { name: "读取信息" }).click();
-  await expect(page.locator(".metadata")).toContainText(["API sample"]);
-  await expect(page.locator(".result-count")).toContainText("总页数 1");
+  await expect(page.locator(".metadata").first()).toContainText("API sample");
+  await expect(page.locator(".info-summary strong").first()).toHaveText("1");
 });
 test("加密、水印、验签与移除页面", async ({ page }) => {
   await page.goto("/#/encrypt");

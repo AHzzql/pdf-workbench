@@ -178,8 +178,49 @@ services:
       timeout: 8s
       retries: 20
 
+  kibana-init:
+    image: docker.elastic.co/kibana/kibana:9.5.5
+    entrypoint: ["/usr/share/kibana/node/default/bin/node", "-e"]
+    command:
+      - |
+        const {ELASTIC_PASSWORD, KIBANA_SYSTEM_PASSWORD} = process.env;
+        fetch("http://elasticsearch:9200/_security/user/kibana_system/_password", {
+          method: "POST",
+          headers: {
+            Authorization: "Basic " + Buffer.from("elastic:" + ELASTIC_PASSWORD).toString("base64"),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({password: KIBANA_SYSTEM_PASSWORD}),
+          signal: AbortSignal.timeout(15000)
+        }).then(response => {
+          if (!response.ok) throw new Error("kibana_system setup failed: HTTP " + response.status);
+        }).catch(error => { console.error(error.message); process.exitCode = 1; });
+    environment:
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?ELASTIC_PASSWORD is required}
+      KIBANA_SYSTEM_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:?KIBANA_SYSTEM_PASSWORD is required}
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: "no"
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.5.5
+    environment:
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+      ELASTICSEARCH_USERNAME: kibana_system
+      ELASTICSEARCH_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:?KIBANA_SYSTEM_PASSWORD is required}
+      TELEMETRY_ENABLED: "false"
+    ports:
+      - "127.0.0.1:15601:5601"
+    depends_on:
+      kibana-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    mem_limit: 1g
+
   rabbitmq:
     image: rabbitmq:4-alpine
+    hostname: ${RABBITMQ_NODE_HOSTNAME:-rabbitmq}
     environment:
       RABBITMQ_DEFAULT_USER: workbench
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
@@ -187,8 +228,12 @@ services:
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: +S 2:2
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+    configs:
+      - source: rabbitmq-plugins
+        target: /etc/rabbitmq/enabled_plugins
     ports:
       - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
     restart: unless-stopped
     mem_limit: 512m
     pids_limit: 256
@@ -240,6 +285,24 @@ services:
       timeout: 5s
       retries: 20
 
+  objects-admin:
+    image: chrislusf/seaweedfs:4.48
+    entrypoint: ["weed"]
+    command: ["admin", "-master=objects:9333", "-ip=0.0.0.0", "-dataDir=/data", "-iceberg.port=0", "-lance.port=0"]
+    environment:
+      WEED_ADMIN_USER: admin
+      WEED_ADMIN_PASSWORD: ${SEAWEED_ADMIN_PASSWORD:?SEAWEED_ADMIN_PASSWORD is required}
+    networks: [default, object-storage]
+    ports:
+      - "127.0.0.1:23646:23646"
+    volumes:
+      - objects_admin_data:/data
+    depends_on:
+      objects:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 256m
+
   objects-init:
     image: chrislusf/seaweedfs:4.48
     entrypoint: ["/bin/sh", "-ec"]
@@ -255,6 +318,9 @@ services:
     restart: "no"
 
 configs:
+  rabbitmq-plugins:
+    content: |
+      [rabbitmq_prometheus, rabbitmq_management].
   s3-identities:
     content: |
       {
@@ -278,6 +344,7 @@ volumes:
   elasticsearch_data:
   rabbitmq_data:
   object_data:
+  objects_admin_data:
   ai_data:
 
 networks:
